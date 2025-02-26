@@ -22,9 +22,13 @@ export interface SheetField {
   key: string
   name: string
   column?: string
-  type: 'text' | 'number' | 'date' | 'boolean' | 'price' | 'formula'
+  type: 'text' | 'number' | 'date' | 'boolean' | 'price' | 'formula' | 'select'
   required?: boolean
   editable?: boolean
+  validation?: {
+    type: 'list'
+    options: string[]
+  }
   format?: {
     type: 'currency' | 'percentage' | 'date' | 'number' | 'text'
     pattern?: string

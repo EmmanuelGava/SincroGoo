@@ -59,3 +59,20 @@
   }
 }
 
+.text-box {
+    width: 100%;
+    max-width: 300px;
+    white-space: nowrap;
+    overflow-x: auto;
+    display: inline-block;
+}
+
+select.text-box {
+    display: block;
+}
+
+option.text-box {
+    max-width: 100%;
+    min-width: 0;
+}
+

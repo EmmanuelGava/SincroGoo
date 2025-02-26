@@ -1,4 +1,4 @@
-export type CellValue = string | number | boolean | null
+export type CellValue = string | number | boolean | Date | null
 
 export interface SheetTemplate {
   id: string
@@ -18,30 +18,17 @@ export interface SheetSection {
 }
 
 export interface SheetField {
-  id: string
+  key: string
   name: string
-  column: string
-  type: 'text' | 'number' | 'price' | 'date' | 'formula' | 'select'
-  editable?: boolean
+  type: 'text' | 'number' | 'date' | 'boolean'
   required?: boolean
   format?: {
-    type: 'currency' | 'percentage' | 'number' | 'date' | 'text'
+    type: 'currency' | 'percentage' | 'date'
+    pattern?: string
+    decimals?: number
     prefix?: string
     suffix?: string
-    decimals?: number
-    locale?: string
-    pattern?: string
   }
-  validation?: {
-    type: 'range' | 'list' | 'custom'
-    options?: string[]
-    min?: number
-    max?: number
-    formula?: string
-  }
-  defaultValue?: CellValue
-  formula?: string
-  dependsOn?: string[]  // IDs de otros campos
 }
 
 // Ejemplo de factura

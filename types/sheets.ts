@@ -18,12 +18,14 @@ export interface SheetSection {
 }
 
 export interface SheetField {
+  id: string
   key: string
   name: string
-  type: 'text' | 'number' | 'date' | 'boolean'
+  column?: string
+  type: 'text' | 'number' | 'date' | 'boolean' | 'price' | 'formula'
   required?: boolean
   format?: {
-    type: 'currency' | 'percentage' | 'date'
+    type: 'currency' | 'percentage' | 'date' | 'number' | 'text'
     pattern?: string
     decimals?: number
     prefix?: string
@@ -47,6 +49,7 @@ export const invoiceTemplate: SheetTemplate = {
       fields: [
         {
           id: 'company_name',
+          key: 'company_name',
           name: 'Nombre de la Empresa',
           column: 'B3',
           type: 'text',
@@ -54,12 +57,14 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'company_address',
+          key: 'company_address',
           name: 'Dirección',
           column: 'B4',
           type: 'text'
         },
         {
           id: 'company_phone',
+          key: 'company_phone',
           name: 'Teléfono',
           column: 'B6',
           type: 'text',
@@ -78,6 +83,7 @@ export const invoiceTemplate: SheetTemplate = {
       fields: [
         {
           id: 'invoice_number',
+          key: 'invoice_number',
           name: 'N.º de factura',
           column: 'G12',
           type: 'text',
@@ -85,6 +91,7 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'invoice_date',
+          key: 'invoice_date',
           name: 'Fecha',
           column: 'B9',
           type: 'date',
@@ -95,6 +102,7 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'due_date',
+          key: 'due_date',
           name: 'Fecha de vencimiento',
           column: 'G15',
           type: 'date',
@@ -113,6 +121,7 @@ export const invoiceTemplate: SheetTemplate = {
       fields: [
         {
           id: 'description',
+          key: 'description',
           name: 'Descripción',
           column: 'A',
           type: 'text',
@@ -120,6 +129,7 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'quantity',
+          key: 'quantity',
           name: 'Cantidad',
           column: 'D',
           type: 'number',
@@ -130,6 +140,7 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'unit_price',
+          key: 'unit_price',
           name: 'Precio unitario',
           column: 'F',
           type: 'price',
@@ -141,10 +152,10 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'total_price',
+          key: 'total_price',
           name: 'Precio total',
           column: 'H',
           type: 'formula',
-          formula: '=D{row}*F{row}',
           format: {
             type: 'currency',
             prefix: '€',
@@ -161,10 +172,10 @@ export const invoiceTemplate: SheetTemplate = {
       fields: [
         {
           id: 'subtotal',
+          key: 'subtotal',
           name: 'Subtotal',
           column: 'H26',
           type: 'formula',
-          formula: '=SUM(H19:H25)',
           format: {
             type: 'currency',
             prefix: '€',
@@ -173,6 +184,7 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'adjustments',
+          key: 'adjustments',
           name: 'Ajustes',
           column: 'H27',
           type: 'price',
@@ -184,10 +196,10 @@ export const invoiceTemplate: SheetTemplate = {
         },
         {
           id: 'total',
+          key: 'total',
           name: 'Total',
           column: 'H28',
           type: 'formula',
-          formula: '=H26+H27',
           format: {
             type: 'currency',
             prefix: '€',

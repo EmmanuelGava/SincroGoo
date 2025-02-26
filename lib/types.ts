@@ -16,7 +16,7 @@ export interface SheetConfig {
 
 export interface ColumnConfig {
   key: string;
-  type: 'text' | 'number' | 'date' | 'slide' | 'price' | 'formula';
+  type: 'text' | 'number' | 'date' | 'boolean' | 'price' | 'formula' | 'select';
   index: number;
   format?: ColumnFormat;
 }

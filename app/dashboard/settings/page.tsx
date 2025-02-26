@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { SlidesService } from "@/lib/slides-service"
 import { SheetService } from "@/lib/sheet-service"
+import { useSession } from "next-auth/react"
 
 interface Project {
   id: string
@@ -24,6 +25,7 @@ interface Project {
 export default function SettingsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session } = useSession()
   const [project, setProject] = useState<Project | null>(null)
   const [projectName, setProjectName] = useState("")
   const [sheetId, setSheetId] = useState("")
@@ -67,7 +69,13 @@ export default function SettingsPage() {
       setValidationStatus(prev => ({ ...prev, sheet: true }))
 
       // Validar presentación
-      const slidesService = new SlidesService()
+      if (!session?.accessToken) {
+        toast.error("No hay sesión activa", {
+          description: "Por favor, inicia sesión nuevamente"
+        })
+        return false
+      }
+      const slidesService = new SlidesService(session.accessToken)
       const slidesResult = await slidesService.verifyDocument(slideId)
       if (!slidesResult.success) {
         toast.error("Error al validar la presentación", {

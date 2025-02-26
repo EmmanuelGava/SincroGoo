@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useSheetEditor } from './useSheetEditor'
-import { invoiceTemplate } from '@/types/sheets'
+import { invoiceTemplate, SheetField } from '@/types/sheets'
 import { SheetUpdate } from '@/lib/sheet-editor'
-import { updateSheetData } from '@/lib/google-sheets'
+import { SheetsService } from '@/lib/sheets-service'
+import { DataRow, ColumnConfig } from '@/lib/types'
+import { useSession } from 'next-auth/react'
 
 interface InvoiceData {
   companyInfo: {
@@ -28,16 +30,46 @@ interface InvoiceData {
   }
 }
 
-export function useInvoiceSheet(initialData?: any[][]) {
+export function useInvoiceSheet(initialData?: { [sectionId: string]: any[][] }) {
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null)
   const [loading, setLoading] = useState(true)
+  const { data: session } = useSession()
+  const sheetsService = new SheetsService(session?.accessToken || '')
   
   const { data, error, updateField, getFieldValue } = useSheetEditor({
     template: invoiceTemplate,
     initialData,
     onUpdate: async (updates: SheetUpdate[]) => {
       try {
-        await updateSheetData(process.env.NEXT_PUBLIC_SHEET_ID || '', updates)
+        // Encontrar la sección relevante para obtener el rango
+        const section = invoiceTemplate.sections.find(s => 
+          updates.some(u => s.fields.some(f => f.key === u.field.key))
+        )
+        
+        if (!section) {
+          throw new Error('No se encontró la sección para actualizar')
+        }
+
+        const result = await sheetsService.updateData({
+          spreadsheetId: process.env.NEXT_PUBLIC_SHEET_ID || '',
+          range: section.range,
+          headerRow: invoiceTemplate.headerRows,
+          columns: section.fields.map((f: SheetField, index: number): ColumnConfig => ({
+            key: f.key,
+            type: f.type === 'boolean' ? 'text' : f.type,
+            format: f.format,
+            index
+          }))
+        }, updates.map(u => ({
+          id: `row_${u.rowIndex}`,
+          values: { [u.field.key]: u.value },
+          lastUpdate: new Date(),
+          rowNumber: u.rowIndex
+        })), [])
+        
+        if (!result.success) {
+          throw new Error(result.error)
+        }
       } catch (err) {
         console.error('Error updating sheet:', err)
       }
@@ -45,37 +77,34 @@ export function useInvoiceSheet(initialData?: any[][]) {
   })
 
   useEffect(() => {
-    if (data && data.length > 0) {
+    if (data && Object.keys(data).length > 0) {
       try {
+        const companyData = data.company?.[0] || []
+        const invoiceDetailsData = data.invoice_details?.[0] || []
+        const itemsData = data.items || []
+        const summaryData = data.summary?.[0] || []
+
         const processedData: InvoiceData = {
           companyInfo: {
-            name: String(getFieldValue(invoiceTemplate.sections[0].fields[0], 2) || ''),
-            address: String(getFieldValue(invoiceTemplate.sections[0].fields[1], 3) || ''),
-            phone: String(getFieldValue(invoiceTemplate.sections[0].fields[2], 5) || '')
+            name: String(companyData[0] || ''),
+            address: String(companyData[1] || ''),
+            phone: String(companyData[2] || '')
           },
           invoiceDetails: {
-            number: String(getFieldValue(invoiceTemplate.sections[1].fields[0], 11) || ''),
-            date: new Date(String(getFieldValue(invoiceTemplate.sections[1].fields[1], 8)) || new Date()),
-            dueDate: new Date(String(getFieldValue(invoiceTemplate.sections[1].fields[2], 14)) || new Date())
+            number: String(invoiceDetailsData[0] || ''),
+            date: new Date(String(invoiceDetailsData[1]) || new Date()),
+            dueDate: new Date(String(invoiceDetailsData[2]) || new Date())
           },
-          items: [],
+          items: itemsData.map(row => ({
+            description: String(row[0] || ''),
+            quantity: Number(row[1] || 0),
+            unitPrice: Number(row[2] || 0),
+            totalPrice: Number(row[3] || 0)
+          })),
           summary: {
-            subtotal: Number(getFieldValue(invoiceTemplate.sections[3].fields[0], 25) || 0),
-            adjustments: Number(getFieldValue(invoiceTemplate.sections[3].fields[1], 26) || 0),
-            total: Number(getFieldValue(invoiceTemplate.sections[3].fields[2], 27) || 0)
-          }
-        }
-
-        // Procesar los items (filas 18-24)
-        for (let row = 17; row <= 24; row++) {
-          const description = getFieldValue(invoiceTemplate.sections[2].fields[0], row)
-          if (description) {
-            processedData.items.push({
-              description: String(description),
-              quantity: Number(getFieldValue(invoiceTemplate.sections[2].fields[1], row) || 0),
-              unitPrice: Number(getFieldValue(invoiceTemplate.sections[2].fields[2], row) || 0),
-              totalPrice: Number(getFieldValue(invoiceTemplate.sections[2].fields[3], row) || 0)
-            })
+            subtotal: Number(summaryData[0] || 0),
+            adjustments: Number(summaryData[1] || 0),
+            total: Number(summaryData[2] || 0)
           }
         }
 
@@ -85,21 +114,21 @@ export function useInvoiceSheet(initialData?: any[][]) {
       }
       setLoading(false)
     }
-  }, [data, getFieldValue])
+  }, [data])
 
   const updateInvoiceField = async (
     sectionId: keyof InvoiceData,
     fieldId: string,
     value: any,
-    rowIndex?: number
+    rowIndex: number = 0
   ) => {
     const section = invoiceTemplate.sections.find(s => s.id === sectionId)
     if (!section) return
 
-    const field = section.fields.find(f => f.id === fieldId)
+    const field = section.fields.find(f => f.key === fieldId)
     if (!field) return
 
-    await updateField(field, rowIndex || 0, value)
+    await updateField(section, field, rowIndex, value)
   }
 
   return {

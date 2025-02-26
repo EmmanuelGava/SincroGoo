@@ -1,5 +1,7 @@
 "use client"
 
+import React from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { FileSpreadsheet, PresentationIcon, ShieldCheck, Clock, Eye, Zap } from "lucide-react"
@@ -60,186 +62,62 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <SiteHeader />
 
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-32 pb-24 text-center">
-        <motion.div
-          initial="initial"
-          animate="animate"
-          variants={fadeIn}
-          className="space-y-6 max-w-4xl mx-auto"
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-4xl md:text-6xl font-bold text-slate-900 dark:text-white pb-2">
-              Sincroniza tus precios entre 
-              <span className="bg-gradient-to-r from-blue-400 via-green-400 to-orange-400 bg-clip-text text-transparent"> Google Sheets </span>
-              y
-              <span className="bg-gradient-to-r from-orange-400 via-red-400 to-violet-500 bg-clip-text text-transparent"> Slides</span>
-            </h1>
-          </motion.div>
-          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            Actualiza automáticamente los precios en tus presentaciones cuando cambien en tus hojas de cálculo
+      <main className="container mx-auto px-4 py-16">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Bienvenido a SinCroGoo
+          </h1>
+          <p className="text-xl text-gray-600 mb-8">
+            Tu plataforma para gestionar tareas y proyectos de manera eficiente
           </p>
-          <div className="flex justify-center gap-4 pt-8">
-            <Button 
-              size="lg" 
-              className="gap-2 text-lg bg-violet-600 hover:bg-violet-700 text-white transition-colors"
-              onClick={handleSignIn}
-            >
-              <FileSpreadsheet className="w-5 h-5" />
-              Comienza ahora
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="gap-2 text-lg border-slate-200 dark:border-slate-600 bg-white/50 dark:bg-slate-800/50 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-500"
-            >
-              Ver demo
-            </Button>
+
+          <div className="max-w-2xl mx-auto">
+            <p className="text-gray-700 mb-6">
+              SinCroGoo es una aplicación que te ayuda a organizar tus tareas y proyectos
+              de manera simple y efectiva. Con nuestra plataforma, podrás:
+            </p>
+
+            <ul className="text-left list-disc list-inside mb-8 space-y-2">
+              <li>Crear y gestionar tareas fácilmente</li>
+              <li>Organizar proyectos y equipos</li>
+              <li>Hacer seguimiento de tu progreso</li>
+              <li>Colaborar con otros usuarios</li>
+            </ul>
           </div>
-        </motion.div>
-      </section>
 
-      {/* Features Section */}
-      <section className="container mx-auto px-4 py-16">
-        <motion.div
-          initial="initial"
-          animate="animate"
-          variants={fadeIn}
-          className="grid grid-cols-1 md:grid-cols-3 gap-8"
-        >
-          {features.map((feature, index) => (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.2 }}
-              className="bg-white dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800 hover:border-violet-200 dark:hover:border-violet-500/30 transition-all duration-300"
+          <div className="flex justify-center space-x-4">
+            <Link 
+              href="/auth/login"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <div className="flex items-center gap-4 mb-4">
-                <feature.icon className="w-8 h-8 text-violet-500" />
-                <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">{feature.title}</h2>
-              </div>
-              <p className="text-slate-600 dark:text-slate-400 mb-6">{feature.description}</p>
-              <ul className="space-y-3">
-                {feature.checks.map((check, i) => (
-                  <li key={i} className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <svg
-                      className="w-5 h-5 text-green-500 flex-shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    <span>{check}</span>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          ))}
-        </motion.div>
-      </section>
+              Iniciar Sesión
+            </Link>
+            <Link 
+              href="/auth/register"
+              className="bg-white text-blue-600 px-6 py-3 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
+            >
+              Registrarse
+            </Link>
+          </div>
 
-      {/* How it Works Section */}
-      <section className="container mx-auto px-4 py-16">
-        <motion.div
-          initial="initial"
-          animate="animate"
-          variants={fadeIn}
-          className="text-center mb-12"
-        >
-          <h2 className="text-3xl font-bold mb-4 text-slate-900 dark:text-white">
-            ¿Cómo funciona?
-          </h2>
-          <p className="text-xl text-slate-600 dark:text-slate-300">
-            Tres simples pasos para mantener tus presentaciones actualizadas
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-center"
-          >
-            <div className="bg-blue-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileSpreadsheet className="w-8 h-8 text-blue-500" />
+          <div className="mt-12 text-sm text-gray-600">
+            <p>Al usar nuestro servicio, aceptas nuestros</p>
+            <div className="space-x-2">
+              <Link href="/terms-of-service" className="text-blue-600 hover:underline">
+                Términos de Servicio
+              </Link>
+              <span>y</span>
+              <Link href="/privacy-policy" className="text-blue-600 hover:underline">
+                Política de Privacidad
+              </Link>
             </div>
-            <h3 className="text-xl font-semibold mb-2 text-slate-900 dark:text-white">1. Conecta tus documentos</h3>
-            <p className="text-slate-600 dark:text-slate-400">
-              Selecciona las hojas de cálculo y presentaciones que deseas sincronizar
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-center"
-          >
-            <div className="bg-green-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Eye className="w-8 h-8 text-green-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-slate-900 dark:text-white">2. Configura los enlaces</h3>
-            <p className="text-slate-600 dark:text-slate-400">
-              Define qué celdas se actualizarán en cada diapositiva
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="text-center"
-          >
-            <div className="bg-orange-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-8 h-8 text-orange-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-slate-900 dark:text-white">3. ¡Listo!</h3>
-            <p className="text-slate-600 dark:text-slate-400">
-              Los cambios se sincronizarán automáticamente
-            </p>
-          </motion.div>
+          </div>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-4 py-16">
-        <motion.div
-          initial="initial"
-          animate="animate"
-          variants={fadeIn}
-          className="bg-white dark:bg-slate-900/50 rounded-2xl p-12 text-center max-w-4xl mx-auto border border-slate-200 dark:border-slate-800"
-        >
-          <h2 className="text-3xl font-bold mb-4 text-slate-900 dark:text-white">
-            Comienza a sincronizar tus documentos hoy
-          </h2>
-          <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 max-w-2xl mx-auto">
-            Mantén tus presentaciones siempre actualizadas con los últimos precios de forma automática
-          </p>
-          <Button 
-            size="lg" 
-            className="gap-2 text-lg bg-violet-600 hover:bg-violet-700 text-white transition-colors"
-            onClick={handleSignIn}
-          >
-            <Image src="/google.svg" alt="Google" width={24} height={24} className="rounded-full bg-white p-1" />
-            Conectar con Google
-          </Button>
-        </motion.div>
-      </section>
+      </main>
     </div>
-  )
+  );
 }
 

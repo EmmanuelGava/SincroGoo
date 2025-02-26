@@ -6,7 +6,15 @@ interface InvoiceEditorProps {
 }
 
 export function InvoiceEditor({ initialData }: InvoiceEditorProps) {
-  const { invoiceData, loading, error, updateInvoiceField } = useInvoiceSheet(initialData)
+  // Transformar initialData al formato esperado por useInvoiceSheet
+  const formattedInitialData = initialData ? {
+    company: [initialData[0]], // Primera fila para información de la empresa
+    invoice_details: [initialData[1]], // Segunda fila para detalles de la factura
+    items: initialData.slice(2, -1), // Filas intermedias para items
+    summary: [initialData[initialData.length - 1]] // Última fila para el resumen
+  } : undefined
+
+  const { invoiceData, loading, error, updateInvoiceField } = useInvoiceSheet(formattedInitialData)
   const [editMode, setEditMode] = useState(false)
 
   if (loading) {

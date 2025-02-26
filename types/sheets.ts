@@ -24,6 +24,7 @@ export interface SheetField {
   column?: string
   type: 'text' | 'number' | 'date' | 'boolean' | 'price' | 'formula'
   required?: boolean
+  editable?: boolean
   format?: {
     type: 'currency' | 'percentage' | 'date' | 'number' | 'text'
     pattern?: string

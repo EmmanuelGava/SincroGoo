@@ -1,5 +1,6 @@
 "use client"
 
+import React from 'react';
 import { Button } from "@/components/ui/button"
 import { FileSpreadsheet, PresentationIcon, RefreshCcw, Settings, Folder, ArrowRight, Trash2 } from "lucide-react"
 import { motion } from "framer-motion"
@@ -7,6 +8,7 @@ import { ProjectPicker } from "@/components/project-picker"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import Link from "next/link"
 
 interface Project {
   id: string
@@ -183,6 +185,19 @@ export default function DashboardPage() {
 
             {/* Botón para crear nuevo proyecto */}
             <ProjectPicker onSave={handleSaveProject} savedProjects={projects} />
+          </div>
+        </div>
+
+        {/* Footer con enlaces */}
+        <div className="mt-12 text-sm text-slate-600 dark:text-slate-400 text-center">
+          <div className="space-x-2">
+            <Link href="/terms-of-service" className="text-blue-600 hover:underline dark:text-blue-400">
+              Términos de Servicio
+            </Link>
+            <span>·</span>
+            <Link href="/privacy-policy" className="text-blue-600 hover:underline dark:text-blue-400">
+              Política de Privacidad
+            </Link>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { DataRow, SheetConfig, ServiceResult, ColumnFormat } from './types'
 import { ApiService } from './api-service'
 
 export class SheetsService extends ApiService {
-  private baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets'
+  protected override baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets'
 
   private formatValue(value: any, format?: ColumnFormat): any {
     if (!format || value == null) return value;

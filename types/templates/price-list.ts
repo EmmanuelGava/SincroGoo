@@ -15,10 +15,12 @@ export const priceListTemplate: SheetTemplate = {
       fields: [
         {
           id: 'no_modify',
+          key: 'no_modify',
           name: 'No modificar números',
           column: 'A1',
           type: 'text',
-          editable: false
+          editable: false,
+          required: false
         }
       ]
     },
@@ -30,9 +32,12 @@ export const priceListTemplate: SheetTemplate = {
       fields: [
         {
           id: 'procedure_type',
+          key: 'procedure_type',
           name: 'Tipo de cirugía',
           column: 'A',
           type: 'select',
+          editable: true,
+          required: true,
           validation: {
             type: 'list',
             options: [
@@ -45,9 +50,12 @@ export const priceListTemplate: SheetTemplate = {
         },
         {
           id: 'country',
+          key: 'country',
           name: 'País del cliente',
           column: 'B',
           type: 'select',
+          editable: true,
+          required: true,
           validation: {
             type: 'list',
             options: ['Uruguay', 'Bolivia']
@@ -55,9 +63,12 @@ export const priceListTemplate: SheetTemplate = {
         },
         {
           id: 'payment_method',
+          key: 'payment_method',
           name: 'Método de pago',
           column: 'C',
           type: 'select',
+          editable: true,
+          required: true,
           validation: {
             type: 'list',
             options: [
@@ -73,9 +84,12 @@ export const priceListTemplate: SheetTemplate = {
         },
         {
           id: 'cash_price',
+          key: 'cash_price',
           name: 'Precio Efectivo',
           column: 'D',
           type: 'price',
+          editable: true,
+          required: true,
           format: {
             type: 'currency',
             prefix: '$',
@@ -84,9 +98,12 @@ export const priceListTemplate: SheetTemplate = {
         },
         {
           id: '12_installments',
+          key: '12_installments',
           name: '12 Cuotas',
           column: 'E',
           type: 'price',
+          editable: true,
+          required: true,
           format: {
             type: 'currency',
             prefix: '$',
@@ -95,9 +112,12 @@ export const priceListTemplate: SheetTemplate = {
         },
         {
           id: '24_installments',
+          key: '24_installments',
           name: '24 Cuotas',
           column: 'F',
           type: 'price',
+          editable: true,
+          required: true,
           format: {
             type: 'currency',
             prefix: '$',

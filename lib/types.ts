@@ -1,8 +1,8 @@
 // Tipos comunes
 export interface ServiceResult<T> {
   success: boolean;
-  data?: T | undefined;
-  error?: string | undefined;
+  data?: T;
+  error?: string | Error;
   timestamp: Date;
 }
 
@@ -44,18 +44,24 @@ export interface DataRow {
 // Tipos para Google Slides
 export interface SlidePreview {
   id: string;
-  imageUrl: string;
   title: string;
+  imageUrl: string;
 }
 
-export interface SlideReplacement {
-  searchText: string;
-  replaceText: string;
+export interface SlideElement {
+  id: string;
+  slideId: string;
+  content: string;
 }
 
 export interface SlideUpdate {
   slideId: string;
   replacements: SlideReplacement[];
+}
+
+export interface SlideReplacement {
+  searchText: string;
+  replaceText: string;
 }
 
 export interface ElementUpdate {

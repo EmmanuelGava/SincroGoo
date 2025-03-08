@@ -77,14 +77,23 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Return previous token if the access token has not expired yet
-      if (Date.now() < (token.accessTokenExpires || 0)) {
+      if (token.accessTokenExpires && Date.now() < token.accessTokenExpires) {
         return token
       }
 
-      // Access token has expired
-      return {
-        ...token,
-        error: "RefreshAccessTokenError",
+      // Access token has expired, try to refresh it
+      try {
+        // Implementar lógica de refresh token si es necesario
+        return {
+          ...token,
+          error: "RefreshAccessTokenError",
+        }
+      } catch (error) {
+        console.error("Error refreshing access token", error)
+        return {
+          ...token,
+          error: "RefreshAccessTokenError",
+        }
       }
     },
     async session({ session, token }) {
@@ -95,10 +104,17 @@ export const authOptions: NextAuthOptions = {
       }
       return session
     },
+    async redirect({ url, baseUrl }) {
+      // Redirigir a la página de proyectos después del inicio de sesión
+      if (url.startsWith(baseUrl)) {
+        return `${baseUrl}/proyectos`
+      }
+      return baseUrl
+    }
   },
   pages: {
-    signIn: "/",
-    error: "/",
+    signIn: "/auth/login",
+    error: "/auth/error",
   },
   events: {
     async signIn({ user }) {

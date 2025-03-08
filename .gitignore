@@ -39,3 +39,7 @@ next-env.d.ts
 # IDE
 .vscode/
 .idea/
+
+# Documentación interna
+guia*
+*guia*

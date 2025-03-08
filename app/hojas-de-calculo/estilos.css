@@ -1,0 +1,102 @@
+/* Estilos específicos para la sección de hojas de cálculo */
+
+/* Estilos para la tabla de datos */
+.data-grid {
+  @apply w-full border rounded-lg overflow-hidden;
+}
+
+.data-grid-header {
+  @apply bg-muted/50 border-b sticky top-0 z-10;
+}
+
+.data-grid-cell {
+  @apply p-2 truncate border-r last:border-r-0;
+}
+
+/* Estilos para filas seleccionadas y hover */
+.data-row {
+  @apply border-b last:border-b-0 transition-colors;
+}
+
+.data-row:hover {
+  @apply bg-muted/30;
+}
+
+.data-row.selected {
+  @apply bg-primary/10;
+}
+
+/* Estilos para el modo de edición */
+.editable-cell {
+  @apply relative;
+}
+
+.editable-cell-input {
+  @apply absolute inset-0 w-full h-full px-2 py-1 bg-background border-2 border-primary;
+}
+
+/* Animaciones para las filas */
+.row-enter {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.row-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms, transform 200ms;
+}
+
+.row-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.row-exit-active {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 200ms, transform 200ms;
+}
+
+/* Estilos para el modo oscuro */
+@media (prefers-color-scheme: dark) {
+  .data-grid {
+    @apply border-slate-800;
+  }
+
+  .data-grid-header {
+    @apply bg-slate-900/50;
+  }
+
+  .data-row:hover {
+    @apply bg-slate-800/30;
+  }
+
+  .data-row.selected {
+    @apply bg-primary/20;
+  }
+}
+
+/* Estilos para el selector de columnas */
+.column-selector {
+  @apply p-2 rounded-lg border bg-card;
+}
+
+.column-selector-item {
+  @apply flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer;
+}
+
+.column-selector-item.selected {
+  @apply bg-primary/10;
+}
+
+/* Estilos para los filtros */
+.filter-badge {
+  @apply inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium;
+  background-color: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
+}
+
+.filter-badge:hover {
+  background-color: color-mix(in srgb, var(--primary) 25%, transparent);
+} 

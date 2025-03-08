@@ -1,0 +1,80 @@
+/* Estilos específicos para la sección de presentaciones */
+
+/* Animaciones para las tarjetas de diapositivas */
+.slide-card-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.slide-card-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.slide-card-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide-card-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Estilos para el área de edición */
+.editor-area {
+  @apply relative rounded-lg border bg-card p-4;
+}
+
+.editor-area:focus-within {
+  @apply ring-2 ring-primary ring-offset-2;
+}
+
+/* Estilos para las variables detectadas */
+.variable-tag {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+
+/* Estilos para el modo oscuro */
+@media (prefers-color-scheme: dark) {
+  .editor-area {
+    @apply bg-card/50;
+  }
+
+  .variable-tag {
+    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+}
+
+/* Estilos para la vista previa de diapositivas */
+.slide-preview {
+  @apply aspect-video relative overflow-hidden rounded-lg;
+  background-color: color-mix(in srgb, var(--background) 50%, var(--muted));
+}
+
+.slide-preview-overlay {
+  @apply absolute inset-0 bg-black/50 opacity-0 transition-opacity;
+}
+
+.slide-preview:hover .slide-preview-overlay {
+  @apply opacity-100;
+}
+
+/* Estilos para el drag and drop */
+.draggable-slide {
+  @apply cursor-grab active:cursor-grabbing;
+}
+
+.drop-indicator {
+  @apply border-2 border-dashed border-primary/50 rounded-lg;
+  height: 100%;
+  transition: all 200ms ease;
+}
+
+.drop-indicator.can-drop {
+  @apply border-primary bg-primary/10;
+} 

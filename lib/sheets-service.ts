@@ -1,8 +1,45 @@
 import { DataRow, SheetConfig, ServiceResult, ColumnFormat } from './types'
 import { ApiService } from './api-service'
 
+// Rate limiting
+const REQUEST_WINDOW = 60000 // 1 minuto
+const MAX_REQUESTS = 50 // Máximo de solicitudes por minuto
+const requests: number[] = []
+
+interface SheetData {
+  rows: any[];
+  columns: string[];
+}
+
 export class SheetsService extends ApiService {
-  protected override baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets'
+  constructor(token: string) {
+    super(token)
+  }
+
+  private canMakeRequest(): boolean {
+    const now = Date.now()
+    // Limpiar solicitudes antiguas
+    while (requests.length > 0 && requests[0] < now - REQUEST_WINDOW) {
+      requests.shift()
+    }
+    return requests.length < MAX_REQUESTS
+  }
+
+  private async waitForRateLimit(): Promise<void> {
+    if (this.canMakeRequest()) {
+      requests.push(Date.now())
+      return
+    }
+
+    // Esperar hasta que podamos hacer la siguiente solicitud
+    const oldestRequest = requests[0]
+    const waitTime = REQUEST_WINDOW - (Date.now() - oldestRequest)
+    await new Promise(resolve => setTimeout(resolve, waitTime))
+    requests.shift() // Eliminar la solicitud más antigua
+    requests.push(Date.now()) // Añadir la nueva solicitud
+  }
+
+  protected override baseUrl = 'https://sheets.googleapis.com/v4'
 
   private formatValue(value: any, format?: ColumnFormat): any {
     if (!format || value == null) return value;
@@ -62,8 +99,10 @@ export class SheetsService extends ApiService {
 
   async fetchData(config: SheetConfig): Promise<ServiceResult<DataRow[]>> {
     try {
+      await this.waitForRateLimit()
+
       console.log('Obteniendo datos de la hoja:', config.spreadsheetId);
-      const url = `${this.baseUrl}/${config.spreadsheetId}/values/${config.range}`;
+      const url = `${this.baseUrl}/spreadsheets/${config.spreadsheetId}/values/${config.range}`;
       const response = await this.fetchWithAuth<{values?: any[][]}>(url);
 
       if (!response.values) {
@@ -157,8 +196,10 @@ export class SheetsService extends ApiService {
 
   async updateData(config: SheetConfig, updates: DataRow[], currentData: DataRow[]): Promise<ServiceResult<void>> {
     try {
+      await this.waitForRateLimit()
+
       console.log('Actualizando datos:', updates);
-      const url = `${this.baseUrl}/${config.spreadsheetId}/values:batchUpdate`;
+      const url = `${this.baseUrl}/spreadsheets/${config.spreadsheetId}/values:batchUpdate`;
       
       // Preparar las actualizaciones
       const valueRanges = updates.map(update => {
@@ -196,6 +237,53 @@ export class SheetsService extends ApiService {
     } catch (error) {
       console.error('Error actualizando datos:', error);
       return this.createErrorResult(error instanceof Error ? error : 'Error desconocido al actualizar datos');
+    }
+  }
+
+  async getSheetData(spreadsheetId: string): Promise<{ success: boolean; data?: SheetData; error?: string }> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/spreadsheets/${spreadsheetId}/values/A1:Z1000`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.token}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error al obtener datos: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.values || data.values.length === 0) {
+        return { success: false, error: 'No se encontraron datos' };
+      }
+
+      const columns = data.values[0];
+      const rows = data.values.slice(1).map((row: any[]) => {
+        const rowData: any = { id: crypto.randomUUID() };
+        columns.forEach((column: string, index: number) => {
+          rowData[column] = row[index] || '';
+        });
+        return rowData;
+      });
+
+      return {
+        success: true,
+        data: {
+          columns,
+          rows
+        }
+      };
+    } catch (error) {
+      console.error('Error en getSheetData:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      };
     }
   }
 } 

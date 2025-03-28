@@ -8,7 +8,12 @@ const nextConfig = {
   },
   images: {
     domains: ['lh3.googleusercontent.com', 'avatars.githubusercontent.com'],
+    unoptimized: true,
   },
+  output: 'standalone',
+  experimental: {
+    serverActions: true,
+  }
 }
 
 module.exports = nextConfig 

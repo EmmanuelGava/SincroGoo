@@ -1,0 +1,31 @@
+/* Estilos para inputs */
+input::placeholder {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+/* Soporte para navegadores antiguos */
+input::-webkit-input-placeholder {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+input::-moz-placeholder {
+  color: rgba(0, 0, 0, 0.54);
+  opacity: 1;
+}
+
+/* Estilos para select */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Eliminar flecha en IE */
+select::-ms-expand {
+  display: none;
+}
+
+/* Estilos consistentes para inputs en IE */
+input:-ms-input-placeholder {
+  color: rgba(0, 0, 0, 0.54);
+} 

@@ -1,0 +1,21 @@
+'use client'
+
+import * as React from 'react'
+import { ThemeProvider as NextThemesProvider } from 'next-themes'
+import { ThemeProvider as MuiThemeProvider } from '@/lib/theme'
+
+interface ThemeProviderProps {
+  children: React.ReactNode
+  attribute?: string
+  defaultTheme?: string
+  enableSystem?: boolean
+  storageKey?: string
+}
+
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return (
+    <MuiThemeProvider>
+      {children}
+    </MuiThemeProvider>
+  )
+}

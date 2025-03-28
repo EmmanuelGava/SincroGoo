@@ -14,10 +14,11 @@ SincroGoo es una aplicación web que permite sincronizar y editar documentos de 
 
 - Next.js 14
 - TypeScript
-- Tailwind CSS
+- Material ui
 - Google Sheets API
 - Google Slides API
 - NextAuth.js
+- Supabase
 
 ## Requisitos Previos 📋
 

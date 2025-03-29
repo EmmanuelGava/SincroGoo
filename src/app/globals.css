@@ -29,7 +29,7 @@
     --radius: 0.5rem;
   }
 
-  .dark {
+  [data-theme="dark"] {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -63,12 +63,25 @@
 }
 
 /* Asegurar que el fondo sea negro en modo oscuro */
-html[data-theme="dark"] {
-  background-color: #000000 !important;
+[data-theme="dark"] {
+  background-color: #121212;
+  color: #ffffff;
 }
-  
-html[data-theme="dark"] body {
-  background-color: #000000 !important;
+
+[data-theme="dark"] body {
+  background-color: #121212;
+  color: #ffffff;
+}
+
+/* Estilos para las tarjetas en modo oscuro */
+[data-theme="dark"] .MuiPaper-root {
+  background-color: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .MuiCard-root {
+  background-color: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 /* Estilos personalizados para la aplicación */

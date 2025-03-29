@@ -26,13 +26,6 @@ export type ProyectoInsert = {
   titulo: string;
   descripcion?: string | null;
   google_id?: string | null;
-  fecha_creacion?: string;
-  fecha_actualizacion?: string;
-  sheets_id?: string;
-  slides_id?: string;
-  hojastitulo?: string;
-  presentaciontitulo?: string;
-  // Campos de compatibilidad
   creado_en?: string;
   actualizado_en?: string;
 };
@@ -41,11 +34,14 @@ export type ProyectoInsert = {
 type ProyectoUpdate = Partial<ProyectoBase>;
 
 // Tipo para la aplicación (incluye campos adicionales para compatibilidad)
-export type Proyecto = ProyectoBase & {
-  nombre?: string; // Alias de titulo para compatibilidad
-  userid?: string; // Alias de usuario_id para compatibilidad
-  creado_en?: string; // Alias de fecha_creacion para compatibilidad
-  actualizado_en?: string; // Alias de fecha_actualizacion para compatibilidad
+export type Proyecto = {
+  id: string;
+  usuario_id: string;
+  titulo: string;
+  descripcion: string | null;
+  google_id: string | null;
+  creado_en: string;
+  actualizado_en: string;
 };
 
 // Proyectos de ejemplo para modo desarrollo
@@ -56,8 +52,8 @@ const proyectosEjemplo: Proyecto[] = [
     titulo: 'Proyecto de ejemplo 1',
     descripcion: 'Este es un proyecto de ejemplo para desarrollo',
     google_id: null,
-    fecha_creacion: new Date().toISOString(),
-    fecha_actualizacion: new Date().toISOString()
+    creado_en: new Date().toISOString(),
+    actualizado_en: new Date().toISOString()
   },
   {
     id: 'dev-proyecto-2',
@@ -65,8 +61,8 @@ const proyectosEjemplo: Proyecto[] = [
     titulo: 'Proyecto de ejemplo 2',
     descripcion: 'Otro proyecto de ejemplo para desarrollo',
     google_id: null,
-    fecha_creacion: new Date().toISOString(),
-    fecha_actualizacion: new Date().toISOString()
+    creado_en: new Date().toISOString(),
+    actualizado_en: new Date().toISOString()
   }
 ];
 
@@ -76,23 +72,17 @@ export class ProyectosService {
       console.log('📝 [ProyectosService] Creando proyecto:', {
         ...proyecto,
         tieneUserId: !!proyecto.usuario_id,
-        tieneNombre: !!proyecto.titulo
+        tieneTitulo: !!proyecto.titulo
       });
 
       // Adaptar el objeto proyecto para que coincida con la estructura de la base de datos
       const proyectoParaDB = {
-        // Usar userid (TEXT) en lugar de usuario_id (UUID)
-        userid: proyecto.usuario_id, // Usar el ID de Google como userid (TEXT)
-        nombre: proyecto.titulo, // Usar nombre en lugar de titulo para la BD
+        usuario_id: proyecto.usuario_id,
+        titulo: proyecto.titulo,
         descripcion: proyecto.descripcion,
         google_id: proyecto.google_id,
-        fecha_creacion: proyecto.fecha_creacion || new Date().toISOString(),
-        fecha_actualizacion: proyecto.fecha_actualizacion || new Date().toISOString(),
-        // Agregar campos adicionales que existen en la BD
-        sheets_id: proyecto.sheets_id,
-        slides_id: proyecto.slides_id,
-        hojastitulo: proyecto.hojastitulo,
-        presentaciontitulo: proyecto.presentaciontitulo
+        creado_en: proyecto.creado_en || new Date().toISOString(),
+        actualizado_en: proyecto.actualizado_en || new Date().toISOString()
       };
 
       const { data, error } = await supabase
@@ -114,21 +104,12 @@ export class ProyectosService {
       // Convertir el resultado de la base de datos al formato esperado por la aplicación
       const proyectoCreado: Proyecto = {
         id: data.id,
-        usuario_id: data.userid,
-        titulo: data.nombre, // Usar nombre como titulo
+        usuario_id: data.usuario_id,
+        titulo: data.titulo,
         descripcion: data.descripcion,
         google_id: data.google_id,
-        fecha_creacion: data.fecha_creacion,
-        fecha_actualizacion: data.fecha_actualizacion,
-        // Mapear otros campos según sea necesario
-        nombre: data.nombre,
-        userid: data.userid,
-        creado_en: data.fecha_creacion,
-        actualizado_en: data.fecha_actualizacion,
-        sheets_id: data.sheets_id,
-        slides_id: data.slides_id,
-        hojastitulo: data.hojastitulo,
-        presentaciontitulo: data.presentaciontitulo
+        creado_en: data.creado_en,
+        actualizado_en: data.actualizado_en
       };
 
       console.log('✅ [ProyectosService] Proyecto creado exitosamente:', proyectoCreado);
@@ -153,8 +134,8 @@ export class ProyectosService {
             titulo: proyectoEncontrado.titulo,
             descripcion: proyectoEncontrado.descripcion || null,
             google_id: proyectoEncontrado.google_id || null,
-            fecha_creacion: proyectoEncontrado.fecha_creacion,
-            fecha_actualizacion: proyectoEncontrado.fecha_actualizacion
+            creado_en: proyectoEncontrado.creado_en,
+            actualizado_en: proyectoEncontrado.actualizado_en
           };
         }
         return null;
@@ -187,43 +168,33 @@ export class ProyectosService {
         return proyectosEjemplo;
       }
 
-      console.log('📝 [ProyectosService] Consultando proyectos con userid:', userId);
+      console.log('📝 [ProyectosService] Consultando proyectos con usuario_id:', userId);
       const { data, error } = await supabase
         .from('proyectos')
         .select('*')
-        .eq('userid', userId) // Usar userid en lugar de usuario_id
-        .order('fecha_creacion', { ascending: false });
+        .eq('usuario_id', userId)
+        .order('creado_en', { ascending: false });
 
       if (error) {
         console.error('❌ [ProyectosService] Error al listar proyectos:', error);
         throw error;
       }
 
-      console.log('📝 [ProyectosService] Datos recibidos de Supabase:', data);
-
-      // Mapear los datos de la base de datos a la estructura esperada por la aplicación
-      const proyectos = data?.map((item: any) => ({
-        id: item.id,
-        usuario_id: item.userid,
-        userid: item.userid,
-        titulo: item.nombre,
-        nombre: item.nombre,
-        descripcion: item.descripcion,
-        google_id: item.google_id,
-        fecha_creacion: item.fecha_creacion,
-        fecha_actualizacion: item.fecha_actualizacion,
-        creado_en: item.fecha_creacion,
-        actualizado_en: item.fecha_actualizacion,
-        sheets_id: item.sheets_id,
-        slides_id: item.slides_id,
-        hojastitulo: item.hojastitulo,
-        presentaciontitulo: item.presentaciontitulo
+      // Convertir los datos al formato esperado por la aplicación
+      const proyectosConvertidos: Proyecto[] = data?.map((proyecto: ProyectoSupabase) => ({
+        id: proyecto.id,
+        usuario_id: proyecto.usuario_id,
+        titulo: proyecto.titulo,
+        descripcion: proyecto.descripcion,
+        google_id: proyecto.google_id,
+        creado_en: proyecto.creado_en,
+        actualizado_en: proyecto.actualizado_en
       })) || [];
 
-      return proyectos;
+      return proyectosConvertidos;
     } catch (error) {
       console.error('❌ [ProyectosService] Error en listarProyectos:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -239,8 +210,8 @@ export class ProyectosService {
           titulo: proyecto.titulo || 'Proyecto actualizado',
           descripcion: proyecto.descripcion || null,
           google_id: proyecto.google_id || null,
-          fecha_actualizacion: new Date().toISOString(),
-          fecha_creacion: proyecto.fecha_creacion || new Date().toISOString()
+          actualizado_en: new Date().toISOString(),
+          creado_en: proyecto.creado_en || new Date().toISOString()
         };
         return proyectoActualizado;
       }

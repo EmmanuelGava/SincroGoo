@@ -29,7 +29,7 @@ import Chip from '@mui/material/Chip';
 import { alpha } from '@mui/system';
 import Image from 'next/image';
 
-import { useThemeMode } from '@/lib/theme';
+import { useThemeMode } from "@/app/lib/theme"
 import { ThemeToggleButton } from './ThemeToggleButton';
 
 // Iconos

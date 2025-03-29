@@ -16,6 +16,8 @@ import Tab from '@mui/material/Tab'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined'
+import { InputAdornment } from '@mui/material'
+import { Grid, Card, CardContent, CardActions } from '@mui/material'
 
 // Componentes propios
 import { EncabezadoSitio } from "@/app/componentes/EncabezadoSitio"
@@ -108,72 +110,24 @@ export default function PaginaProyectos() {
     }
   }, [status, session])
 
-  const cargarProyectos = async (usuarioId?: string, forzarTodos = false) => {
-    setCargando(true)
-    setError('')
-    
+  const cargarProyectos = async (userId: string) => {
     try {
-      // Determinar el ID de usuario a utilizar (Google ID para consultar proyectos)
-      const googleId = session?.user?.id || (session?.user as any)?.sub || ''
-      const idUsuarioActual = googleId || usuarioId || ''
-      
-      console.log('📝 Cargando proyectos para usuario (ID de Google):', idUsuarioActual)
-      
-      // Solo cargar proyectos si hay un ID de usuario válido
-      if (idUsuarioActual) {
-        const proyectosData = await ProyectosService.listarProyectos(idUsuarioActual)
-        
-        if (proyectosData && Array.isArray(proyectosData)) {
-          // Convertir explícitamente los datos a tipo Proyecto[]
-          const proyectosConvertidos: Proyecto[] = proyectosData.map((p: any) => ({
-            id: p.id,
-            usuario_id: p.usuario_id || null, // UUID de la tabla usuarios
-            userid: p.userid || idUsuarioActual, // ID de Google
-            nombre: p.nombre || p.titulo || '',
-            titulo: p.titulo || p.nombre || '',
-            descripcion: p.descripcion || '',
-            fecha_creacion: p.fecha_creacion || new Date().toISOString(),
-            fecha_actualizacion: p.fecha_actualizacion || new Date().toISOString(),
-            sheets_id: p.sheets_id,
-            slides_id: p.slides_id,
-            hojastitulo: p.hojastitulo,
-            presentaciontitulo: p.presentaciontitulo
-          }))
-          
-          // Verificar que los proyectos tienen los campos necesarios
-          const proyectosValidos = proyectosConvertidos.filter(proyecto => {
-            return Boolean(proyecto.id && (proyecto.nombre || proyecto.titulo))
-          })
-          
-          setProyectos(proyectosValidos)
-          // También actualizar el localStorage para mantener sincronización
-          localStorage.setItem('proyectos', JSON.stringify(proyectosValidos))
-          
-          if (proyectosValidos.length === 0 && proyectosConvertidos.length > 0) {
-            setError("Se encontraron proyectos pero ninguno tiene los campos requeridos (ID y nombre)")
-          }
-        } else {
-          setProyectos([])
-          // Limpiar localStorage
-          localStorage.removeItem('proyectos')
-        }
-      } else {
-        console.error('❌ [Debug] No hay ID de usuario para cargar proyectos')
-        setError('Error: No se pudo determinar el ID de usuario')
-        setProyectos([])
-      }
+      setCargando(true);
+      console.log('🔄 Cargando proyectos para el usuario:', userId);
+      const proyectos = await ProyectosService.listarProyectos(userId);
+      setProyectos(proyectos);
+      console.log('✅ Proyectos cargados:', proyectos);
     } catch (error) {
-      console.error('❌ Error al cargar proyectos:', error)
-      setError('Error al cargar los proyectos')
-      setProyectos([])
+      console.error('❌ Error al cargar proyectos:', error);
+      setError('Error al cargar los proyectos');
     } finally {
-      setCargando(false)
+      setCargando(false);
     }
-  }
+  };
 
   const proyectosFiltrados = proyectos.filter(proyecto => 
-    (proyecto.nombre || proyecto.titulo || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-    (proyecto.descripcion && proyecto.descripcion.toLowerCase().includes(busqueda.toLowerCase()))
+    proyecto.titulo.toLowerCase().includes(busqueda.toLowerCase()) ||
+    proyecto.descripcion?.toLowerCase().includes(busqueda.toLowerCase())
   )
   
   const crearNuevoProyecto = () => {
@@ -181,53 +135,33 @@ export default function PaginaProyectos() {
   }
 
   const crearProyectoPrueba = async () => {
+    const email = session?.user?.email;
+    if (typeof email !== 'string') {
+      toast.error("Necesitas iniciar sesión para crear un proyecto");
+      return;
+    }
+
+    const proyectoPrueba = {
+      usuario_id: email,
+      titulo: `Proyecto de prueba ${new Date().toLocaleString()}`,
+      descripcion: "Este es un proyecto de prueba",
+      creado_en: new Date().toISOString(),
+      actualizado_en: new Date().toISOString()
+    };
+
     try {
-      // Obtener el ID de Google
-      const googleId = session?.user?.id || (session?.user as any)?.sub
-      
-      if (!googleId) {
-        toast.error("No hay ID de usuario disponible")
-        return
-      }
-      
-      // Para compatibilidad, intentamos obtener el UUID del usuario
-      let usuarioUUID = usuarioSupabase?.id
-      
-      // Si no tenemos usuario sincronizado, intentamos obtenerlo
-      if (!usuarioUUID && session?.user) {
-        try {
-          const usuario = await authService.sincronizarUsuario(session.user)
-          usuarioUUID = usuario?.id
-        } catch (error) {
-          console.error("Error al sincronizar usuario:", error)
-          // No bloqueamos la creación si falla
-        }
-      }
-
-      console.log("Creando proyecto de prueba con ID de Google:", googleId)
-      console.log("UUID de usuario (si está disponible):", usuarioUUID)
-
-      const nuevoProyecto = {
-        usuario_id: usuarioUUID, // UUID para clave foránea (puede ser null)
-        userid: googleId, // ID de Google para consultas
-        titulo: "Proyecto de Prueba",
-        descripcion: "Este es un proyecto de prueba",
-        fecha_creacion: new Date().toISOString(),
-        fecha_actualizacion: new Date().toISOString()
-      }
-
-      const proyectoId = await ProyectosService.crearProyecto(nuevoProyecto)
+      const proyectoId = await ProyectosService.crearProyecto(proyectoPrueba);
       if (proyectoId) {
-        toast.success("Proyecto de prueba creado correctamente")
-        cargarProyectos(googleId, true)
+        toast.success("Proyecto de prueba creado correctamente");
+        await cargarProyectos(email);
       } else {
-        toast.error("Error al crear el proyecto de prueba")
+        toast.error("Error al crear el proyecto de prueba");
       }
     } catch (error) {
-      console.error("Error al crear proyecto de prueba:", error)
-      toast.error("Error al crear el proyecto de prueba")
+      console.error('❌ Error al crear proyecto de prueba:', error);
+      toast.error("Error al crear el proyecto de prueba");
     }
-  }
+  };
 
   if (cargando && proyectos.length === 0) {
     return (
@@ -288,12 +222,12 @@ export default function PaginaProyectos() {
             }}
             InputProps={{
               startAdornment: (
-                <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>
+                <InputAdornment position="start">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
-                </Box>
+                </InputAdornment>
               )
             }}
           />
@@ -346,11 +280,34 @@ export default function PaginaProyectos() {
           </Box>
         )}
         
-        <ListaProyectos 
-          proyectos={proyectos}
-          cargando={cargando}
-          busqueda={busqueda}
-        />
+        <Grid container spacing={3}>
+          {proyectosFiltrados.map((proyecto) => (
+            <Grid item xs={12} sm={6} md={4} key={proyecto.id}>
+              <Card className="h-full">
+                <CardContent>
+                  <Typography variant="h5" component="h2" gutterBottom>
+                    {proyecto.titulo}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" component="p">
+                    {proyecto.descripcion || "Sin descripción"}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block" marginTop={1}>
+                    Creado: {new Date(proyecto.creado_en).toLocaleDateString()}
+                  </Typography>
+                </CardContent>
+                <CardActions>
+                  <Button
+                    size="small"
+                    color="primary"
+                    onClick={() => router.push(`/proyectos/${proyecto.id}`)}
+                  >
+                    Ver Detalles
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     </Box>
   )

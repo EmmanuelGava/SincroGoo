@@ -35,7 +35,7 @@ import SlideshowOutlinedIcon from '@mui/icons-material/SlideshowOutlined';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import DevicesOutlinedIcon from '@mui/icons-material/DevicesOutlined';
 import Image from "next/image"
-import { useThemeMode } from "@/lib/theme"
+import { useThemeMode } from "@/app/lib/theme"
 import { ThemeToggleButton } from "./ThemeToggleButton"
 import { useRouter } from "next/navigation"
 

@@ -24,6 +24,13 @@ const nextConfig = {
         ]
       }
     ]
+  },
+  // Configuración para rutas API dinámicas
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+    externalResolver: true,
   }
 }
 

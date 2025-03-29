@@ -28,17 +28,49 @@ const createAppTheme = (mode: ThemeMode) => createTheme({
     mode,
     primary: {
       main: '#6534ac',
-      light: mode === 'dark' ? '#8c5fd0' : '#8c5fd0',
-      dark: mode === 'dark' ? '#4b2680' : '#4b2680',
+      light: '#8c5fd0',
+      dark: '#4b2680',
       contrastText: '#ffffff',
     },
     secondary: {
       main: '#2d364c',
-      light: mode === 'dark' ? '#535b70' : '#535b70',
-      dark: mode === 'dark' ? '#1a202e' : '#1a202e',
+      light: '#535b70',
+      dark: '#1a202e',
       contrastText: '#ffffff',
     },
-    // ... resto de la configuración del tema ...
+    background: {
+      default: mode === 'dark' ? '#121212' : '#f5f5f5',
+      paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+    },
+    text: {
+      primary: mode === 'dark' ? '#ffffff' : '#000000',
+      secondary: mode === 'dark' ? '#b0b0b0' : '#666666',
+    },
+  },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: mode === 'dark' ? '#121212' : '#f5f5f5',
+          color: mode === 'dark' ? '#ffffff' : '#000000',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+          borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+        },
+      },
+    },
   },
 });
 

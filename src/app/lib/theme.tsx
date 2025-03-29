@@ -25,7 +25,7 @@ export const useThemeMode = () => {
 
 // Función para crear el tema
 const createAppTheme = (mode: PaletteMode) => {
-  const theme = createTheme({
+  return createTheme({
     palette: {
       mode,
       primary: {
@@ -41,6 +41,10 @@ const createAppTheme = (mode: PaletteMode) => {
       background: {
         default: mode === 'dark' ? '#121212' : '#f5f5f5',
         paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+      },
+      text: {
+        primary: mode === 'dark' ? '#ffffff' : '#000000',
+        secondary: mode === 'dark' ? '#b0b0b0' : '#666666',
       },
     },
     typography: {
@@ -68,6 +72,34 @@ const createAppTheme = (mode: PaletteMode) => {
       borderRadius: 8,
     },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            backgroundColor: mode === 'dark' ? '#121212' : '#f5f5f5',
+            color: mode === 'dark' ? '#ffffff' : '#000000',
+            transition: 'background-color 0.3s ease, color 0.3s ease',
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+            backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+            transition: 'background-color 0.3s ease, border-color 0.3s ease',
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+            transition: 'background-color 0.3s ease, border-color 0.3s ease',
+          },
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {
@@ -76,42 +108,54 @@ const createAppTheme = (mode: PaletteMode) => {
           },
         },
       },
-      MuiPaper: {
+      MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundImage: 'none',
+            backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+            transition: 'background-color 0.3s ease, border-color 0.3s ease',
           },
         },
       },
     },
   })
-
-  return theme
 }
 
 // Proveedor del tema
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Intentar obtener el modo del tema del localStorage
   const [mode, setMode] = useState<PaletteMode>('light')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const savedMode = localStorage.getItem('themeMode') as PaletteMode
     if (savedMode) {
       setMode(savedMode)
+      document.documentElement.setAttribute('data-theme', savedMode)
+      document.documentElement.style.setProperty('color-scheme', savedMode)
     } else {
-      // Si no hay tema guardado, usar la preferencia del sistema
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setMode(prefersDark ? 'dark' : 'light')
+      const initialMode = prefersDark ? 'dark' : 'light'
+      setMode(initialMode)
+      document.documentElement.setAttribute('data-theme', initialMode)
+      document.documentElement.style.setProperty('color-scheme', initialMode)
     }
   }, [])
-
-  const theme = createAppTheme(mode)
 
   const toggleMode = () => {
     const newMode = mode === 'light' ? 'dark' : 'light'
     setMode(newMode)
     localStorage.setItem('themeMode', newMode)
+    document.documentElement.setAttribute('data-theme', newMode)
+    document.documentElement.style.setProperty('color-scheme', newMode)
   }
+
+  // Evitar problemas de hidratación
+  if (!mounted) {
+    return null
+  }
+
+  const theme = createAppTheme(mode)
 
   return (
     <ThemeModeContext.Provider value={{ mode, toggleMode }}>

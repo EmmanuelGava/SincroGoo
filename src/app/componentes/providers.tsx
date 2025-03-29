@@ -2,16 +2,16 @@
 
 import { ReactNode } from "react"
 import { SessionProvider } from "next-auth/react"
+import { ThemeContext } from "@/app/theme"
 import { Toaster } from "sonner"
-import { ThemeProvider } from "@/app/lib/theme"
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <ThemeProvider>
+      <ThemeContext>
         {children}
-        <Toaster />
-      </ThemeProvider>
+        <Toaster richColors position="top-right" />
+      </ThemeContext>
     </SessionProvider>
   )
 } 

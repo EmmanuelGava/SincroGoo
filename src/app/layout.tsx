@@ -2,8 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/app/componentes/providers"
-import ClientLayout from "@/app/componentes/client-layout"
-import { ThemeProvider } from "@/lib/theme"
+import EmotionRegistry from "./registry"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -14,10 +13,56 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "SincroGoo - Sincroniza tus documentos de Google",
   description: "Sincroniza precios entre Google Sheets y Google Slides fácilmente",
-  generator: 'v0.dev',
+  generator: 'Next.js',
+  applicationName: 'SincroGoo',
+  referrer: 'origin-when-cross-origin',
+  keywords: ['Google Slides', 'Google Sheets', 'Sincronización', 'Automatización', 'Presentaciones', 'Hojas de cálculo'],
+  authors: [{ name: 'Emmanuel Gava' }],
+  colorScheme: 'dark light',
+  creator: 'Emmanuel Gava',
+  publisher: 'Emmanuel Gava',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    title: "SincroGoo - Sincroniza tus documentos de Google",
+    description: "Sincroniza precios entre Google Sheets y Google Slides fácilmente",
+    url: 'https://sincrogoo.vercel.app',
+    siteName: 'SincroGoo',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+      }
+    ],
+    locale: 'es_ES',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SincroGoo - Sincroniza tus documentos de Google',
+    description: 'Sincroniza precios entre Google Sheets y Google Slides fácilmente',
+    images: ['/og-image.png'],
+    creator: '@emmanuelgava',
+  },
   icons: {
     icon: '/favicon.ico',
-  }
+    shortcut: '/favicon-16x16.png',
+    apple: '/apple-touch-icon.png',
+    other: {
+      rel: 'apple-touch-icon-precomposed',
+      url: '/apple-touch-icon-precomposed.png',
+    },
+  },
+  manifest: '/site.webmanifest',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 }
 
 // Definir la política de seguridad de contenido
@@ -42,12 +87,10 @@ export default function RootLayout({
       <head>
         <meta httpEquiv="Content-Security-Policy" content={cspContent.replace(/\s+/g, ' ').trim()} />
       </head>
-      <body className="font-sans antialiased">
-        <Providers>
-          <ThemeProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </ThemeProvider>
-        </Providers>
+      <body className={inter.className}>
+        <EmotionRegistry>
+          <Providers>{children}</Providers>
+        </EmotionRegistry>
       </body>
     </html>
   )

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Container, Grid, Paper, Typography, TextField, Button, Slider, FormControlLabel, Switch, LinearProgress, Tooltip, List, ListItem, ListItemText, Alert, Checkbox, Rating, Select, MenuItem, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails, IconButton, Autocomplete, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from '@mui/material';
 import { GooglePlacesService, Lugar } from './servicios/google-places-service';
 import { MapaEstablecimientos } from './componentes/MapaEstablecimientos';
@@ -86,7 +86,15 @@ export default function ExplorerPage() {
     mostrarHistorial: false
   });
 
-  const googlePlacesService = GooglePlacesService.getInstance();
+  const googlePlacesService = useMemo(() => {
+    try {
+      return GooglePlacesService.getInstance();
+    } catch (error) {
+      console.error('Error al inicializar GooglePlacesService:', error);
+      return null;
+    }
+  }, []);
+
   const googleSheetsService = GoogleSheetsService.getInstance();
 
   const obtenerUbicacionActual = useCallback(() => {
@@ -339,6 +347,24 @@ export default function ExplorerPage() {
             </Typography>
             <Typography color="text.secondary">
               Necesitas estar autenticado para acceder a esta funcionalidad.
+            </Typography>
+          </Paper>
+        </Container>
+      </>
+    );
+  }
+
+  if (!googlePlacesService) {
+    return (
+      <>
+        <EncabezadoSistema />
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="h6" gutterBottom color="error">
+              Error de Configuración
+            </Typography>
+            <Typography color="text.secondary">
+              El servicio de Google Places no está configurado correctamente. Por favor, contacta al administrador del sistema.
             </Typography>
           </Paper>
         </Container>

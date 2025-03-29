@@ -163,9 +163,15 @@ export default function ExplorerPage() {
       return;
     }
 
+    if (!googlePlacesService) {
+      setState(prev => ({ ...prev, error: 'El servicio de Google Places no está disponible' }));
+      return;
+    }
+
     try {
       setState(prev => ({ ...prev, cargando: true, error: null }));
-      const resultados = await googlePlacesService.buscarEstablecimientos(
+      const service = googlePlacesService!;
+      const resultados = await service.buscarEstablecimientos(
         state.busqueda,
         state.centro.lat,
         state.centro.lng,
@@ -184,9 +190,15 @@ export default function ExplorerPage() {
   };
 
   const handleSeleccionarEstablecimiento = async (establecimiento: Lugar) => {
+    if (!googlePlacesService) {
+      setState(prev => ({ ...prev, error: 'El servicio de Google Places no está disponible' }));
+      return;
+    }
+
     try {
       setState(prev => ({ ...prev, cargando: true }));
-      const detalles = await googlePlacesService.obtenerDetallesLugar(establecimiento.id);
+      const service = googlePlacesService!;
+      const detalles = await service.obtenerDetallesLugar(establecimiento.id);
       setState(prev => ({
         ...prev,
         establecimientoSeleccionado: detalles,
@@ -291,13 +303,19 @@ export default function ExplorerPage() {
   }, [cargarHistorial]);
 
   const handleBuscar = async () => {
+    if (!googlePlacesService) {
+      setState(prev => ({ ...prev, error: 'El servicio de Google Places no está disponible' }));
+      return;
+    }
+
     try {
       setState(prev => ({ ...prev, cargando: true }));
       // Primero buscar la ubicación
       await buscarUbicacion();
       
       // Luego buscar establecimientos
-      const resultados = await googlePlacesService.buscarEstablecimientos(
+      const service = googlePlacesService!;
+      const resultados = await service.buscarEstablecimientos(
         state.busqueda,
         state.centro.lat,
         state.centro.lng,

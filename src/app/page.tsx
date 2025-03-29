@@ -233,27 +233,28 @@ const globalStyles = {
   },
 };
 
-// Aplicar estilos globales
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes rotate {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
-`;
-if (typeof document !== 'undefined') {
-  document.head.appendChild(style);
-}
-
 export default function HomePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const theme = useTheme<Theme>()
   const { mode, toggleMode } = useThemeMode()
+
+  // Aplicar estilos globales
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes rotate {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+      return () => {
+        document.head.removeChild(style);
+      };
+    }
+  }, []);
 
   const customTheme = createTheme({
     palette: {

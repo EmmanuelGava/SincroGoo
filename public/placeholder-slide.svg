@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="450" viewBox="0 0 800 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="450" fill="#F5F5F5"/>
+  <path d="M400 225h-50M400 225v-50M400 225h50M400 225v50" stroke="#999" stroke-width="4"/>
+  <text x="400" y="300" text-anchor="middle" font-family="Arial" font-size="14" fill="#666">
+    Error al cargar miniatura
+  </text>
+</svg> 

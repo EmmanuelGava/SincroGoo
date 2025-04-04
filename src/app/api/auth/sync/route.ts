@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { supabase, authService } from '@/servicios/supabase/globales/auth-service'
+import authService from '@/lib/supabase/services/auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/options'
 
 export async function GET() {
   try {
     // Obtener la sesión de NextAuth
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -14,8 +15,12 @@ export async function GET() {
       )
     }
     
-    // Sincronizar el usuario con Supabase
-    const usuario = await authService.sincronizarUsuario(session.user)
+    // Sincronizar el usuario con Supabase usando el nuevo método
+    const usuario = await authService.sincronizarUsuario({
+      email: session.user.email,
+      name: session.user.name || '',
+      image: session.user.image || ''
+    });
     
     if (!usuario) {
       return NextResponse.json(
@@ -24,27 +29,16 @@ export async function GET() {
       )
     }
     
-    // Verificar si hay una sesión en Supabase
-    const { data: { session: supabaseSession }, error: sessionError } = await supabase.auth.getSession()
-    
-    if (sessionError) {
-      return NextResponse.json(
-        { error: 'Error al verificar sesión de Supabase', details: sessionError },
-        { status: 500 }
-      )
-    }
-    
     // Devolver información sobre la sincronización
     return NextResponse.json({
       success: true,
       usuario,
-      supabaseSession: !!supabaseSession,
       message: 'Usuario sincronizado correctamente'
     })
   } catch (error) {
-    console.error('Error en API de sincronización:', error)
+    console.error('❌ [Sync] Error en endpoint:', error);
     return NextResponse.json(
-      { error: 'Error interno del servidor', details: error },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }
@@ -53,7 +47,7 @@ export async function GET() {
 export async function POST() {
   try {
     // Obtener la sesión de NextAuth
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -62,8 +56,12 @@ export async function POST() {
       )
     }
     
-    // Sincronizar el usuario con Supabase
-    const usuario = await authService.sincronizarUsuario(session.user)
+    // Sincronizar el usuario con Supabase usando el nuevo método
+    const usuario = await authService.sincronizarUsuario({
+      email: session.user.email,
+      name: session.user.name || '',
+      image: session.user.image || ''
+    });
     
     if (!usuario) {
       return NextResponse.json(
@@ -79,9 +77,9 @@ export async function POST() {
       message: 'Usuario sincronizado correctamente'
     })
   } catch (error) {
-    console.error('Error en API de sincronización:', error)
+    console.error('❌ [Sync] Error en endpoint:', error);
     return NextResponse.json(
-      { error: 'Error interno del servidor', details: error },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     )
   }

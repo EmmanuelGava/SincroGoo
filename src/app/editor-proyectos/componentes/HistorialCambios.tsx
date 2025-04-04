@@ -32,10 +32,12 @@ import {
   Slideshow as SlideshowIcon,
   FilterList as FilterListIcon
 } from "@mui/icons-material"
-import { ElementoDiapositiva } from "@/tipos/diapositivas"
-import { FilaHoja } from "@/tipos/hojas"
-import { useThemeMode } from "@/lib/theme"
+import { ElementoDiapositiva } from "@/types/elementos"
+import { useThemeMode } from "@/app/lib/theme"
 import { useSession } from "next-auth/react"
+import { useSlides } from "../contexts/SlidesContext"
+import { useSheets } from "../contexts/SheetsContext"
+import { useUI } from "../contexts/UIContext"
 
 // Tipos de cambios
 type TipoCambio = 'tabla' | 'diapositiva' | 'todos';
@@ -56,21 +58,11 @@ interface CambioHistorial {
 interface HistorialCambiosProps {
   abierto: boolean;
   onCerrar: () => void;
-  onRestaurarElemento?: (elementoId: string, contenido: string) => void;
-  onRestaurarCelda?: (filaId: string, columna: string, valor: string) => void;
-  idPresentacion?: string;
-  idHojaCalculo?: string;
-  idDiapositiva?: string;
 }
 
 export function HistorialCambios({
   abierto,
   onCerrar,
-  onRestaurarElemento,
-  onRestaurarCelda,
-  idPresentacion,
-  idHojaCalculo,
-  idDiapositiva
 }: HistorialCambiosProps) {
   const [cargando, setCargando] = useState(false);
   const [cambios, setCambios] = useState<CambioHistorial[]>([]);
@@ -81,6 +73,23 @@ export function HistorialCambios({
   const theme = useTheme();
   const { mode } = useThemeMode();
   const { data: session } = useSession();
+
+  // Obtener los contextos
+  const { 
+    setElementosModificados,
+    elementosModificados,
+    diapositivaSeleccionada,
+    idPresentacion
+  } = useSlides();
+
+  const {
+    idHojaCalculo,
+    sincronizarHojas
+  } = useSheets();
+
+  const {
+    setCambiosPendientes
+  } = useUI();
   
   // Cargar historial de cambios
   const cargarHistorial = async () => {
@@ -175,6 +184,24 @@ export function HistorialCambios({
       setCargando(false);
     }
   };
+
+  // Función para restaurar un elemento de diapositiva
+  const restaurarElemento = (elementoId: string, contenido: string) => {
+    const elementosActualizados = elementosModificados.map(elem => 
+      elem.id === elementoId 
+        ? { ...elem, contenido }
+        : elem
+    );
+    setElementosModificados(elementosActualizados);
+    setCambiosPendientes(true);
+  };
+
+  // Función para restaurar una celda de la tabla
+  const restaurarCelda = async (filaId: string, columnaId: string, valor: string) => {
+    // Aquí iría la lógica para actualizar la celda en la hoja de cálculo
+    // Por ahora solo actualizamos el estado local y recargamos los datos
+    await sincronizarHojas();
+  };
   
   // Manejar cambio de tipo
   const handleTipoCambio = (event: SelectChangeEvent) => {
@@ -229,24 +256,24 @@ export function HistorialCambios({
   
   // Renderizar el botón de restaurar según el tipo de cambio
   const renderizarBotonRestaurar = (cambio: CambioHistorial) => {
-    if (cambio.tipo === 'diapositiva' && onRestaurarElemento && cambio.elemento) {
+    if (cambio.tipo === 'diapositiva' && cambio.elemento) {
       return (
         <Button 
           variant="text" 
           size="small"
           startIcon={<RestartAltIcon />}
-          onClick={() => onRestaurarElemento(cambio.elemento as string, cambio.contenidoAnterior)}
+          onClick={() => restaurarElemento(cambio.elemento as string, cambio.contenidoAnterior)}
         >
           Restaurar
         </Button>
       );
-    } else if (cambio.tipo === 'tabla' && onRestaurarCelda && cambio.fila && cambio.columna) {
+    } else if (cambio.tipo === 'tabla' && cambio.fila && cambio.columna) {
       return (
         <Button 
           variant="text" 
           size="small"
           startIcon={<RestartAltIcon />}
-          onClick={() => onRestaurarCelda(cambio.fila as string, cambio.columna as string, cambio.contenidoAnterior)}
+          onClick={() => restaurarCelda(cambio.fila as string, cambio.columna as string, cambio.contenidoAnterior)}
         >
           Restaurar
         </Button>

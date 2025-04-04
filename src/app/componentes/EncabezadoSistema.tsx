@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
@@ -28,6 +28,7 @@ import Badge from '@mui/material/Badge';
 import Chip from '@mui/material/Chip';
 import { alpha } from '@mui/system';
 import Image from 'next/image';
+import { toast } from 'sonner';
 
 import { useThemeMode } from "@/app/lib/theme"
 import { ThemeToggleButton } from './ThemeToggleButton';
@@ -41,6 +42,7 @@ import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 // Páginas principales del sistema
 const pages = [
@@ -58,11 +60,13 @@ const userMenuItems = [
 ];
 
 export function EncabezadoSistema() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
   const { mode } = useThemeMode();
   const [avatarError, setAvatarError] = useState(false);
   const router = useRouter();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const anchorRef = useRef<HTMLDivElement>(null);
   
   // Estados para los menús
   const [anchorElNav, setAnchorElNav] = useState<null | HTMLElement>(null);
@@ -96,28 +100,116 @@ export function EncabezadoSistema() {
     router.push(href);
   };
 
+  // Abrir y cerrar menú de perfil
+  const handleToggleProfileMenu = () => {
+    setShowProfileMenu((prevOpen) => !prevOpen);
+  };
+
+  const handleCloseProfileMenu = (event: MouseEvent | TouchEvent) => {
+    if (anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
+      return;
+    }
+    setShowProfileMenu(false);
+  };
+
   // Función para manejar la imagen de perfil de manera segura
   const getProfileImage = () => {
-    if (avatarError || !session?.user?.image) {
-      return <PersonOutlineOutlinedIcon />;
+    // Si tenemos la imagen en la sesión y no hay error, usarla
+    if (!avatarError && session?.user?.image) {
+      try {
+        // Asegurar que la URL sea segura para diferentes formatos
+        let imageUrl = session.user.image;
+        
+        // Corregir URL de Google
+        if (imageUrl.includes('googleusercontent.com')) {
+          // Obtener la URL base sin parámetros
+          const baseUrl = imageUrl.split('=')[0];
+          // Añadir parámetro para tamaño y recorte
+          imageUrl = `${baseUrl}=s96-c`;
+          
+          // Guardar la URL en localStorage para usarla como respaldo
+          localStorage.setItem('userProfileImage', imageUrl);
+        }
+        
+        return (
+          <Avatar 
+            src={imageUrl} 
+            alt={session.user.name || "Usuario"}
+            sx={{ 
+              width: 32, 
+              height: 32,
+              border: '2px solid',
+              borderColor: 'primary.main',
+              boxShadow: '0 0 0 2px rgba(101, 52, 172, 0.1)'
+            }}
+            imgProps={{
+              referrerPolicy: "no-referrer",
+              crossOrigin: "anonymous",
+              loading: "eager",
+              onError: () => {
+                setAvatarError(true);
+              }
+            }}
+          />
+        );
+      } catch (error) {
+        setAvatarError(true);
+      }
     }
     
-    return (
-      <Avatar 
-        src={session.user.image} 
-        alt={session.user.name || "Usuario"} 
-        sx={{ 
-          width: 32, 
-          height: 32,
-          border: '2px solid',
-          borderColor: 'primary.main',
-          boxShadow: '0 0 0 2px rgba(101, 52, 172, 0.1)'
-        }}
-        imgProps={{
-          onError: () => setAvatarError(true)
-        }}
-      />
-    );
+    // Intentar usar la imagen guardada en localStorage si está disponible
+    const cachedImage = localStorage.getItem('userProfileImage');
+    if (cachedImage && !avatarError) {
+      return (
+        <Avatar 
+          src={cachedImage} 
+          alt={session?.user?.name || "Usuario"}
+          sx={{ 
+            width: 32, 
+            height: 32,
+            border: '2px solid',
+            borderColor: 'primary.main',
+            boxShadow: '0 0 0 2px rgba(101, 52, 172, 0.1)'
+          }}
+          imgProps={{
+            referrerPolicy: "no-referrer",
+            crossOrigin: "anonymous",
+            loading: "eager",
+            onError: () => {
+              setAvatarError(true);
+              // Limpiar caché si hay error
+              localStorage.removeItem('userProfileImage');
+            }
+          }}
+        />
+      );
+    }
+    
+    // Si todo falla, mostrar icono por defecto
+    return <PersonOutlineOutlinedIcon />;
+  };
+
+  // Obtener datos del usuario para mostrar en la UI
+  const userName = session?.user?.name || 'Usuario';
+  const userEmail = session?.user?.email || '';
+  const userImage = session?.user?.image;
+  const isAuthenticated = status === 'authenticated';
+
+  // Manejar evento de tecla para el menú de perfil
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setShowProfileMenu(false);
+    }
+  };
+
+  // Manejar cierre de sesión
+  const handleLogout = async () => {
+    try {
+      await signOut({ redirect: true, callbackUrl: '/' });
+    } catch (error) {
+      // En caso de error forzar redirección
+      window.location.href = '/';
+    }
   };
 
   return (
@@ -145,7 +237,7 @@ export function EncabezadoSistema() {
                   alt="SincroGoo Logo"
                   width={36}
                   height={36}
-                  style={{ height: 36, width: 'auto' }}
+                  style={{ objectFit: 'contain' }}
                   priority
                 />
               </Link>
@@ -262,7 +354,7 @@ export function EncabezadoSistema() {
                   alt="SincroGoo Logo"
                   width={32}
                   height={32}
-                  style={{ height: 32, width: 'auto' }}
+                  style={{ objectFit: 'contain' }}
                   priority
                 />
               </Link>
@@ -404,11 +496,30 @@ export function EncabezadoSistema() {
               >
                 <Box sx={{ px: 2, py: 1.5 }}>
                   <Typography variant="subtitle1" fontWeight="bold" noWrap>
-                    {session?.user?.name || "Usuario"}
+                    {userName}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" noWrap>
-                    {session?.user?.email || ""}
+                    {userEmail}
                   </Typography>
+                  
+                  {/* Mostrar diagnóstico de sesión si hay problemas */}
+                  {!isAuthenticated && (
+                    <Box sx={{ mt: 1, p: 1, bgcolor: 'warning.light', borderRadius: 1, fontSize: '0.7rem' }}>
+                      <Typography variant="caption" color="warning.dark">
+                        Sesión incompleta detectada
+                      </Typography>
+                      <Button 
+                        size="small" 
+                        color="primary" 
+                        variant="outlined" 
+                        fullWidth 
+                        sx={{ mt: 1, fontSize: '0.7rem' }}
+                        onClick={handleLogout}
+                      >
+                        Cerrar sesión
+                      </Button>
+                    </Box>
+                  )}
                 </Box>
                 
                 <Divider />
@@ -435,10 +546,7 @@ export function EncabezadoSistema() {
                 <MenuItem 
                   onClick={() => {
                     handleCloseUserMenu();
-                    signOut({ 
-                      callbackUrl: '/',
-                      redirect: true
-                    });
+                    handleLogout();
                   }}
                   sx={{ 
                     borderRadius: 1,

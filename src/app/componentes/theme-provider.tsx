@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { ThemeProvider as NextThemesProvider } from 'next-themes'
-import { ThemeProvider as MuiThemeProvider } from '@/lib/theme'
+import { ThemeProvider as MuiThemeProvider } from '@/app/lib/theme'
 
 interface ThemeProviderProps {
   children: React.ReactNode

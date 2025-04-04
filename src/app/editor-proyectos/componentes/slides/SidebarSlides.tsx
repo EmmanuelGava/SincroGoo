@@ -1,380 +1,283 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { 
   Drawer, 
   Box, 
   Typography, 
   IconButton, 
-  Divider, 
   CircularProgress, 
-  Grid, 
   Paper, 
-  Tooltip, 
-  useTheme
+  useTheme,
+  List,
+  ListItem,
+  ListItemButton
 } from "@mui/material"
 import { 
   Close as CloseIcon, 
-  Link as LinkIcon
+  Link as LinkIcon,
+  ImageNotSupported,
+  Warning as WarningIcon
 } from "@mui/icons-material"
-import { ElementoDiapositiva, VistaPreviaDiapositiva } from "@/tipos/diapositivas"
-import { FilaSeleccionada } from "@/tipos/hojas"
-import { EditorElementos } from "./EditorElementos"
+import { ElementoDiapositiva, VistaPreviaDiapositiva } from '../../types'
 import { useThemeMode } from "@/lib/theme"
-import { 
-  handleImageLoad, 
-  handleImageError, 
-  processDiapositivasWithCachedThumbnails,
-  buildThumbnailUrl
-} from "../../utils/thumbnailManager"
+import { useThumbnails } from "../../hooks/useThumbnails"
+import { useSlides } from "../../contexts"
+import { EditorElementos } from './EditorElementos'
 
 interface SidebarSlidesProps {
   sidebarAbierto: boolean
   setSidebarAbierto: (abierto: boolean) => void
-  cambiosPendientes: boolean
-  elementos: ElementoDiapositiva[]
-  elementosSeleccionados: string[]
-  elementosPrevia: ElementoDiapositiva[]
-  setElementosPrevia: (elementos: ElementoDiapositiva[]) => void
-  setMostrarVistaPrevia: (mostrar: boolean) => void
-  setCambiosPendientes: (pendientes: boolean) => void
-  diapositivas: VistaPreviaDiapositiva[]
-  diapositivaSeleccionada: VistaPreviaDiapositiva | null
-  cargandoDiapositivas: boolean
-  diapositivasConAsociaciones: Set<string>
-  filaSeleccionada: FilaSeleccionada | null
-  session: any
-  manejarSeleccionDiapositiva: (idDiapositiva: string, idElemento: string | null) => Promise<void>
-  actualizarElementos: (elementosActualizados: ElementoDiapositiva[]) => Promise<void>
-  previsualizarCambios: (elementosNuevos: ElementoDiapositiva[]) => void
-  setElementoSeleccionadoPopup: (elemento: ElementoDiapositiva | null) => void
-  token: string
-  idPresentacion: string
-  idHoja?: string
+  onDiapositivaSeleccionada?: (idDiapositiva: string) => void
 }
 
-export function SidebarSlides({
+export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
   sidebarAbierto,
   setSidebarAbierto,
-  cambiosPendientes,
-  elementos,
-  elementosSeleccionados,
-  elementosPrevia,
-  setElementosPrevia,
-  setMostrarVistaPrevia,
-  setCambiosPendientes,
-  diapositivas,
-  diapositivaSeleccionada,
-  cargandoDiapositivas,
-  diapositivasConAsociaciones,
-  filaSeleccionada,
-  session,
-  manejarSeleccionDiapositiva,
-  actualizarElementos,
-  previsualizarCambios,
-  setElementoSeleccionadoPopup,
-  token,
-  idPresentacion,
-  idHoja,
-}: SidebarSlidesProps) {
-  console.log('SidebarSlides - Renderizando con sidebarAbierto:', sidebarAbierto);
-  console.log('SidebarSlides - filaSeleccionada:', filaSeleccionada);
-  
+  onDiapositivaSeleccionada
+}) => {
   const theme = useTheme();
-  const { mode } = useThemeMode();
+  const { theme: themeMode } = useThemeMode();
+  const isDarkMode = themeMode === 'dark';
+  
+  const { 
+    diapositivas,
+    diapositivaSeleccionada,
+    diapositivasConAsociaciones,
+    cargandoDiapositivas,
+    idPresentacion,
+    manejarSeleccionDiapositiva
+  } = useSlides()
+  
+  // Usar el hook de thumbnails
+  const { thumbnails, cargandoThumbnails } = useThumbnails(diapositivas, idPresentacion);
   
   // Estado local para controlar la apertura del Drawer
-  const [open, setOpen] = useState(sidebarAbierto);
+  const [open, setOpen] = useState(false);
   
-  // Sincronizar el estado local con el prop
+  // Estado para errores de imagen
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  // Combinar diapositivas con thumbnails
+  const diapositivasConThumbnails: VistaPreviaDiapositiva[] = diapositivas.map(diapositiva => ({
+    ...diapositiva,
+    thumbnailUrl: thumbnails[diapositiva.id]
+  }));
+  
+  // Efecto para sincronizar el estado local con la prop
   useEffect(() => {
-    console.log('SidebarSlides - useEffect - sidebarAbierto cambió a:', sidebarAbierto);
     setOpen(sidebarAbierto);
+  }, [sidebarAbierto]);
 
-    // Si el sidebar se está abriendo y hay diapositivas disponibles pero ninguna seleccionada
-    if (sidebarAbierto && diapositivas.length > 0 && !diapositivaSeleccionada) {
-      console.log('Seleccionando primera diapositiva automáticamente:', diapositivas[0].id);
-      manejarSeleccionDiapositiva(diapositivas[0].id, null);
-    }
-  }, [sidebarAbierto, diapositivas, diapositivaSeleccionada, manejarSeleccionDiapositiva]);
-  
-  // Estado para las diapositivas con miniaturas en caché
-  const [diapositivasConCache, setDiapositivasConCache] = useState<Array<VistaPreviaDiapositiva & { urlImagenCached: string }>>([]);
-  
-  // Procesar diapositivas para añadir URLs de miniaturas en caché
-  useEffect(() => {
-    if (diapositivas.length > 0 && idPresentacion) {
-      // Primero, asegurarnos de que todas las diapositivas tengan una URL de miniatura
-      const diapositivasConUrl = diapositivas.map(diapositiva => {
-        // Si la diapositiva ya tiene una URL de imagen, usarla
-        if (diapositiva.urlImagen) {
-          console.log(`Diapositiva ${diapositiva.id} ya tiene URL:`, diapositiva.urlImagen);
-          return diapositiva;
-        }
-        
-        // Si no, construir la URL usando buildThumbnailUrl
-        const url = buildThumbnailUrl(idPresentacion, diapositiva.id);
-        console.log(`Diapositiva ${diapositiva.id} URL construida:`, url);
-        return {
-          ...diapositiva,
-          urlImagen: url
-        };
-      });
-      
-      // Asegurarse de que todas las diapositivas tengan una urlImagen definida
-      const diapositivasConUrlDefinida = diapositivasConUrl.map(d => ({
-        ...d,
-        urlImagen: d.urlImagen || ''  // Proporcionar un valor por defecto si es undefined
-      }));
-
-      // Luego, procesar las diapositivas para añadir URLs en caché
-      const diapositivasProcesadas = processDiapositivasWithCachedThumbnails(diapositivasConUrlDefinida);
-      console.log('Diapositivas procesadas con caché:', diapositivasProcesadas);
-      setDiapositivasConCache(diapositivasProcesadas as Array<VistaPreviaDiapositiva & { urlImagenCached: string }>);
-    }
-  }, [diapositivas, idPresentacion]);
-  
-  const handleOpenChange = (isOpen: boolean) => {
-    console.log('SidebarSlides - handleOpenChange:', isOpen);
-    
-    // Verificar si hay un popup de edición activo
-    const hayPopupActivo = document.querySelector('[data-popup-editor="true"]');
-    
-    // Si hay un popup activo, no permitimos cerrar el sidebar
-    if (!isOpen && hayPopupActivo) {
-      console.log('Hay un popup activo, evitando cierre del sidebar');
-      return; // No permitir cerrar el sidebar mientras hay un popup abierto
-    }
-    
-    // Cuando se cierra el sidebar, cerrar el popup de edición si está abierto
-    if (!isOpen && setElementoSeleccionadoPopup) {
-      setElementoSeleccionadoPopup(null);
-    }
-    
-    // Si estamos cerrando y hay cambios pendientes
-    if (!isOpen && cambiosPendientes) {
-      const guardarCambios = window.confirm('Hay cambios sin guardar. ¿Deseas guardar los cambios antes de cerrar?');
-      
-      if (guardarCambios) {
-        // Guardar cambios y luego cerrar
-        actualizarElementos(elementosPrevia)
-          .then(() => {
-            setOpen(false);
-            setSidebarAbierto(false);
-            setCambiosPendientes(false);
-          })
-          .catch(error => {
-            console.error('Error al guardar cambios:', error);
-          });
-        return; // No cerrar hasta que se complete la operación
-      } else {
-        const confirmarCierre = window.confirm('¿Estás seguro de que deseas cerrar sin guardar los cambios?');
-        if (!confirmarCierre) {
-          setOpen(true); // Mantener abierto
-          return;
-        }
-        // Si confirma el cierre sin guardar, continuar con el cierre
-      }
-    }
-    
-    // Actualizar ambos estados
-    setOpen(isOpen);
-    setSidebarAbierto(isOpen);
-    
-    // Si estamos cerrando, limpiar estados
-    if (!isOpen) {
-      setCambiosPendientes(false);
-      setElementosPrevia([]);
-      setMostrarVistaPrevia(false);
-    }
+  // Manejar el cierre del sidebar
+  const handleClose = () => {
+    console.log('🎯 [SidebarSlides] Cerrando sidebar');
+    setSidebarAbierto(false);
   };
-  
+
+  // Manejar errores de carga de imágenes
+  const handleImageError = (slideId: string) => {
+    setImageErrors(prev => ({ ...prev, [slideId]: true }));
+  };
+
+  const handleDiapositivaClick = (idDiapositiva: string) => {
+    if (onDiapositivaSeleccionada) {
+      onDiapositivaSeleccionada(idDiapositiva)
+    } else {
+      manejarSeleccionDiapositiva(idDiapositiva, null)
+    }
+  }
+
+  // Renderizar solo cuando tengamos datos válidos
+  if (!idPresentacion || (!cargandoDiapositivas && diapositivas.length === 0)) {
+    return null;
+  }
+
   return (
     <Drawer
       anchor="right"
       open={open}
-      onClose={() => handleOpenChange(false)}
-      sx={{
-        '& .MuiDrawer-paper': {
-          width: 600,
+      onClose={handleClose}
+      variant="persistent"
+      PaperProps={{
+        sx: {
+          width: '30%',
           boxSizing: 'border-box',
+          border: 'none',
           borderLeft: 1,
-          borderColor: 'divider',
-          boxShadow: 3
-        },
+          borderColor: 'divider'
+        }
+      }}
+      sx={{
+        width: open ? '30%' : 0,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: '30%'
+        }
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <Box sx={{ p: 2, pb: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight="600">
-              Editor de Diapositiva
-            </Typography>
-            <IconButton 
-              onClick={() => handleOpenChange(false)}
-              size="small"
-              edge="end"
-              aria-label="cerrar"
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            {filaSeleccionada 
-              ? `Editando elementos para la fila: ${filaSeleccionada.id}` 
-              : 'Selecciona una diapositiva para editar sus elementos'}
-          </Typography>
+      <Box sx={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
+        {/* Cabecera */}
+        <Box sx={{ 
+          p: 2, 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Typography variant="h6">Diapositivas</Typography>
+          <IconButton onClick={handleClose} size="small">
+            <CloseIcon />
+          </IconButton>
         </Box>
-        
-        <Divider />
-        
-        {cargandoDiapositivas ? (
+
+        {/* Contenido */}
+        <Box sx={{ 
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden'
+        }}>
+          {/* Lista de diapositivas */}
           <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            height: '100%' 
+            flex: '0 0 auto',
+            maxHeight: '40%',
+            overflowY: 'auto',
+            p: 2,
+            borderBottom: 1,
+            borderColor: 'divider'
           }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            height: 'calc(100vh - 80px)', 
-            overflow: 'hidden' 
-          }}>
-            {/* Contenedor de diapositivas (60% del alto) */}
-            <Box sx={{ height: '60%', overflow: 'hidden', p: 2, pb: 1 }}>
-              <Typography variant="h6" fontWeight="600" sx={{ mb: 1 }}>
-                Diapositivas
-              </Typography>
-              <Paper 
-                variant="outlined" 
-                sx={{ 
-                  height: 'calc(100% - 30px)', 
-                  overflow: 'auto',
-                  borderRadius: 1
-                }}
-              >
-                <Box sx={{ p: 1.5 }}>
-                  <Grid container spacing={1.5}>
-                    {diapositivasConCache.map((diapositiva) => (
-                      <Grid item xs={6} key={diapositiva.id}>
-                        <Paper
-                          elevation={0}
-                          onClick={() => manejarSeleccionDiapositiva(diapositiva.id, null)}
-                          sx={{
-                            cursor: 'pointer',
-                            overflow: 'hidden',
-                            borderRadius: 1,
-                            border: 1,
-                            borderColor: diapositivaSeleccionada?.id === diapositiva.id 
-                              ? 'primary.main' 
-                              : 'divider',
-                            bgcolor: diapositivaSeleccionada?.id === diapositiva.id 
-                              ? `${theme.palette.primary.main}10` 
-                              : 'background.paper',
-                            '&:hover': {
-                              boxShadow: 2,
-                              borderColor: 'primary.main'
-                            },
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          <Box sx={{ position: 'relative' }}>
-                            <Box 
-                              component="img"
-                              src={diapositiva.urlImagenCached || '/placeholder-slide.png'}
-                              alt={diapositiva.titulo}
+            {cargandoDiapositivas ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <List sx={{ p: 0 }}>
+                {diapositivasConThumbnails.map((slide) => {
+                  const isSelected = diapositivaSeleccionada?.id === slide.id;
+                  const hasAssociations = diapositivasConAsociaciones.has(slide.id);
+                  const hasError = imageErrors[slide.id];
+
+                  // Formatear el título
+                  const titulo = !slide.titulo ? 
+                    `Diapositiva ${(slide.indice || 0) + 1}` : 
+                    typeof slide.titulo === 'string' ? 
+                      slide.titulo : 
+                      slide.titulo.texto || `Diapositiva ${(slide.indice || 0) + 1}`;
+
+                  return (
+                    <ListItem
+                      key={slide.id}
+                      disablePadding
+                      sx={{
+                        mb: 1,
+                        borderRadius: 1,
+                        border: 1,
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        bgcolor: isSelected ? 'action.selected' : 'background.paper'
+                      }}
+                    >
+                      <ListItemButton
+                        onClick={() => handleDiapositivaClick(slide.id)}
+                        sx={{ p: 1 }}
+                      >
+                        <Box sx={{ width: '100%' }}>
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: 120,
+                              borderRadius: 1,
+                              overflow: 'hidden',
+                              mb: 1,
+                              bgcolor: isDarkMode ? 'grey.800' : 'grey.100',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <Paper
+                              elevation={2}
                               sx={{
+                                position: 'relative',
                                 width: '100%',
-                                aspectRatio: '16/9',
-                                objectFit: 'contain',
-                                bgcolor: 'white',
-                                display: 'block'
-                              }}
-                              onLoad={(e) => {
-                                console.log(`Imagen cargada para diapositiva ${diapositiva.id}:`, (e.target as HTMLImageElement).src);
-                                handleImageLoad(diapositiva.id, diapositiva.urlImagen || '');
-                              }}
-                              onError={(e) => {
-                                console.error(`Error al cargar imagen para diapositiva ${diapositiva.id}:`, (e.target as HTMLImageElement).src);
-                                handleImageError(e, diapositiva.id);
-                              }}
-                            />
-                            
-                            {/* Indicador de elementos asociados */}
-                            {diapositivasConAsociaciones.has(diapositiva.id) && (
-                              <Tooltip 
-                                title="Esta diapositiva contiene elementos asociados a celdas"
-                                arrow
-                              >
-                                <Box 
-                                  sx={{
-                                    position: 'absolute',
-                                    top: 8,
-                                    right: 8,
-                                    bgcolor: 'primary.main',
-                                    color: 'white',
-                                    borderRadius: '50%',
-                                    p: 0.5,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    boxShadow: 1
-                                  }}
-                                >
-                                  <LinkIcon sx={{ fontSize: 14 }} />
-                                </Box>
-                              </Tooltip>
-                            )}
-                          </Box>
-                          <Box sx={{ p: 1 }}>
-                            <Typography 
-                              variant="body2" 
-                              fontWeight="500"
-                              sx={{
+                                paddingTop: '56.25%',
+                                backgroundColor: isDarkMode ? 'grey.800' : 'grey.200',
                                 overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
+                                borderRadius: 1,
                               }}
                             >
-                              {diapositiva.titulo}
-                            </Typography>
+                              {slide.thumbnailUrl && !hasError ? (
+                                <img
+                                  src={slide.thumbnailUrl}
+                                  alt={`Miniatura de ${titulo}`}
+                                  onError={() => handleImageError(slide.id)}
+                                  style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                    opacity: hasError ? 0.3 : 1
+                                  }}
+                                />
+                              ) : (
+                                <Box
+                                  sx={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                >
+                                  {cargandoThumbnails ? (
+                                    <CircularProgress size={24} />
+                                  ) : (
+                                    <ImageNotSupported sx={{ fontSize: 40, opacity: 0.5 }} />
+                                  )}
+                                </Box>
+                              )}
+                            </Paper>
                           </Box>
-                        </Paper>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              </Paper>
-            </Box>
-            
-            {/* Contenedor de elementos (40% del alto) */}
-            <Box sx={{ height: '40%', overflow: 'hidden', p: 2, pt: 1 }}>
-              <EditorElementos
-                token={token}
-                diapositivaSeleccionada={diapositivaSeleccionada}
-                elementos={elementos}
-                elementosSeleccionados={elementosSeleccionados}
-                alSeleccionarDiapositiva={manejarSeleccionDiapositiva}
-                alActualizarElementos={actualizarElementos}
-                alActualizarElementosDiapositiva={previsualizarCambios}
-                filaSeleccionada={filaSeleccionada}
-                abierto={sidebarAbierto}
-                alCambiarApertura={setSidebarAbierto}
-                diapositivas={diapositivas}
-                onEditarElemento={(elemento) => {
-                  setElementoSeleccionadoPopup(elemento)
-                }}
-                idPresentacion={idPresentacion}
-                idHoja={idHoja}
-              />
-            </Box>
+                          <Box sx={{ px: 1 }}>
+                            <Typography variant="subtitle2" noWrap>
+                              {titulo}
+                            </Typography>
+                            {hasAssociations && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <LinkIcon sx={{ fontSize: 14, color: 'primary.main' }} />
+                                <Typography variant="caption" color="primary">
+                                  Con asociaciones
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            )}
           </Box>
-        )}
+
+          {/* Editor de elementos */}
+          <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            <EditorElementos />
+          </Box>
+        </Box>
       </Box>
     </Drawer>
-  )
-} 
+  );
+}; 

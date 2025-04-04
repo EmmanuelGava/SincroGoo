@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from "@/componentes/ui/button"
+import { Button } from "@/componentes/ui"
 import { Card, CardContent } from "@/componentes/ui/card"
 import { ScrollArea } from "@/componentes/ui/scroll-area"
 import { Check, X, Loader2 } from "lucide-react"
@@ -62,8 +62,12 @@ export function VistaPreviaCambios({ cambios, alAplicar, alCancelar, cargando = 
       </ScrollArea>
       
       <div className="p-4 border-t flex justify-end gap-2">
-        <Button variant="outline" onClick={alCancelar} disabled={cargando}>
-          <X className="mr-2 h-4 w-4" />
+        <Button 
+          variant="outlined" 
+          onClick={alCancelar} 
+          disabled={cargando}
+          startIcon={<X />}
+        >
           Cancelar
         </Button>
         <Button onClick={alAplicar} disabled={cambios.length === 0 || cargando}>

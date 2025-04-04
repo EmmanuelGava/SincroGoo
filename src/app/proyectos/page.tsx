@@ -1,314 +1,228 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { redirect } from "next/navigation"
-import { toast } from "sonner"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { Container, Typography, Button, Box, TextField, CircularProgress, Stack } from '@mui/material'
+import { toast } from 'sonner'
+import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema'
+import ListaProyectos from '@/app/proyectos/componentes/ListaProyectos'
 
-// Material UI
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
-import Tabs from '@mui/material/Tabs'
-import Tab from '@mui/material/Tab'
-import CircularProgress from '@mui/material/CircularProgress'
-import Alert from '@mui/material/Alert'
-import AddOutlinedIcon from '@mui/icons-material/AddOutlined'
-import { InputAdornment } from '@mui/material'
-import { Grid, Card, CardContent, CardActions } from '@mui/material'
-
-// Componentes propios
-import { EncabezadoSitio } from "@/app/componentes/EncabezadoSitio"
-import { EncabezadoSistema } from "@/app/componentes/EncabezadoSistema"
-import { BotonPrincipal } from '@/app/componentes/BotonPrincipal'
-import { ListaProyectos } from '@/app/componentes/proyectos/ListaProyectos'
-
-// Servicios
-import { ProyectosService, Proyecto } from "@/app/servicios/supabase/tablas/proyectos-service"
-import { authService } from "@/app/servicios/supabase/globales/auth-service"
+// Definir tipo Proyecto directamente
+interface Proyecto {
+  id: string;
+  usuario_id: string;
+  nombre: string;
+  descripcion: string;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+  sheets_id: string | null;
+  slides_id: string | null;
+  hojastitulo: string | null;
+  presentaciontitulo: string | null;
+}
 
 export default function PaginaProyectos() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [cargando, setCargando] = useState(true)
-  const [busqueda, setBusqueda] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [usuarioSupabase, setUsuarioSupabase] = useState<any | null>(null)
+  const [busqueda, setBusqueda] = useState('')
 
+  // Redirigir si no hay sesión
   useEffect(() => {
-    if (status === "loading") return;
-    
-    // Redirigir a login si no está autenticado
-    if (status === "unauthenticated") {
-      redirect("/auth/login");
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
     }
-    
-    // Si el usuario está autenticado, sincronizar con Supabase
-    if (status === "authenticated" && session && session.user) {
-      console.log('Usuario autenticado:', session.user.email);
-      
-      // Obtener el ID del usuario de la sesión o de los metadatos
-      const userId = session.user.id || (session.user as any).sub;
-      
-      if (!userId) {
-        console.log('⚠️ No se encontró ID en session.user, intentando obtener de session directamente');
-        console.log('Datos de sesión:', JSON.stringify(session, null, 2));
-        
-        // Intentar obtener el ID del proveedor desde la sesión completa
-        // Esto es un fallback por si acaso la estructura de la sesión cambia
-        const sessionAny = session as any;
-        const fallbackId = sessionAny.sub || sessionAny.providerAccountId;
-        
-        if (fallbackId) {
-          console.log('ID alternativo encontrado:', fallbackId);
-          
-          // Sincronizar usuario con Supabase usando el ID alternativo
-          const userWithId = { ...session.user, id: fallbackId };
-          authService.sincronizarUsuario(userWithId).then(usuario => {
-            if (usuario) {
-              console.log('Usuario sincronizado correctamente con ID alternativo:', usuario.email, 'con ID:', usuario.userid);
-              setUsuarioSupabase(usuario);
-              cargarProyectos(usuario.userid);
-            } else {
-              setError('Error de sincronización: No se pudo sincronizar el usuario con Supabase');
-              setCargando(false);
-            }
-          }).catch(error => {
-            console.error('Error al sincronizar usuario:', error);
-            setError('Error de sincronización: ' + (error.message || 'Error desconocido'));
-            setCargando(false);
-          });
-          return;
-        }
-        
-        setError('Error de autenticación: No se pudo obtener un ID de usuario válido');
-        setCargando(false);
-        return;
-      }
-      
-      console.log('ID de usuario encontrado en sesión:', userId);
-      
-      // Sincronizar usuario con Supabase
-      authService.sincronizarUsuario(session.user).then(usuario => {
-        if (usuario) {
-          console.log('Usuario sincronizado correctamente:', usuario.email, 'con ID:', usuario.userid);
-          setUsuarioSupabase(usuario);
-          cargarProyectos(usuario.userid);
-        } else {
-          console.error('Error: No se pudo sincronizar el usuario con Supabase');
-          setError('Error de sincronización: No se pudo sincronizar el usuario con Supabase');
-          setCargando(false);
-        }
-      }).catch(error => {
-        console.error('Error al sincronizar usuario:', error);
-        setError('Error de sincronización: ' + (error.message || 'Error desconocido'));
-        setCargando(false);
-      });
-    }
-  }, [status, session])
+  }, [status, router])
 
-  const cargarProyectos = async (userId: string) => {
-    try {
-      setCargando(true);
-      console.log('🔄 Cargando proyectos para el usuario:', userId);
-      const proyectos = await ProyectosService.listarProyectos(userId);
-      setProyectos(proyectos);
-      console.log('✅ Proyectos cargados:', proyectos);
-    } catch (error) {
-      console.error('❌ Error al cargar proyectos:', error);
-      setError('Error al cargar los proyectos');
-    } finally {
+  // Cargar proyectos cuando tengamos una sesión válida
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.email) {
+      console.log('✅ [Proyectos] Sesión autenticada, cargando proyectos');
+      cargarProyectos();
+    } else if (status === 'authenticated' && !session?.user?.email) {
+      console.warn('⚠️ [Proyectos] Sesión autenticada pero sin email');
+      setError('Sesión incompleta - por favor inicia sesión de nuevo');
+      setCargando(false);
+    } else if (status === 'loading') {
+      console.log('⏳ [Proyectos] Cargando sesión...');
+    } else {
+      console.log('❌ [Proyectos] No hay sesión');
+      setError('No hay sesión activa');
       setCargando(false);
     }
+  }, [status, session]);
+
+  const cargarProyectos = async () => {
+    try {
+      console.log('🔍 [Proyectos] Cargando proyectos');
+      
+      if (!session?.user?.email) {
+        throw new Error('No hay un usuario autenticado');
+      }
+      
+      // Obtener el ID del usuario de Google de la sesión
+      const auth_id = session.user.id;
+      const email = session.user.email;
+      const nombre = session.user.name;
+      
+      console.log(`🔑 [Proyectos] ID de Google: ${auth_id}`);
+      
+      if (!auth_id) {
+        throw new Error('ID de Google no disponible en sesión');
+      }
+      
+      // Verificar/crear usuario en Supabase con el nuevo endpoint
+      console.log(`🔍 [Proyectos] Verificando usuario en Supabase para auth_id: ${auth_id}`);
+      
+      const verifyUrl = `/api/supabase/users/verify?auth_id=${encodeURIComponent(auth_id)}&email=${encodeURIComponent(email || '')}&nombre=${encodeURIComponent(nombre || '')}`;
+      
+      const verifyResponse = await fetch(verifyUrl);
+      
+      if (!verifyResponse.ok) {
+        const verifyError = await verifyResponse.json();
+        throw new Error(verifyError.error || 'Error al verificar usuario');
+      }
+      
+      const verifyData = await verifyResponse.json();
+      
+      if (!verifyData.user || !verifyData.user.id) {
+        throw new Error('La respuesta del servidor no incluyó el ID del usuario');
+      }
+      
+      const usuario_id = verifyData.user.id;
+      
+      if (verifyData.created) {
+        console.log(`🆕 [Proyectos] Usuario creado con ID: ${usuario_id}`);
+      } else {
+        console.log(`✅ [Proyectos] Usuario verificado con ID: ${usuario_id}`);
+      }
+      
+      // Obtener proyectos desde el endpoint con el UUID del usuario
+      const response = await fetch(`/api/supabase/projects?usuario_id=${encodeURIComponent(usuario_id)}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al cargar proyectos');
+      }
+      
+      const data = await response.json();
+      console.log(`✅ [Proyectos] Proyectos cargados: ${data.projects?.length || 0}`);
+      
+      // Mapear los datos al formato esperado
+      const proyectosMapeados = (data.projects || []).map((p: any) => ({
+        id: p.id,
+        usuario_id: p.usuario_id,
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        fecha_creacion: p.created_at,
+        fecha_actualizacion: p.updated_at,
+        sheets_id: p.hoja_calculo_id,
+        slides_id: p.presentacion_id,
+        hojastitulo: p.metadata?.hojastitulo || null,
+        presentaciontitulo: p.metadata?.presentaciontitulo || null
+      }));
+      
+      setProyectos(proyectosMapeados);
+      setError(null);
+      setCargando(false);
+    } catch (error) {
+      console.error('❌ [Proyectos] Error cargando proyectos:', error);
+      setError('Error al cargar proyectos: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+      setCargando(false);
+      toast.error('Error al cargar los proyectos');
+    }
   };
 
-  const proyectosFiltrados = proyectos.filter(proyecto => 
-    proyecto.titulo.toLowerCase().includes(busqueda.toLowerCase()) ||
-    proyecto.descripcion?.toLowerCase().includes(busqueda.toLowerCase())
-  )
-  
   const crearNuevoProyecto = () => {
-    router.push("/proyectos/nuevo")
+    router.push('/nuevo')
   }
 
-  const crearProyectoPrueba = async () => {
-    const email = session?.user?.email;
-    if (typeof email !== 'string') {
-      toast.error("Necesitas iniciar sesión para crear un proyecto");
-      return;
-    }
+  const proyectosFiltrados = proyectos.filter(proyecto =>
+    proyecto.nombre?.toLowerCase().includes(busqueda.toLowerCase()) || 
+    proyecto.descripcion?.toLowerCase().includes(busqueda.toLowerCase())
+  )
 
-    const proyectoPrueba = {
-      usuario_id: email,
-      titulo: `Proyecto de prueba ${new Date().toLocaleString()}`,
-      descripcion: "Este es un proyecto de prueba",
-      creado_en: new Date().toISOString(),
-      actualizado_en: new Date().toISOString()
-    };
-
-    try {
-      const proyectoId = await ProyectosService.crearProyecto(proyectoPrueba);
-      if (proyectoId) {
-        toast.success("Proyecto de prueba creado correctamente");
-        await cargarProyectos(email);
-      } else {
-        toast.error("Error al crear el proyecto de prueba");
-      }
-    } catch (error) {
-      console.error('❌ Error al crear proyecto de prueba:', error);
-      toast.error("Error al crear el proyecto de prueba");
-    }
-  };
-
-  if (cargando && proyectos.length === 0) {
+  if (status === 'loading') {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
-        <CircularProgress />
-      </Box>
+      <>
+        <EncabezadoSistema />
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+          <CircularProgress />
+        </Box>
+      </>
     )
   }
 
-  return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      <EncabezadoSistema />
-      
-      <Box sx={{ maxWidth: 1200, mx: "auto", px: 4, py: 8 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 6 }}>
-          <Typography variant="h3" sx={{ fontWeight: "bold" }}>Mis Proyectos</Typography>
-          <Box sx={{ display: "flex", gap: 2 }}>
-            <Button 
-              variant="outlined"
-              onClick={() => cargarProyectos(usuarioSupabase?.id)}
-              disabled={cargando}
-            >
-              {cargando ? <CircularProgress size={16} /> : null}
-              Recargar
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={crearProyectoPrueba}
-              disabled={cargando}
-            >
-              Crear Proyecto Prueba
-            </Button>
-            <BotonPrincipal 
-              onClick={crearNuevoProyecto}
-              startIcon={<AddOutlinedIcon />}
-              size="large"
-            >
-              Nuevo Proyecto
-            </BotonPrincipal>
-          </Box>
-        </Box>
-        
-        <Box sx={{ mb: 6 }}>
-          <TextField
-            type="text"
-            placeholder="Buscar proyectos..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            fullWidth
-            variant="outlined"
-            size="small"
-            sx={{ 
-              maxWidth: '400px',
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '8px',
-                fontSize: '0.9rem'
-              }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                </InputAdornment>
-              )
-            }}
-          />
-        </Box>
-        
-        {error && (
-          <Alert severity="error" sx={{ mb: 6 }}>
+  if (error) {
+    return (
+      <>
+        <EncabezadoSistema />
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+          <Typography variant="h5" color="error" gutterBottom>
             {error}
-          </Alert>
-        )}
-        
-        {proyectos.length === 0 && !cargando && !error && (
-          <Box sx={{ mb: 6, display: "flex", flexDirection: "column", gap: 6 }}>
-            <Alert severity="info">
-              No se encontraron proyectos. Puedes crear un nuevo proyecto usando el botón "Nuevo Proyecto".
-            </Alert>
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => router.push('/auth/signin')}
+          >
+            Iniciar Sesión
+          </Button>
+        </Box>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <EncabezadoSistema />
+      <Box component="main" sx={{ pb: 10 }}>
+        <Container>
+          <Stack 
+            direction={{ xs: 'column', md: 'row' }} 
+            alignItems={{ xs: 'stretch', md: 'center' }} 
+            justifyContent="space-between" 
+            spacing={2} 
+            sx={{ mb: 3, py: 2 }}
+          >
+            <Typography variant="h4" fontWeight="bold">
+              Mis Proyectos
+            </Typography>
             
-            {/* Tarjeta para crear nuevo proyecto */}
-            <Box sx={{ border: "1px dashed", borderColor: "primary.30", p: 6, bgcolor: "primary.5" }}>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <Typography variant="h5">Crear tu primer proyecto</Typography>
-                <Typography>Comienza a sincronizar tus hojas de cálculo con presentaciones</Typography>
-              </Box>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <Box component="span" sx={{ fontSize: 24, color: 'green' }}>&#128196;</Box>
-                  <Box>
-                    <Typography variant="h6">Hojas de cálculo</Typography>
-                    <Typography>Conecta tus datos desde Google Sheets</Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <Box component="span" sx={{ fontSize: 24, color: 'pink' }}>&#128197;</Box>
-                  <Box>
-                    <Typography variant="h6">Presentaciones</Typography>
-                    <Typography>Visualiza tus datos en Google Slides</Typography>
-                  </Box>
-                </Box>
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-                <BotonPrincipal 
-                  onClick={crearNuevoProyecto}
-                  startIcon={<AddOutlinedIcon />}
-                  size="large"
-                >
-                  Crear Nuevo Proyecto
-                </BotonPrincipal>
-              </Box>
-            </Box>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                placeholder="Buscar proyectos..."
+                size="small"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                sx={{ minWidth: 200 }}
+              />
+              <Button
+                variant="contained"
+                onClick={crearNuevoProyecto}
+                color="primary"
+              >
+                Nuevo Proyecto
+              </Button>
+            </Stack>
+          </Stack>
+
+          <Box sx={{ 
+            bgcolor: 'background.paper', 
+            borderRadius: 2,
+            boxShadow: 1
+          }}>
+            <ListaProyectos
+              proyectos={proyectosFiltrados}
+              cargando={cargando}
+              busqueda={busqueda}
+            />
           </Box>
-        )}
-        
-        <Grid container spacing={3}>
-          {proyectosFiltrados.map((proyecto) => (
-            <Grid item xs={12} sm={6} md={4} key={proyecto.id}>
-              <Card className="h-full">
-                <CardContent>
-                  <Typography variant="h5" component="h2" gutterBottom>
-                    {proyecto.titulo}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary" component="p">
-                    {proyecto.descripcion || "Sin descripción"}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary" display="block" marginTop={1}>
-                    Creado: {new Date(proyecto.creado_en).toLocaleDateString()}
-                  </Typography>
-                </CardContent>
-                <CardActions>
-                  <Button
-                    size="small"
-                    color="primary"
-                    onClick={() => router.push(`/proyectos/${proyecto.id}`)}
-                  >
-                    Ver Detalles
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+        </Container>
       </Box>
-    </Box>
+    </>
   )
 }

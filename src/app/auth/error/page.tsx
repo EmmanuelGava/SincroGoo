@@ -1,75 +1,79 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
-import { Button } from "@/componentes/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/componentes/ui/card"
-import { AlertCircle } from "lucide-react"
-import Link from "next/link"
+import { useSearchParams } from 'next/navigation';
+import { Box, AppBar, Toolbar, Typography, Container, Paper, Button } from '@mui/material';
+import { useRouter } from 'next/navigation';
 
-function ErrorContent() {
-  const searchParams = useSearchParams()
-  const [error, setError] = useState<string | null>(null)
-  const [errorDescripcion, setErrorDescripcion] = useState<string>("Ha ocurrido un error durante la autenticación.")
+export default function AuthErrorPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const error = searchParams.get('error');
 
-  useEffect(() => {
-    const errorParam = searchParams.get("error")
-    setError(errorParam)
-
-    // Personalizar mensaje según el tipo de error
-    if (errorParam === "AccessDenied") {
-      setErrorDescripcion("Has denegado el acceso a tu cuenta de Google. Necesitamos estos permisos para funcionar correctamente.")
-    } else if (errorParam === "Configuration") {
-      setErrorDescripcion("Hay un problema con la configuración de autenticación. Por favor, contacta al administrador.")
-    } else if (errorParam === "OAuthCallback") {
-      setErrorDescripcion("Hubo un problema durante el proceso de autenticación con Google. Por favor, intenta nuevamente.")
-    } else if (errorParam === "OAuthAccountNotLinked") {
-      setErrorDescripcion("Esta cuenta de correo ya está asociada a otro método de inicio de sesión.")
-    } else if (errorParam === "Verification") {
-      setErrorDescripcion("No se pudo verificar tu solicitud. Por favor, intenta nuevamente.")
+  const getErrorMessage = () => {
+    switch (error) {
+      case 'Configuration':
+        return 'Hay un problema con la configuración del servidor. Por favor, contacta al administrador.';
+      case 'AccessDenied':
+        return 'No tienes permiso para acceder a esta aplicación.';
+      case 'Verification':
+        return 'El enlace de verificación ha expirado o ya ha sido usado.';
+      case 'TokensNotFound':
+        return 'No se pudieron obtener los tokens necesarios para la autenticación.';
+      case 'GoogleDataError':
+        return 'No se pudieron obtener los datos de tu cuenta de Google.';
+      case 'SupabaseError':
+        return 'Hubo un problema al sincronizar tu cuenta con nuestro sistema.';
+      case 'UnknownError':
+        return 'Ha ocurrido un error inesperado durante la autenticación.';
+      default:
+        return 'Ha ocurrido un error durante la autenticación. Por favor, intenta de nuevo.';
     }
-  }, [searchParams])
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <AlertCircle className="h-12 w-12 text-destructive" />
-          </div>
-          <CardTitle className="text-2xl">Error de Autenticación</CardTitle>
-          <CardDescription>
-            {errorDescripcion}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="bg-destructive/10 p-3 rounded-md text-sm text-destructive mb-4">
-              <p className="font-semibold">Código de error: {error}</p>
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-center gap-4">
-          <Button asChild variant="outline">
-            <Link href="/">
-              Volver al Inicio
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/auth/login">
-              Intentar Nuevamente
-            </Link>
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
-  )
-}
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar position="static" color="primary" elevation={0}>
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            SincroGoo
+          </Typography>
+        </Toolbar>
+      </AppBar>
 
-export default function ErrorPage() {
-  return (
-    <Suspense fallback={<div>Cargando...</div>}>
-      <ErrorContent />
-    </Suspense>
-  )
+      <Container component="main" maxWidth="xs" sx={{ mt: 8 }}>
+        <Paper 
+          elevation={3}
+          sx={{ 
+            p: 4, 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            borderRadius: 2
+          }}
+        >
+          <Typography component="h1" variant="h5" gutterBottom color="error" sx={{ mb: 2 }}>
+            Error de Autenticación
+          </Typography>
+          <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
+            {getErrorMessage()}
+          </Typography>
+          
+          <Button
+            variant="contained"
+            onClick={() => router.push('/auth/login')}
+            fullWidth
+            sx={{ 
+              mt: 2,
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontSize: '1rem'
+            }}
+          >
+            Volver al inicio de sesión
+          </Button>
+        </Paper>
+      </Container>
+    </Box>
+  );
 } 

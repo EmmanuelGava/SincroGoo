@@ -4,21 +4,18 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TableHeader,
   TableRow,
-} from '@/componentes/ui/table'
-import { Checkbox } from '@/componentes/ui/checkbox'
-import { Button } from '@/componentes/ui/button'
-import { Input } from '@/componentes/ui/input'
-import {
+  Button,
+  Checkbox,
+  TextField,
   Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/componentes/ui/tooltip'
-import { Badge } from '@/componentes/ui/badge'
+  Badge,
+  Paper,
+  TableContainer,
+} from '@/componentes/ui'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { Check, Search, Refresh, Visibility } from '@mui/icons-material'
 
 interface Price {
   id: string
@@ -111,142 +108,144 @@ export function PriceTable({ prices, onSync, onPreview }: PriceTableProps) {
     }
   }
 
-  const getChangeColor = (percentage: number) => {
-    if (percentage > 10) return 'text-red-500'
-    if (percentage > 5) return 'text-yellow-500'
-    return 'text-green-500'
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Input
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <TextField
+            size="small"
             placeholder="Filtrar procedimientos..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-64"
+            InputProps={{
+              startAdornment: <Search fontSize="small" />
+            }}
           />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  onClick={() => setFilter('')}
-                >
-                  Limpiar
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Limpiar filtro de búsqueda</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={handleSync}
-                disabled={selectedPrices.length === 0 || isSyncing}
-              >
-                {isSyncing ? 'Sincronizando...' : 'Sincronizar Seleccionados'}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Actualizar los precios seleccionados en las diapositivas</p>
-            </TooltipContent>
+          <Tooltip title="Limpiar filtro de búsqueda">
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setFilter('')}
+            >
+              Limpiar
+            </Button>
           </Tooltip>
-        </TooltipProvider>
+        </div>
+        <Tooltip title="Actualizar los precios seleccionados en las diapositivas">
+          <span>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleSync}
+              disabled={selectedPrices.length === 0 || isSyncing}
+              startIcon={<Refresh />}
+            >
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar Seleccionados'}
+            </Button>
+          </span>
+        </Tooltip>
       </div>
 
-      <div className="rounded-md border">
+      <TableContainer component={Paper}>
         <Table>
-          <TableHeader>
+          <TableHead>
             <TableRow>
-              <TableHead className="w-12">
+              <TableCell padding="checkbox">
                 <Checkbox
                   checked={
                     filteredPrices.length > 0 &&
                     filteredPrices.every(p => selectedPrices.includes(p.id))
                   }
-                  onCheckedChange={handleSelectAll}
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                  indeterminate={
+                    selectedPrices.length > 0 &&
+                    selectedPrices.length < filteredPrices.length
+                  }
                 />
-              </TableHead>
-              <TableHead
-                className="cursor-pointer"
+              </TableCell>
+              <TableCell 
                 onClick={() => handleSort('procedure')}
+                style={{ cursor: 'pointer' }}
               >
                 Procedimiento
                 {sortConfig.key === 'procedure' && (
                   <span>{sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}</span>
                 )}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer text-right"
+              </TableCell>
+              <TableCell 
+                align="right"
                 onClick={() => handleSort('currentPrice')}
+                style={{ cursor: 'pointer' }}
               >
                 Precio Actual
                 {sortConfig.key === 'currentPrice' && (
                   <span>{sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}</span>
                 )}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer text-right"
+              </TableCell>
+              <TableCell 
+                align="right"
                 onClick={() => handleSort('newPrice')}
+                style={{ cursor: 'pointer' }}
               >
                 Nuevo Precio
                 {sortConfig.key === 'newPrice' && (
                   <span>{sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}</span>
                 )}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer text-right"
+              </TableCell>
+              <TableCell 
+                align="right"
                 onClick={() => handleSort('changePercentage')}
+                style={{ cursor: 'pointer' }}
               >
                 % Cambio
                 {sortConfig.key === 'changePercentage' && (
                   <span>{sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}</span>
                 )}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer"
+              </TableCell>
+              <TableCell 
                 onClick={() => handleSort('lastUpdate')}
+                style={{ cursor: 'pointer' }}
               >
                 Última Actualización
                 {sortConfig.key === 'lastUpdate' && (
                   <span>{sortConfig.direction === 'asc' ? ' ↑' : ' ↓'}</span>
                 )}
-              </TableHead>
-              <TableHead>Preview</TableHead>
+              </TableCell>
+              <TableCell>Preview</TableCell>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {filteredPrices.map((price) => (
               <TableRow key={price.id}>
-                <TableCell>
+                <TableCell padding="checkbox">
                   <Checkbox
                     checked={selectedPrices.includes(price.id)}
-                    onCheckedChange={(checked) =>
-                      handleSelect(price.id, checked as boolean)
-                    }
+                    onChange={(e) => handleSelect(price.id, e.target.checked)}
                   />
                 </TableCell>
                 <TableCell>{price.procedure}</TableCell>
-                <TableCell className="text-right">
+                <TableCell align="right">
                   ${price.currentPrice.toLocaleString()}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell align="right">
                   ${price.newPrice.toLocaleString()}
                 </TableCell>
                 <TableCell
-                  className={`text-right ${getChangeColor(
-                    price.changePercentage
-                  )}`}
+                  align="right"
+                  sx={{
+                    color: price.changePercentage > 10 
+                      ? 'error.main' 
+                      : price.changePercentage > 5 
+                      ? 'warning.main' 
+                      : 'success.main'
+                  }}
                 >
                   {price.changePercentage.toFixed(1)}%
                   {price.changePercentage > 10 && (
-                    <Badge variant="destructive" className="ml-2">
+                    <Badge 
+                      color="error" 
+                      sx={{ ml: 1 }}
+                    >
                       Alto
                     </Badge>
                   )}
@@ -258,9 +257,10 @@ export function PriceTable({ prices, onSync, onPreview }: PriceTableProps) {
                 </TableCell>
                 <TableCell>
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="text"
+                    size="small"
                     onClick={() => onPreview(price.id)}
+                    startIcon={<Visibility />}
                   >
                     Ver Slide
                   </Button>
@@ -269,7 +269,7 @@ export function PriceTable({ prices, onSync, onPreview }: PriceTableProps) {
             ))}
           </TableBody>
         </Table>
-      </div>
+      </TableContainer>
     </div>
   )
 } 

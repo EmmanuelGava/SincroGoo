@@ -26,8 +26,7 @@ import {
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
 import { ExcelUploader } from '@/app/componentes/ExcelUploader';
 import { ConfiguradorHojas } from './componentes/ConfiguradorHojas';
-import { ExcelToSheetsService, HojaExcel } from '@/app/servicios/excel-to-sheets/excel-to-sheets-service';
-import { GoogleSheetsService } from '@/app/servicios/google/googleSheets';
+import { HojaExcel } from '@/app/servicios/google/conversions/excel-to-sheets/types';
 import {
   CloudUpload as CloudUploadIcon,
   Sync as SyncIcon,
@@ -61,8 +60,6 @@ export default function ExcelToSheetsPage() {
     }
   }, [selectedFile]);
 
-  const servicio = ExcelToSheetsService.getInstance();
-
   // Redirigir si no está autenticado
   if (status === 'unauthenticated') {
     router.push('/auth/login');
@@ -84,16 +81,34 @@ export default function ExcelToSheetsPage() {
   }
 
   const handleFileSelected = async (archivo: File) => {
+    if (!session?.accessToken) return;
+
     try {
       setLoading(true);
       setError(null);
       setSelectedFile(archivo);
       setNombreDocumento(archivo.name.split('.')[0]);
 
-      const service = ExcelToSheetsService.getInstance();
-      const nombresHojas = await service.leerHojasExcel(archivo);
+      // Crear FormData para enviar el archivo
+      const formData = new FormData();
+      formData.append('file', archivo);
+
+      // Llamar al endpoint para leer las hojas
+      const response = await fetch('/api/google/sheets/excel-to-sheets/hojas', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: formData
+      });
+
+      const resultado = await response.json();
       
-      setHojas(nombresHojas.map((nombre: string) => ({
+      if (!resultado.exito) {
+        throw new Error(resultado.error || 'Error al leer las hojas del archivo');
+      }
+
+      setHojas(resultado.datos.map((nombre: string) => ({
         nombre,
         seleccionada: true,
         nombreDestino: nombre
@@ -108,17 +123,22 @@ export default function ExcelToSheetsPage() {
   };
 
   const verificarYConvertir = async () => {
-    if (!selectedFile || !nombreDocumento.trim()) return;
+    if (!selectedFile || !nombreDocumento.trim() || !session?.accessToken) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const googleService = GoogleSheetsService.getInstance();
-      const documentoExistente = await googleService.verificarDocumentoExistente(nombreDocumento);
+      // Buscar documento existente usando el endpoint
+      const searchResponse = await fetch(`/api/google/documents?type=sheets&q=${encodeURIComponent(nombreDocumento)}`, {
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        }
+      });
+      const searchData = await searchResponse.json();
 
-      if (documentoExistente) {
-        setDocumentoExistenteId(documentoExistente);
+      if (searchData.documents?.length > 0) {
+        setDocumentoExistenteId(searchData.documents[0].id);
         setDialogoSobrescribir(true);
         setLoading(false);
         return;
@@ -132,17 +152,36 @@ export default function ExcelToSheetsPage() {
   };
 
   const realizarConversion = async (idExistente?: string) => {
+    if (!selectedFile || !session?.accessToken) return;
+
     try {
       setLoading(true);
       setError(null);
 
-      const service = ExcelToSheetsService.getInstance();
-      const spreadsheetId = await service.sincronizarConGoogleSheets(hojas, selectedFile!, {
-        nombreDocumento,
-        documentoExistenteId: idExistente
+      // Preparar los datos para la conversión
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('nombreDocumento', nombreDocumento);
+      if (idExistente) {
+        formData.append('documentoExistenteId', idExistente);
+      }
+
+      // Llamar al endpoint para convertir
+      const response = await fetch('/api/google/sheets/excel-to-sheets', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: formData
       });
 
-      setGoogleSheetsId(spreadsheetId);
+      const resultado = await response.json();
+
+      if (!resultado.exito) {
+        throw new Error(resultado.error || 'Error desconocido al convertir');
+      }
+
+      setGoogleSheetsId(resultado.datos.spreadsheetId);
       setActiveStep(2);
     } catch (error) {
       setError('Error al convertir: ' + (error instanceof Error ? error.message : 'Error desconocido'));
@@ -174,6 +213,41 @@ export default function ExcelToSheetsPage() {
     setGoogleSheetsId(null);
     setNombreDocumento('');
     setError(null);
+  };
+
+  const handleVerDatos = async (nombreHoja: string) => {
+    if (!selectedFile || !session?.accessToken) return;
+
+    try {
+      setLoading(true);
+      
+      // Crear FormData para enviar el archivo y el nombre de la hoja
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('nombreHoja', nombreHoja);
+
+      // Llamar al endpoint para leer los datos de la hoja
+      const response = await fetch('/api/google/sheets/excel-to-sheets/datos-hoja', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: formData
+      });
+
+      const resultado = await response.json();
+
+      if (!resultado.exito) {
+        throw new Error(resultado.error || 'Error al leer los datos de la hoja');
+      }
+
+      // Aquí puedes hacer algo con los datos, como mostrarlos en un modal
+      console.log('Datos de la hoja:', resultado.datos);
+    } catch (error) {
+      setError('Error al leer datos de la hoja: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -227,18 +301,7 @@ export default function ExcelToSheetsPage() {
                     hojas={hojas}
                     onHojasChange={setHojas}
                     loading={loading}
-                    onVerDatos={async (nombreHoja: string) => {
-                      try {
-                        if (!selectedFile) return;
-                        const service = ExcelToSheetsService.getInstance();
-                        const datos = await service.leerDatosHoja(selectedFile, nombreHoja);
-                        setHojas(hojas.map(hoja => 
-                          hoja.nombre === nombreHoja ? { ...hoja, datos } : hoja
-                        ));
-                      } catch (error) {
-                        console.error('Error al leer los datos de la hoja:', error);
-                      }
-                    }}
+                    onVerDatos={handleVerDatos}
                   />
                 </Paper>
 

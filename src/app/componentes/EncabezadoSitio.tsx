@@ -147,6 +147,15 @@ export function EncabezadoSitio() {
     router.push("/proyectos")
   }
 
+  // Función para cerrar sesión usando el servicio de autenticación
+  const handleLogout = async () => {
+    try {
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  }
+
   return (
     <>
       <AppBar 
@@ -171,7 +180,7 @@ export function EncabezadoSitio() {
                   alt="SincroGoo Logo"
                   width={36}
                   height={36}
-                  style={{ height: 36, width: 'auto' }}
+                  style={{ objectFit: 'contain' }}
                   priority
                 />
               </Link>
@@ -344,10 +353,7 @@ export function EncabezadoSitio() {
                   <MenuItem 
                     onClick={() => {
                       handleCloseMobileMenu()
-                      signOut({ 
-                        callbackUrl: '/',
-                        redirect: true
-                      })
+                      handleLogout()
                     }}
                     sx={{ 
                       borderRadius: 1,
@@ -523,10 +529,7 @@ export function EncabezadoSitio() {
                     
                     <MenuItem onClick={() => {
                       handleCloseUserMenu()
-                      signOut({ 
-                        callbackUrl: '/',
-                        redirect: true
-                      })
+                      handleLogout()
                     }}
                     sx={{ 
                       borderRadius: 1,

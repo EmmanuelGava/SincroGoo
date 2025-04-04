@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Button } from '@/componentes/ui'
+import { History } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -7,7 +9,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/componentes/ui/sheet'
-import { Button } from '@/componentes/ui/button'
 import { ScrollArea } from '@/componentes/ui/scroll-area'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -44,7 +45,12 @@ export function ChangeHistory({ changes, onExport }: ChangeHistoryProps) {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline">Ver Historial</Button>
+        <Button 
+          variant="outlined" 
+          startIcon={<History />}
+        >
+          Ver Historial
+        </Button>
       </SheetTrigger>
       <SheetContent className="w-[400px] sm:w-[540px]">
         <SheetHeader>
@@ -54,8 +60,12 @@ export function ChangeHistory({ changes, onExport }: ChangeHistoryProps) {
           </SheetDescription>
         </SheetHeader>
         <div className="flex justify-end py-4">
-          <Button onClick={onExport} variant="outline" size="sm">
-            Exportar a Excel
+          <Button 
+            onClick={onExport} 
+            variant="outlined" 
+            size="small"
+          >
+            Exportar
           </Button>
         </div>
         <ScrollArea className="h-[calc(100vh-200px)]">

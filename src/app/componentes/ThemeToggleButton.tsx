@@ -9,16 +9,23 @@ import { useThemeMode } from '@/app/lib/theme';
 export function ThemeToggleButton() {
   const { mode, toggleMode } = useThemeMode();
   
-  const handleToggleTheme = () => {
+  const handleToggleMode = () => {
+    console.log('🔍 [ThemeToggleButton] Cambiando tema');
+    console.log('- Tema actual:', mode);
+    
     toggleMode();
-    // Forzar la actualización de los estilos
-    document.documentElement.style.setProperty('color-scheme', mode === 'dark' ? 'light' : 'dark');
+    
+    // Forzar la actualización de los estilos del sistema
+    const newMode = mode === 'light' ? 'dark' : 'light';
+    document.documentElement.style.colorScheme = newMode;
+    
+    console.log('✅ [ThemeToggleButton] Tema cambiado a:', newMode);
   };
   
   return (
     <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo oscuro'}>
       <IconButton
-        onClick={handleToggleTheme}
+        onClick={handleToggleMode}
         sx={{
           color: mode === 'dark' ? 'white' : 'black',
           '&:hover': {

@@ -1,381 +1,310 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState } from "react"
 import { 
-  Card, 
-  CardContent, 
-  Typography, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
-  Button, 
-  Box, 
-  Paper, 
-  Divider, 
-  Fade, 
-  Backdrop, 
-  Modal,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Box,
+  Typography,
+  List,
+  ListItemButton,
+  ListItemText,
+  Divider,
+  Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   SelectChangeEvent,
-  useTheme
-} from '@mui/material';
-import styled from '@emotion/styled';
-import { ElementoDiapositiva } from '@/tipos/diapositivas';
-import { FilaSeleccionada } from '@/tipos/hojas';
-import { useEditor } from '../../contexto/EditorContext';
-import { createPortal } from 'react-dom';
-import { useThemeMode } from '@/lib/theme';
-
-// Estilos para el popup
-const PopupCard = styled(Card)(({ theme }) => ({
-  position: 'absolute',
-  width: 320,
-  maxWidth: '90vw',
-  maxHeight: '80vh',
-  overflow: 'auto',
-  borderRadius: 12,
-  boxShadow: '0px 6px 16px rgba(0, 0, 0, 0.1)',
-  zIndex: 1000,
-}));
-
-// Función para detectar el tema del sistema
-const detectarTema = (): 'light' | 'dark' => {
-  if (typeof window === 'undefined') return 'light';
-  
-  // Verificar si el sistema prefiere modo oscuro
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
-  // Verificar si hay una preferencia guardada
-  const savedTheme = localStorage.getItem('theme');
-  
-  if (savedTheme === 'dark') return 'dark';
-  if (savedTheme === 'light') return 'light';
-  
-  // Si no hay preferencia guardada, usar la del sistema
-  return prefersDark ? 'dark' : 'light';
-};
-
-// Función para obtener colores según el tema
-const obtenerColoresTema = (tema: 'light' | 'dark') => {
-  return {
-    background: tema === 'dark' ? '#1e1e1e' : '#ffffff',
-    text: tema === 'dark' ? '#e0e0e0' : '#333333',
-    border: tema === 'dark' ? '#333333' : '#e0e0e0',
-    accent: tema === 'dark' ? '#90caf9' : '#3f51b5',
-  };
-};
+  ListItemIcon
+} from "@mui/material"
+import { ElementoDiapositiva } from "../../types"
+import { useSlides } from "../../contexts/SlidesContext"
+import { useSheets } from "../../contexts/SheetsContext"
+import { Link, Unlink } from "lucide-react"
 
 interface EditorElementoPopupProps {
-  elemento: ElementoDiapositiva;
-  filaSeleccionada: FilaSeleccionada;
-  abierto: boolean;
-  alCerrar: () => void;
-  alGuardar: (elementoActualizado: ElementoDiapositiva) => void;
+  elemento: ElementoDiapositiva
+  onClose: () => void
+  onGuardar: (elementoActualizado: ElementoDiapositiva) => void
 }
 
 export function EditorElementoPopup({
   elemento,
-  filaSeleccionada,
-  abierto,
-  alCerrar,
-  alGuardar
+  onClose,
+  onGuardar
 }: EditorElementoPopupProps) {
-  // Estado para columna seleccionada
-  const [columnaSeleccionada, setColumnaSeleccionada] = useState<string | null>(
-    elemento.columnaAsociada || null
-  );
+  const [elementoEditado, setElementoEditado] = useState<ElementoDiapositiva>({...elemento})
+  const { 
+    filaSeleccionada,
+    elementosActuales,
+    elementosModificados,
+    setElementosActuales,
+    setElementosModificados,
+    setHayElementosModificados,
+    enlazarElemento,
+    desenlazarElemento
+  } = useSlides()
   
-  // Usar el tema de Material UI
-  const theme = useTheme();
-  const { mode } = useThemeMode();
-  
-  // Obtener la posición del popup del contexto
-  const { popupPosition } = useEditor();
-  
-  // Actualizar estado cuando cambie el elemento
-  useEffect(() => {
-    setColumnaSeleccionada(elemento.columnaAsociada || null);
-  }, [elemento.columnaAsociada]);
-  
-  console.log('Renderizando EditorElementoPopup para elemento:', elemento);
-  console.log('Estado de abierto:', abierto);
-  console.log('Fila seleccionada en EditorElementoPopup:', filaSeleccionada);
-  console.log('Posición del popup:', popupPosition);
-  
-  // Filtrar valores no vacíos para mostrar en el selector
-  const valoresFiltrados = useMemo(() => {
-    const valores: Record<string, string> = {};
-    if (filaSeleccionada) {
-      Object.entries(filaSeleccionada.valores).forEach(([columna, valor]) => {
-        if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
-          valores[columna] = String(valor);
-        }
-      });
-    }
-    return valores;
-  }, [filaSeleccionada]);
-  
-  // Detectar si hay una coincidencia entre el valor del elemento y algún valor de la fila
-  const coincidenciaValor = useMemo(() => {
-    if (!filaSeleccionada || !elemento.contenido || elemento.contenido.trim() === '') {
-      return null;
+  const { columnas } = useSheets()
+
+  // Función para obtener el contenido como texto
+  const obtenerContenidoTexto = (contenido: any): string => {
+    if (contenido === null || contenido === undefined) return ''
+    
+    // Si es una cadena, devolverla directamente
+    if (typeof contenido === 'string') return contenido
+    
+    // Si es una fecha, formatearla
+    if (contenido instanceof Date) {
+      return contenido.toLocaleDateString()
     }
     
-    const elementoValor = elemento.contenido.trim();
-    
-    // Buscar coincidencia
-    const coincidencia = Object.entries(valoresFiltrados).find(
-      ([columna, valor]) => valor.trim() === elementoValor
-    );
-    
-    return coincidencia ? coincidencia[0] : null;
-  }, [filaSeleccionada, elemento.contenido, valoresFiltrados]);
-  
-  // Función para manejar el cambio en el selector
-  const handleSelectChange = (event: SelectChangeEvent) => {
-    const columna = event.target.value;
-    setColumnaSeleccionada(columna);
-  };
-  
-  // Función para guardar la selección
-  const guardarSeleccion = () => {
-    if (columnaSeleccionada) {
-      // Obtener el valor de la columna seleccionada
-      const valorSeleccionado = valoresFiltrados[columnaSeleccionada];
-      
-      // Solo actualizar el contenido, sin enlazar
-      const elementoActualizado: ElementoDiapositiva = {
-        ...elemento,
-        contenido: valorSeleccionado,
-        modificado: true
-        // No establecer columnaAsociada ni tipoAsociacion
-      };
-      
-      alGuardar(elementoActualizado);
-      alCerrar();
+    // Si es un objeto con propiedad texto
+    if (typeof contenido === 'object' && 'texto' in contenido) {
+      return contenido.texto
     }
-  };
-  
-  // Función para usar el valor coincidente y establecer la asociación
-  const usarValorCoincidente = (columna: string, valor: string) => {
-    console.log('🔍 [EditorElementoPopup] Usando valor coincidente');
-    console.log(`- Columna: ${columna}`);
-    console.log(`- Valor: ${valor}`);
-
-    // Crear elemento actualizado con asociación
-    const elementoActualizado: ElementoDiapositiva = {
-      ...elemento,
-      contenido: valor,
-      modificado: true,
-      columnaAsociada: columna,        // Establecer columna asociada
-      tipoAsociacion: 'manual'         // Establecer tipo de asociación como 'manual'
-    };
     
-    console.log('✅ [EditorElementoPopup] Elemento actualizado con asociación:', elementoActualizado);
-
-    // Emitir evento de cambio de asociación
-    emitirEventoCambioAsociacion(elementoActualizado, columna);
+    // Si es un objeto con valor específico
+    if (typeof contenido === 'object' && 'valor' in contenido) {
+      return String(contenido.valor)
+    }
     
-    // Guardar cambios y cerrar el popup
-    alGuardar(elementoActualizado);
-    alCerrar();
-  };
-  
-  // Función para seleccionar un valor y establecer la asociación
-  const seleccionarValor = (columna: string, valor: string) => {
-    console.log('🔍 [EditorElementoPopup] Seleccionando valor');
-    console.log(`- Columna: ${columna}`);
-    console.log(`- Valor: ${valor}`);
-    
-    // Establecer columna seleccionada
-    setColumnaSeleccionada(columna);
-    
-    // Crear elemento actualizado con asociación
-    const elementoActualizado: ElementoDiapositiva = {
-      ...elemento,
-      contenido: valor,
-      modificado: true,
-      columnaAsociada: columna,        // Establecer columna asociada
-      tipoAsociacion: 'manual'         // Establecer tipo de asociación como 'manual'
-    };
-    
-    console.log('✅ [EditorElementoPopup] Elemento actualizado con asociación:', elementoActualizado);
-
-    // Emitir evento de cambio de asociación
-    emitirEventoCambioAsociacion(elementoActualizado, columna);
-    
-    // Guardar cambios y cerrar el popup
-    alGuardar(elementoActualizado);
-    alCerrar();
-  };
-  
-  // Función para emitir evento de cambio de asociación
-  const emitirEventoCambioAsociacion = (elementoActualizado: ElementoDiapositiva, columnaNueva: string) => {
-    console.log('🔍 [EditorElementoPopup] Emitiendo evento de cambio de asociación');
-    
-    // Crear evento personalizado
-    const eventoPersonalizado = new CustomEvent('cambio-asociacion', {
-      detail: {
-        elemento: elementoActualizado,
-        columnaAnterior: elemento.columnaAsociada,
-        columnaNueva: columnaNueva,
-        tipoAccion: 'asociar',
-        // No podemos acceder directamente a idPresentacion e idHoja en este punto,
-        // pero podemos confiar en que el listener que maneja este evento los obtendrá del contexto
+    // Para otros objetos, intentar convertir a string de forma segura
+    try {
+      if (typeof contenido === 'object') {
+        return JSON.stringify(contenido, null, 2)
       }
-    });
+      return String(contenido)
+    } catch (error) {
+      console.error('Error al convertir contenido a texto:', error)
+      return '[Error: Contenido no válido]'
+    }
+  }
+
+  // Función para actualizar el contenido
+  const actualizarContenido = (nuevoContenido: string) => {
+    if (typeof elemento.contenido === 'object' && elemento.contenido !== null && 'texto' in elemento.contenido) {
+      setElementoEditado({
+        ...elementoEditado,
+        contenido: {
+          ...elemento.contenido,
+          texto: nuevoContenido
+        }
+      })
+    } else {
+      setElementoEditado({
+        ...elementoEditado,
+        contenido: nuevoContenido
+      })
+    }
+  }
+  
+  // Función para asociar con una columna específica al seleccionar un valor
+  const asociarConColumna = (columnaId: string, valor: string) => {
+    const nuevoContenido = typeof elementoEditado.contenido === 'object' && 
+      elementoEditado.contenido !== null && 
+      'texto' in elementoEditado.contenido
+        ? { ...elementoEditado.contenido, texto: valor }
+        : valor;
     
-    // Disparar el evento en el documento
-    console.log('🔍 [EditorElementoPopup] Disparando evento cambio-asociacion en el documento');
-    document.dispatchEvent(eventoPersonalizado);
-    console.log('✅ [EditorElementoPopup] Evento cambio-asociacion disparado correctamente');
+    setElementoEditado({
+      ...elementoEditado,
+      columnaAsociada: columnaId,
+      contenido: nuevoContenido,
+      modificado: true
+    });
   };
   
-  // Si no está abierto, no renderizar nada
-  if (!abierto) return null;
-  
-  // Calcular la posición del popup
-  const popupStyle = {
-    position: 'absolute' as const,
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 350,
-    maxWidth: '90vw',
-    maxHeight: '90vh',
-    overflow: 'auto',
-    bgcolor: mode === 'dark' ? theme.palette.background.paper : '#fff',
-    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.15)',
-    p: 0,
-    borderRadius: 1,
-    outline: 'none', // Eliminar el outline predeterminado
-    border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`
+  // Función para desasociar el elemento
+  const desasociarElemento = () => {
+    setElementoEditado({
+      ...elementoEditado,
+      columnaAsociada: undefined,
+      modificado: true
+    });
   };
   
-  // Renderizar el popup usando un portal
-  return createPortal(
-    <Modal
-      open={abierto}
-      onClose={alCerrar}
-      closeAfterTransition
-      BackdropComponent={Backdrop}
-      BackdropProps={{
-        timeout: 500,
-      }}
-      aria-labelledby="editor-elemento-titulo"
-      aria-describedby="editor-elemento-descripcion"
-      slotProps={{ backdrop: { sx: { backdropFilter: 'blur(4px)' } } }}
-    >
-      <Fade in={abierto}>
-        <Box sx={popupStyle}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" id="editor-elemento-titulo" gutterBottom>
-              Editar elemento
+  // Función para obtener nombre de columna asociada
+  const obtenerNombreColumna = (columnaId: string): string => {
+    const columna = columnas.find(c => c.id === columnaId);
+    return columna ? columna.titulo : "Columna desconocida";
+  };
+
+  const handleGuardar = () => {
+    console.log('✏️ [EditorElementoPopup] Guardando cambios:', {
+      elementoId: elementoEditado.id,
+      contenidoAnterior: elemento.contenido,
+      contenidoNuevo: elementoEditado.contenido,
+      columnaAsociadaAnterior: elemento.columnaAsociada,
+      columnaAsociadaNueva: elementoEditado.columnaAsociada
+    })
+
+    // Verificar si realmente hubo cambios
+    const contenidoAnterior = obtenerContenidoTexto(elemento.contenido)
+    const contenidoNuevo = obtenerContenidoTexto(elementoEditado.contenido)
+    const columnaAnterior = elemento.columnaAsociada
+    const columnaNueva = elementoEditado.columnaAsociada
+    
+    if (contenidoAnterior === contenidoNuevo && columnaAnterior === columnaNueva) {
+      console.log('ℹ️ [EditorElementoPopup] No hay cambios en el contenido ni en la asociación')
+      onClose()
+      return
+    }
+
+    // Crear el elemento con la marca de modificado
+    const elementoConMarca = {
+      ...elementoEditado,
+      modificado: true
+    }
+
+    // Actualizar elementos actuales manteniendo los demás elementos
+    const nuevosElementosActuales = elementosActuales.map((e: ElementoDiapositiva) => 
+      e.id === elementoEditado.id ? elementoConMarca : e
+    )
+
+    // Actualizar elementos modificados
+    const elementoYaModificado = elementosModificados.some((e: ElementoDiapositiva) => e.id === elementoEditado.id)
+    let nuevosElementosModificados = elementosModificados
+
+    if (!elementoYaModificado) {
+      nuevosElementosModificados = [...elementosModificados, elementoConMarca]
+    } else {
+      nuevosElementosModificados = elementosModificados.map((e: ElementoDiapositiva) =>
+        e.id === elementoEditado.id ? elementoConMarca : e
+      )
+    }
+
+    console.log('✅ [EditorElementoPopup] Elementos actualizados:', {
+      elementoId: elementoEditado.id,
+      totalActuales: nuevosElementosActuales.length,
+      totalModificados: nuevosElementosModificados.length,
+      elementosModificados: nuevosElementosModificados.map((e: ElementoDiapositiva) => ({
+        id: e.id,
+        tipo: e.tipo,
+        contenido: obtenerContenidoTexto(e.contenido),
+        modificado: e.modificado,
+        columnaAsociada: e.columnaAsociada
+      }))
+    })
+
+    // Actualizar el contexto
+    setElementosActuales(nuevosElementosActuales)
+    setElementosModificados(nuevosElementosModificados)
+    setHayElementosModificados(true)
+
+    // Notificar al padre
+    onGuardar(elementoConMarca)
+  }
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Editar Elemento</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          {/* Campo para edición manual */}
+          <TextField
+            fullWidth
+            label="Editar contenido manualmente"
+            value={obtenerContenidoTexto(elementoEditado.contenido)}
+            onChange={(e) => actualizarContenido(e.target.value)}
+            multiline
+            rows={2}
+          />
+          
+          {/* Estado de asociación */}
+          {elementoEditado.columnaAsociada && (
+            <Box sx={{ mt: 1 }}>
+              <Chip 
+                icon={<Link size={14} />}
+                label={`Asociado a: ${obtenerNombreColumna(elementoEditado.columnaAsociada)}`}
+                color="primary"
+                variant="outlined"
+                size="small"
+                onDelete={desasociarElemento}
+                deleteIcon={<Unlink size={14} />}
+              />
+            </Box>
+          )}
+
+          <Divider />
+
+          {/* Valores de la fila seleccionada */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Valores Disponibles
             </Typography>
-            
-            <Typography variant="body2" id="editor-elemento-descripcion" color="text.secondary" gutterBottom>
-              Selecciona un valor para asignar al elemento
-            </Typography>
-            
-            <Divider sx={{ my: 2 }} />
-            
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Elemento actual:
+            {filaSeleccionada ? (
+              <List sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                {filaSeleccionada.valores
+                  .filter(({valor}) => valor !== null && valor !== undefined && valor !== '')
+                  .map(({columnaId, valor}) => {
+                    const columna = columnas.find(c => c.id === columnaId);
+                    const esValorSeleccionado = obtenerContenidoTexto(elementoEditado.contenido) === valor;
+                    const esColumnaAsociada = elementoEditado.columnaAsociada === columnaId;
+                    
+                    return (
+                      <ListItemButton 
+                        key={columnaId}
+                        onClick={() => actualizarContenido(valor)}
+                        selected={esValorSeleccionado}
+                        sx={{
+                          borderLeft: esColumnaAsociada ? 3 : 0,
+                          borderColor: 'primary.main',
+                          bgcolor: esValorSeleccionado ? 'action.selected' : 'inherit'
+                        }}
+                      >
+                        <ListItemText 
+                          primary={valor}
+                          secondary={columna ? columna.titulo : ""}
+                          primaryTypographyProps={{
+                            fontWeight: esValorSeleccionado ? 'bold' : 'regular'
+                          }}
+                        />
+                        <Button
+                          variant="text"
+                          size="small"
+                          color={esColumnaAsociada ? "primary" : "inherit"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (esColumnaAsociada) {
+                              desasociarElemento();
+                            } else {
+                              asociarConColumna(columnaId, valor);
+                              // Actualizamos automáticamente el contenido cuando se enlaza
+                              actualizarContenido(valor);
+                            }
+                          }}
+                          sx={{ minWidth: 40, ml: 1 }}
+                        >
+                          {esColumnaAsociada ? 
+                            <Unlink size={16} /> : 
+                            <Link size={16} />
+                          }
+                        </Button>
+                      </ListItemButton>
+                    );
+                  })
+                }
+              </List>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No hay fila seleccionada
               </Typography>
-              <Paper 
-                variant="outlined" 
-                sx={{ 
-                  p: 1.5, 
-                  bgcolor: 'background.paper',
-                  borderRadius: 1,
-                  borderColor: theme.palette.divider
-                }}
-              >
-                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                  {elemento.contenido || "(Sin contenido)"}
-                </Typography>
-              </Paper>
-            </Box>
-            
-            <Typography variant="subtitle2" gutterBottom>
-              Selecciona una columna:
-            </Typography>
-            
-            {coincidenciaValor && (
-              <Box 
-                sx={{ 
-                  mb: 2, 
-                  p: 1.5, 
-                  bgcolor: 'info.main', 
-                  color: 'info.contrastText',
-                  borderRadius: 1
-                }}
-              >
-                <Typography variant="body2">
-                  Se encontró una coincidencia con la columna "{coincidenciaValor}".
-                </Typography>
-                <Button 
-                  variant="contained" 
-                  color="info" 
-                  size="small" 
-                  onClick={() => usarValorCoincidente(coincidenciaValor, valoresFiltrados[coincidenciaValor])}
-                  sx={{ mt: 1 }}
-                >
-                  Usar este valor
-                </Button>
-              </Box>
             )}
-            
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 2, mt: 1, maxHeight: '30vh', overflow: 'auto' }}>
-              {Object.entries(valoresFiltrados).map(([columna, valor]) => (
-                <Paper 
-                  key={columna}
-                  variant="outlined"
-                  sx={{ 
-                    p: 1.5, 
-                    cursor: 'pointer',
-                    borderColor: columna === columnaSeleccionada ? theme.palette.primary.main : 'divider',
-                    borderWidth: columna === columnaSeleccionada ? 2 : 1,
-                    bgcolor: columna === columnaSeleccionada ? `${theme.palette.primary.main}10` : 'background.paper',
-                    '&:hover': {
-                      bgcolor: `${theme.palette.primary.main}08`,
-                      borderColor: theme.palette.primary.main,
-                    },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                  onClick={() => seleccionarValor(columna, valor)}
-                >
-                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="subtitle2" color="primary">
-                      {columna}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
-                      {valor}
-                    </Typography>
-                  </Box>
-                </Paper>
-              ))}
-              
-              {Object.keys(valoresFiltrados).length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                  No hay valores disponibles para enlazar
-                </Typography>
-              )}
-            </Box>
-            
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Button 
-                variant="outlined" 
-                onClick={alCerrar}
-              >
-                Cancelar
-              </Button>
-            </Box>
-          </CardContent>
+          </Box>
         </Box>
-      </Fade>
-    </Modal>,
-    document.body
-  );
-} 
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleGuardar} variant="contained" color="primary">
+          Guardar
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}

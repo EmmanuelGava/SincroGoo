@@ -24,7 +24,7 @@ import {
   Settings as SettingsIcon,
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
-import { HojaExcel, ExcelToSlidesService } from '@/app/servicios/excel-to-slides/excel-to-slides-service';
+import { HojaExcel } from '@/app/servicios/google/conversions/excel-to-slides/types';
 import { VistaPrevia } from './VistaPrevia';
 
 interface ConfiguradorHojasProps {

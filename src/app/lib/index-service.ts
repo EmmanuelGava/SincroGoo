@@ -1,8 +1,8 @@
 // Exportar el servicio centralizado
-export { SupabaseService } from '@/servicios/supabase/globales/conexion';
+export { supabase } from '@/lib/supabase';
 
 // Exportar funciones de autenticación
-export { syncSupabaseSession, hasSupabaseSession } from '@/servicios/supabase/globales/auth-service';
+export { syncSupabaseSession, hasSupabaseSession } from '@/app/lib/import-redirector';
 
 // Exportar tipos comunes
-export type { Proyecto, Slide, Sheet, Diapositiva, Celda, Elemento, Asociacion } from '@/servicios/supabase/globales/tipos'; 
+export type { Sheet, Celda, Asociacion } from '@/app/lib/import-redirector'; 

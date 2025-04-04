@@ -22,7 +22,10 @@ import {
   CircularProgress,
   LinearProgress,
   Tooltip,
-  Chip
+  Chip,
+  Button,
+  Alert,
+  AlertTitle
 } from '@mui/material';
 import {
   Explore as ExploreIcon,
@@ -59,11 +62,40 @@ import {
   ArrowDownward as ArrowDownwardIcon,
   MoreVert as MoreVertIcon,
   SyncAlt as SyncAltIcon,
-  Schedule as ScheduleIcon
+  Schedule as ScheduleIcon,
+  ExitToApp as ExitToAppIcon
 } from '@mui/icons-material';
-import { useSession } from 'next-auth/react';
-import { DashboardService, Estadisticas } from '@/app/servicios/dashboard-service';
+import { useSession, signOut } from 'next-auth/react';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
+
+// Definir la interfaz Estadisticas
+interface Estadisticas {
+  totalEstablecimientos: number;
+  totalProyectos: number;
+  búsquedasRecientes: number;
+  exportacionesRecientes: number;
+}
+
+// Clase ficticia para mantener la compatibilidad con el código existente
+class DashboardService {
+  private static instance: DashboardService;
+
+  static getInstance(): DashboardService {
+    if (!DashboardService.instance) {
+      DashboardService.instance = new DashboardService();
+    }
+    return DashboardService.instance;
+  }
+
+  async obtenerEstadisticas(): Promise<Estadisticas> {
+    return {
+      totalEstablecimientos: 0,
+      totalProyectos: 0,
+      búsquedasRecientes: 0,
+      exportacionesRecientes: 0
+    };
+  }
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -75,23 +107,75 @@ export default function DashboardPage() {
     búsquedasRecientes: 0,
     exportacionesRecientes: 0
   });
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login');
-    } else if (status === 'authenticated') {
-      cargarEstadisticas();
-    }
-  }, [status, router]);
-
-  const cargarEstadisticas = async () => {
+  // Verificar si hay problemas con la sesión
+  const sessionIncompleta = status === "authenticated" && (!session?.user?.email || !session?.user?.name);
+  
+  // Intenta recuperar la sesión
+  const intentarRecuperarSesion = async () => {
     try {
-      const stats = await DashboardService.getInstance().obtenerEstadisticas();
-      setEstadisticas(stats);
+      setLoading(true);
+      console.log('🔄 [Dashboard] Intentando recuperar la sesión...');
+      window.location.reload();
     } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
+      console.error('❌ [Dashboard] Error al recuperar sesión:', error);
+    } finally {
+      setLoading(false);
     }
   };
+  
+  // Función para cerrar sesión
+  const handleLogout = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 [Dashboard] Cerrando sesión...');
+      await signOut({ callbackUrl: '/' });
+    } catch (error) {
+      console.error('❌ [Dashboard] Error al cerrar sesión:', error);
+      window.location.href = '/';
+    }
+  };
+
+  // Mostrar alerta si hay problemas con la sesión
+  if (sessionIncompleta) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Alert 
+          severity="warning" 
+          action={
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                color="info" 
+                size="small"
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={intentarRecuperarSesion}
+                disabled={loading}
+              >
+                Recuperar
+              </Button>
+              <Button 
+                color="error" 
+                size="small"
+                variant="outlined"
+                startIcon={<ExitToAppIcon />}
+                onClick={handleLogout}
+                disabled={loading}
+              >
+                Salir
+              </Button>
+            </Box>
+          }
+        >
+          <AlertTitle>Problema con la sesión</AlertTitle>
+          <Typography>
+            Se ha detectado un problema con tu sesión (incompleta). Intenta recuperarla o sal para volver a iniciarla.
+          </Typography>
+        </Alert>
+      </Container>
+    );
+  }
 
   const secciones = [
     {

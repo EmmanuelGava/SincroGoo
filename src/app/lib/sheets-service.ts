@@ -143,14 +143,16 @@ export class SheetsService extends ApiService {
             // Solo procesar si el valor no es nulo/vacío
             if (value !== null && value !== undefined && value !== '') {
               switch (column.type) {
-                case 'number':
+                case 'number': {
                   const num = parseFloat(value);
                   processedValue = isNaN(num) ? null : num;
                   break;
-                case 'date':
+                }
+                case 'date': {
                   const date = value ? new Date(value) : null;
                   processedValue = date && !isNaN(date.getTime()) ? date : null;
                   break;
+                }
                 default:
                   processedValue = value;
               }

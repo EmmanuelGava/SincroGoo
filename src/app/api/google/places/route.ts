@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const placesService = ExplorerPlacesService.getInstance();
 
     switch (action) {
-      case 'search':
+      case 'search': {
         if (!query) {
           return NextResponse.json({ error: 'Se requiere un término de búsqueda' }, { status: 400 });
         }
@@ -34,14 +34,16 @@ export async function GET(request: NextRequest) {
           parseInt(radio)
         );
         return NextResponse.json(searchResult);
+      }
 
-      case 'details':
+      case 'details': {
         if (!placeId) {
           return NextResponse.json({ error: 'Se requiere un place_id' }, { status: 400 });
         }
 
         const detailsResult = await placesService.obtenerDetallesLugar(placeId);
         return NextResponse.json(detailsResult);
+      }
 
       case 'photo':
         if (!photoReference) {

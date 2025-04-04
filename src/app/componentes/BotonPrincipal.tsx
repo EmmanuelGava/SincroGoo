@@ -3,7 +3,7 @@
 import React from 'react';
 import { Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { useThemeMode } from '@/lib/theme';
+import { useThemeMode } from '@/app/lib/theme';
 
 const StyledButton = styled(Button)(({ theme }) => ({
   borderRadius: '0.5rem',

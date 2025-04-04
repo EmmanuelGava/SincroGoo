@@ -128,18 +128,39 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
+    // Intentar obtener el tema guardado
     const savedMode = localStorage.getItem('themeMode') as PaletteMode
-    if (savedMode) {
-      setMode(savedMode)
-      document.documentElement.setAttribute('data-theme', savedMode)
-      document.documentElement.style.setProperty('color-scheme', savedMode)
+    
+    // Determinar el tema inicial
+    let initialMode: PaletteMode
+    if (savedMode && (savedMode === 'light' || savedMode === 'dark')) {
+      initialMode = savedMode
     } else {
+      // Si no hay tema guardado, usar la preferencia del sistema
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      const initialMode = prefersDark ? 'dark' : 'light'
-      setMode(initialMode)
-      document.documentElement.setAttribute('data-theme', initialMode)
-      document.documentElement.style.setProperty('color-scheme', initialMode)
+      initialMode = prefersDark ? 'dark' : 'light'
+      // Guardar la preferencia inicial
+      localStorage.setItem('themeMode', initialMode)
     }
+    
+    // Aplicar el tema
+    setMode(initialMode)
+    document.documentElement.setAttribute('data-theme', initialMode)
+    document.documentElement.style.setProperty('color-scheme', initialMode)
+    
+    // Escuchar cambios en la preferencia del sistema
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem('themeMode')) {
+        const newMode = e.matches ? 'dark' : 'light'
+        setMode(newMode)
+        document.documentElement.setAttribute('data-theme', newMode)
+        document.documentElement.style.setProperty('color-scheme', newMode)
+      }
+    }
+    
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
   const toggleMode = () => {

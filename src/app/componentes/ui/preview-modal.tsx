@@ -1,6 +1,15 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/componentes/ui/dialog"
-import { Card, CardContent } from "@/componentes/ui/card"
-import { Loader2 } from "lucide-react"
+import { 
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  CircularProgress,
+  Grid,
+  Paper
+} from '@mui/material';
 import type { PreviewChange } from "@/types/preview"
 
 interface PreviewModalProps {
@@ -18,44 +27,56 @@ export function PreviewModal({ isOpen, onClose, changes, isLoading }: PreviewMod
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Vista Previa de Cambios</DialogTitle>
-        </DialogHeader>
-        
+    <Dialog 
+      open={isOpen} 
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+    >
+      <DialogTitle>Vista Previa de Cambios</DialogTitle>
+      <DialogContent>
         {isLoading ? (
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <span className="ml-2">Generando vista previa...</span>
-          </div>
+          <Box display="flex" alignItems="center" justifyContent="center" p={4}>
+            <CircularProgress size={32} />
+            <Typography sx={{ ml: 2 }}>Generando vista previa...</Typography>
+          </Box>
         ) : changes.length > 0 ? (
-          <div className="space-y-4">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             {changes.map((change, index) => (
-              <Card key={index}>
-                <CardContent className="p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="font-semibold">Diapositiva {change.slideIndex}</span>
-                    <div className="text-sm text-muted-foreground">
-                      <span>Tipo: {change.elementData.type}</span>
-                    </div>
-                  </div>
+              <Card key={index} variant="outlined">
+                <CardContent>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      Diapositiva {change.slideIndex}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Tipo: {change.elementData.type}
+                    </Typography>
+                  </Box>
                   
-                  {/* Contenedor de la vista previa */}
-                  <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border bg-[#f0f0f0]">
-                    {/* Cuadrícula de fondo */}
-                    <div className="absolute inset-0" style={{
-                      backgroundImage: `
-                        linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px)
-                      `,
-                      backgroundSize: '40px 40px'
-                    }} />
-                    
-                    {/* Elemento de texto */}
-                    <div 
-                      className="absolute"
-                      style={{
+                  <Box 
+                    position="relative" 
+                    width="100%" 
+                    sx={{ 
+                      aspectRatio: '16/9',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      bgcolor: '#f0f0f0',
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `
+                          linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+                          linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '40px 40px'
+                      }
+                    }}
+                  >
+                    <Box
+                      position="absolute"
+                      sx={{
                         left: `${(change.position?.x || 0) / 720 * 100}%`,
                         top: `${(change.position?.y || 0) / 405 * 100}%`,
                         transform: `
@@ -76,52 +97,79 @@ export function PreviewModal({ isOpen, onClose, changes, isLoading }: PreviewMod
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
                         border: '2px solid rgba(255, 255, 255, 0.2)',
                         minWidth: '80px',
-                        textAlign: 'center' as const,
-                        whiteSpace: 'nowrap' as const
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
                       }}
                     >
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-xs text-white/75 line-through">{change.oldPrice}</span>
-                        <span className="text-sm font-bold text-white">{change.newPrice}</span>
-                      </div>
-                    </div>
-                  </div>
+                      <Box display="flex" flexDirection="column" alignItems="center" gap={0.5}>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: 'rgba(255, 255, 255, 0.75)',
+                            textDecoration: 'line-through'
+                          }}
+                        >
+                          {change.oldPrice}
+                        </Typography>
+                        <Typography 
+                          variant="body2"
+                          sx={{ 
+                            color: 'white',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {change.newPrice}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
 
-                  {/* Información adicional */}
-                  <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-2">
-                      <p>
-                        <span className="font-medium">Posición:</span><br/>
-                        X: {Math.round(change.position?.x || 0)}<br/>
-                        Y: {Math.round(change.position?.y || 0)}
-                      </p>
-                      <p>
-                        <span className="font-medium">Rotación:</span><br/>
-                        {Math.round(change.elementData.rotation || 0)}°
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <p>
-                        <span className="font-medium">Estilo:</span><br/>
-                        {change.elementData.style.fontFamily || 'Arial'}<br/>
-                        {change.elementData.style.fontSize?.magnitude 
-                          ? `${change.elementData.style.fontSize.magnitude}${change.elementData.style.fontSize.unit || 'pt'}`
-                          : '16px'}
-                      </p>
-                      <p>
-                        {change.elementData.style.bold && 'Negrita '}
-                        {change.elementData.style.italic && 'Cursiva'}
-                      </p>
-                    </div>
-                  </div>
+                  <Grid container spacing={2} sx={{ mt: 2 }}>
+                    <Grid item xs={6}>
+                      <Box sx={{ '& > p': { mb: 1 } }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Posición:
+                        </Typography>
+                        <Typography variant="body2">
+                          X: {Math.round(change.position?.x || 0)}<br/>
+                          Y: {Math.round(change.position?.y || 0)}
+                        </Typography>
+                        <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                          Rotación:
+                        </Typography>
+                        <Typography variant="body2">
+                          {Math.round(change.elementData.rotation || 0)}°
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Box sx={{ '& > p': { mb: 1 } }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Estilo:
+                        </Typography>
+                        <Typography variant="body2">
+                          {change.elementData.style.fontFamily || 'Arial'}<br/>
+                          {change.elementData.style.fontSize?.magnitude 
+                            ? `${change.elementData.style.fontSize.magnitude}${change.elementData.style.fontSize.unit || 'pt'}`
+                            : '16px'}
+                        </Typography>
+                        <Typography variant="body2">
+                          {change.elementData.style.bold && 'Negrita '}
+                          {change.elementData.style.italic && 'Cursiva'}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
                 </CardContent>
               </Card>
             ))}
-          </div>
+          </Box>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            No hay elementos para previsualizar
-          </div>
+          <Box py={4} textAlign="center">
+            <Typography color="text.secondary">
+              No hay elementos para previsualizar
+            </Typography>
+          </Box>
         )}
       </DialogContent>
     </Dialog>

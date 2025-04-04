@@ -66,7 +66,7 @@ export default function LoginPage() {
           <CardContent>
             <Button 
               className="w-full" 
-              size="lg" 
+              size="large" 
               onClick={handleGoogleLogin}
               disabled={isLoading}
             >

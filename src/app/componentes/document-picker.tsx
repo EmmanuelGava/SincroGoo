@@ -1,10 +1,34 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/componentes/ui/button"
-import { FileSpreadsheet, PresentationIcon, X, Search, Check, Link as LinkIcon } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/componentes/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/ui/tabs"
+import { 
+  Button, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions,
+  Typography,
+  Box,
+  TextField,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Paper
+} from '@mui/material'
+import { 
+  TableChart as FileSpreadsheetIcon,
+  Slideshow as PresentationIcon,
+  Close as CloseIcon,
+  Search as SearchIcon,
+  Check as CheckIcon,
+  Link as LinkIcon,
+  Edit as EditIcon
+} from '@mui/icons-material'
 
 interface Document {
   id: string
@@ -19,12 +43,36 @@ interface DocumentPickerProps {
   selectedDoc?: Document
 }
 
+interface TabPanelProps {
+  children?: React.ReactNode
+  index: number
+  value: number
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  )
+}
+
 export function DocumentPicker({ type, onSelect, selectedDoc }: DocumentPickerProps) {
   const [open, setOpen] = useState(false)
   const [urlInput, setUrlInput] = useState("")
   const [urlError, setUrlError] = useState("")
+  const [tabValue, setTabValue] = useState(0)
   const [documents, setDocuments] = useState<Document[]>([
-    // Documentos de ejemplo - esto vendría de la API de Google
     {
       id: "1",
       name: "Precios Q1 2024",
@@ -47,8 +95,8 @@ export function DocumentPicker({ type, onSelect, selectedDoc }: DocumentPickerPr
   const [searchTerm, setSearchTerm] = useState("")
 
   const icon = type === "sheets" ? 
-    <FileSpreadsheet className="w-5 h-5 text-green-600" /> : 
-    <PresentationIcon className="w-5 h-5 text-violet-600" />
+    <FileSpreadsheetIcon color="success" /> : 
+    <PresentationIcon sx={{ color: 'purple' }} />
 
   const title = type === "sheets" ? "Google Sheets" : "Google Slides"
 
@@ -67,7 +115,6 @@ export function DocumentPicker({ type, onSelect, selectedDoc }: DocumentPickerPr
         return
       }
 
-      // Crear un documento temporal con la información disponible
       const newDoc: Document = {
         id: docId,
         name: "Documento desde URL",
@@ -84,154 +131,148 @@ export function DocumentPicker({ type, onSelect, selectedDoc }: DocumentPickerPr
     }
   }
 
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue)
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <Box sx={{ my: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {icon}
-          <h3 className="text-sm font-medium text-slate-900 dark:text-white">{title}</h3>
-        </div>
+          <Typography variant="subtitle1">{title}</Typography>
+        </Box>
         <Button 
-          variant="ghost"
-          size="sm"
-          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+          variant="text"
+          color="primary"
           onClick={() => setOpen(true)}
         >
           Seleccionar documento
         </Button>
-      </div>
+      </Box>
 
-      {selectedDoc ? (
-        <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={selectedDoc.iconUrl} alt="" className="w-8 h-8" />
-              <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-white">{selectedDoc.name}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">ID: {selectedDoc.id}</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        {selectedDoc ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <img src={selectedDoc.iconUrl} alt="" style={{ width: 32, height: 32 }} />
+              <Box>
+                <Typography variant="subtitle2">{selectedDoc.name}</Typography>
+                <Typography variant="caption" color="text.secondary">ID: {selectedDoc.id}</Typography>
+              </Box>
+            </Box>
+            <Box>
+              <IconButton
+                size="small"
+                color="primary"
                 onClick={() => window.location.href = `/edit?doc=${selectedDoc.id}`}
               >
-                Editar
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                <EditIcon />
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
                 onClick={() => onSelect({ ...selectedDoc, id: "" })}
               >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
-          <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary" align="center">
             No hay documento seleccionado
-          </p>
-        </div>
-      )}
+          </Typography>
+        )}
+      </Paper>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {icon}
-              Seleccionar {title}
-            </DialogTitle>
-            <DialogDescription>
-              Elige un documento de la lista o pega el enlace directamente
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog 
+        open={open} 
+        onClose={() => setOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {icon}
+            Seleccionar {title}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Elige un documento de la lista o pega el enlace directamente
+          </Typography>
 
-          <Tabs defaultValue="list" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="list">Lista de documentos</TabsTrigger>
-              <TabsTrigger value="url">Pegar enlace</TabsTrigger>
-            </TabsList>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs value={tabValue} onChange={handleTabChange}>
+              <Tab label="Lista de documentos" />
+              <Tab label="Pegar enlace" />
+            </Tabs>
+          </Box>
 
-            <TabsContent value="list" className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Buscar documentos..."
-                  className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+          <TabPanel value={tabValue} index={0}>
+            <Box sx={{ mb: 2 }}>
+              <TextField
+                fullWidth
+                placeholder="Buscar documentos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
+                }}
+                size="small"
+              />
+            </Box>
 
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {filteredDocs.map((doc) => (
-                  <button
-                    key={doc.id}
-                    className="w-full p-3 flex items-center justify-between rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    onClick={() => {
-                      onSelect(doc)
-                      setOpen(false)
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <img src={doc.iconUrl} alt="" className="w-8 h-8" />
-                      <div className="text-left">
-                        <p className="text-sm font-medium text-slate-900 dark:text-white">{doc.name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Última modificación: {doc.lastModified}</p>
-                      </div>
-                    </div>
-                    {selectedDoc?.id === doc.id && (
-                      <Check className="w-4 h-4 text-green-500" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="url" className="space-y-4">
-              <div className="space-y-4">
-                <div className="relative">
-                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    placeholder={`Pega el enlace de ${title} aquí`}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                    value={urlInput}
-                    onChange={(e) => {
-                      setUrlInput(e.target.value)
-                      setUrlError("")
-                    }}
-                  />
-                </div>
-                {urlError && (
-                  <p className="text-sm text-red-500">{urlError}</p>
-                )}
-                <div className="text-sm text-slate-600 dark:text-slate-400 space-y-2">
-                  <p>Ejemplo de formato:</p>
-                  <code className="block bg-slate-100 dark:bg-slate-800 p-2 rounded">
-                    https://docs.google.com/{type === "sheets" ? "spreadsheets" : "presentation"}/d/tu-id-aqui/edit
-                  </code>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={handleUrlSubmit}
-                  disabled={!urlInput}
-                  className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+            <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+              {filteredDocs.map((doc) => (
+                <ListItem
+                  key={doc.id}
+                  button
+                  onClick={() => {
+                    onSelect(doc)
+                    setOpen(false)
+                  }}
                 >
-                  Conectar documento
-                </Button>
-              </DialogFooter>
-            </TabsContent>
-          </Tabs>
+                  <ListItemIcon>
+                    <img src={doc.iconUrl} alt="" style={{ width: 32, height: 32 }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={doc.name}
+                    secondary={`Última modificación: ${doc.lastModified}`}
+                  />
+                  {selectedDoc?.id === doc.id && (
+                    <ListItemSecondaryAction>
+                      <CheckIcon color="success" />
+                    </ListItemSecondaryAction>
+                  )}
+                </ListItem>
+              ))}
+            </List>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={1}>
+            <TextField
+              fullWidth
+              label="URL del documento"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              error={!!urlError}
+              helperText={urlError}
+              InputProps={{
+                startAdornment: <LinkIcon color="action" sx={{ mr: 1 }} />
+              }}
+            />
+          </TabPanel>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancelar</Button>
+          {tabValue === 1 && (
+            <Button onClick={handleUrlSubmit} variant="contained" disabled={!urlInput}>
+              Confirmar
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
-    </div>
+    </Box>
   )
 } 

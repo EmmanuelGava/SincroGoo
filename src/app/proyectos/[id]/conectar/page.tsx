@@ -217,7 +217,7 @@ export default function ConectarDocumentos() {
       
       <main className="container mx-auto py-8 px-4">
         <div className="flex items-center mb-8">
-          <Button variant="outline" onClick={() => router.push("/proyectos")}>
+          <Button variant="outlined" onClick={() => router.push("/proyectos")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver a Proyectos
           </Button>

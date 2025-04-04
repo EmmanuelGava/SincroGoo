@@ -1,11 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/componentes/ui/dialog"
-import { Button } from "@/componentes/ui/button"
-import { Input } from "@/componentes/ui/input"
-import { Label } from "@/componentes/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/ui/tabs"
+import { Dialog, DialogContent, DialogTitle, Tab, Tabs, TextField, Button } from "@mui/material"
 import { FileSpreadsheet, PresentationIcon, Search, Plus, Save, Link as LinkIcon, Loader2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -153,177 +149,166 @@ export function ProjectPicker({ onSave, savedProjects = [] }: ProjectPickerProps
   )
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white transition-colors gap-2">
-          <Plus className="w-4 h-4" />
-          Nuevo Proyecto
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
-          <DialogDescription>
-            Selecciona una hoja de cálculo y una presentación para sincronizar
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Button
+        variant="contained"
+        color="primary"
+        fullWidth
+        onClick={() => setIsOpen(true)}
+        startIcon={<Plus className="w-4 h-4" />}
+        sx={{ bgcolor: 'rgb(124 58 237)', '&:hover': { bgcolor: 'rgb(109 40 217)' } }}
+      >
+        Nuevo Proyecto
+      </Button>
 
-        <div className="space-y-6 py-4">
-          <div>
-            <Label htmlFor="projectName">Nombre del Proyecto</Label>
-            <Input
-              id="projectName"
+      <Dialog 
+        open={isOpen} 
+        onClose={() => setIsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <div className="text-sm text-gray-500 mb-6">
+            Selecciona una hoja de cálculo y una presentación para sincronizar
+          </div>
+
+          <div className="space-y-6">
+            <TextField
+              fullWidth
+              label="Nombre del Proyecto"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder="Ej: Precios Q1 2024"
-              className="mt-2"
+              size="small"
             />
-          </div>
 
-          <div className="space-y-4">
-            <Tabs value={currentTab} onValueChange={(value) => setCurrentTab(value as 'sheets' | 'slides')}>
-              <TabsList className="w-full">
-                <TabsTrigger value="sheets" className="w-full">
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  Hojas de Cálculo
-                </TabsTrigger>
-                <TabsTrigger value="slides" className="w-full">
-                  <PresentationIcon className="w-4 h-4 mr-2" />
-                  Presentaciones
-                </TabsTrigger>
-              </TabsList>
+            <div className="space-y-4">
+              <Tabs 
+                value={currentTab} 
+                onChange={(_, value) => setCurrentTab(value)}
+                variant="fullWidth"
+              >
+                <Tab 
+                  value="sheets" 
+                  label={
+                    <div className="flex items-center">
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Hojas de Cálculo
+                    </div>
+                  }
+                />
+                <Tab 
+                  value="slides"
+                  label={
+                    <div className="flex items-center">
+                      <PresentationIcon className="w-4 h-4 mr-2" />
+                      Presentaciones
+                    </div>
+                  }
+                />
+              </Tabs>
 
-              <TabsContent value="sheets">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <LinkIcon className="w-4 h-4 text-slate-500" />
-                    <Input
-                      placeholder="Pega el enlace de la hoja de cálculo..."
-                      value={sheetUrl}
-                      onChange={(e) => {
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <LinkIcon className="w-4 h-4 text-slate-500" />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder={`URL de ${currentTab === 'sheets' ? 'la hoja de cálculo' : 'la presentación'}`}
+                    value={currentTab === 'sheets' ? sheetUrl : slideUrl}
+                    onChange={(e) => {
+                      if (currentTab === 'sheets') {
                         setSheetUrl(e.target.value)
-                        handleUrlChange(e.target.value, 'sheets')
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-slate-500" />
-                    <Input
-                      placeholder="O busca en tus documentos..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="max-h-[300px] overflow-y-auto space-y-2">
-                    {loading ? (
-                      <div className="flex justify-center p-4">
-                        <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
-                      </div>
-                    ) : (
-                      filteredDocuments
-                        .filter(doc => doc.type === 'sheets')
-                        .map(doc => (
-                          <div
-                            key={doc.id}
-                            className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                              selectedSheet?.id === doc.id
-                                ? "bg-violet-100 dark:bg-violet-900/30"
-                                : "hover:bg-slate-100 dark:hover:bg-slate-800"
-                            }`}
-                            onClick={() => setSelectedSheet(doc)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <FileSpreadsheet className="w-4 h-4 text-blue-500" />
-                              <div>
-                                <p className="font-medium text-slate-900 dark:text-white">{doc.name}</p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                  Modificado: {new Date(doc.lastModified).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="slides">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <LinkIcon className="w-4 h-4 text-slate-500" />
-                    <Input
-                      placeholder="Pega el enlace de la presentación..."
-                      value={slideUrl}
-                      onChange={(e) => {
+                      } else {
                         setSlideUrl(e.target.value)
-                        handleUrlChange(e.target.value, 'slides')
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-slate-500" />
-                    <Input
-                      placeholder="O busca en tus documentos..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="max-h-[300px] overflow-y-auto space-y-2">
-                    {loading ? (
-                      <div className="flex justify-center p-4">
-                        <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
-                      </div>
-                    ) : (
-                      filteredDocuments
-                        .filter(doc => doc.type === 'slides')
-                        .map(doc => (
-                          <div
-                            key={doc.id}
-                            className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                              selectedSlide?.id === doc.id
-                                ? "bg-violet-100 dark:bg-violet-900/30"
-                                : "hover:bg-slate-100 dark:hover:bg-slate-800"
-                            }`}
-                            onClick={() => setSelectedSlide(doc)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <PresentationIcon className="w-4 h-4 text-violet-500" />
-                              <div>
-                                <p className="font-medium text-slate-900 dark:text-white">{doc.name}</p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                  Modificado: {new Date(doc.lastModified).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
+                      }
+                    }}
+                    onBlur={() => handleUrlChange(
+                      currentTab === 'sheets' ? sheetUrl : slideUrl,
+                      currentTab
                     )}
-                  </div>
+                  />
                 </div>
-              </TabsContent>
-            </Tabs>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Buscar documentos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    sx={{ pl: 4 }}
+                  />
+                </div>
+
+                <div className="h-[200px] overflow-y-auto border rounded-lg p-2">
+                  {loading ? (
+                    <div className="h-full flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+                    </div>
+                  ) : filteredDocuments.length > 0 ? (
+                    <div className="space-y-2">
+                      {filteredDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                            (currentTab === 'sheets' ? selectedSheet?.id === doc.id : selectedSlide?.id === doc.id)
+                              ? 'bg-violet-50 border-violet-200'
+                              : 'hover:bg-slate-50'
+                          }`}
+                          onClick={() => {
+                            if (currentTab === 'sheets') {
+                              setSelectedSheet(doc)
+                            } else {
+                              setSelectedSlide(doc)
+                            }
+                          }}
+                        >
+                          <img src={doc.iconUrl} alt="" className="w-6 h-6" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{doc.name}</p>
+                            <p className="text-xs text-slate-500">
+                              Modificado: {new Date(doc.lastModified).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                      No se encontraron documentos
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
+          <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpen(false)
+                resetForm()
+              }}
+            >
               Cancelar
             </Button>
-            <Button 
+            <Button
+              variant="contained"
               onClick={handleSave}
               disabled={!selectedSheet || !selectedSlide || !projectName.trim()}
-              className="bg-violet-600 hover:bg-violet-700 text-white"
+              startIcon={<Save className="w-4 h-4" />}
             >
-              <Save className="w-4 h-4 mr-2" />
               Guardar Proyecto
             </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 } 

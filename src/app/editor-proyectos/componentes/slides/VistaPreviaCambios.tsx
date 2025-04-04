@@ -1,82 +1,87 @@
 "use client"
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/componentes/ui/dialog"
-import { Button } from "@/componentes/ui/button"
+import { Dialog, DialogContent, DialogTitle } from "@mui/material"
+import { Button } from "@/componentes/ui"
 import { ScrollArea } from "@/componentes/ui/scroll-area"
 import { Check, X } from "lucide-react"
-import { CambioPrevio } from "@/tipos/diapositivas"
+
+interface CambioPrevio {
+  idDiapositiva: string
+  idElemento: string
+  contenidoAnterior: string
+  contenidoNuevo: string
+  variables?: string[]
+}
 
 interface VistaPreviaCambiosProps {
-  abierto: boolean
   cambios: CambioPrevio[]
   onCerrar: () => void
-  onConfirmar: () => void
+  onAplicar: () => void
+  abierto: boolean
+  cargando?: boolean
 }
 
 export function VistaPreviaCambios({
-  abierto,
   cambios,
   onCerrar,
-  onConfirmar
+  onAplicar,
+  abierto,
+  cargando = false
 }: VistaPreviaCambiosProps) {
   return (
-    <Dialog open={abierto} onOpenChange={onCerrar}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Vista Previa de Cambios</DialogTitle>
-          <DialogDescription>
-            Revisa los cambios antes de aplicarlos a las diapositivas
-          </DialogDescription>
-        </DialogHeader>
-        
-        <ScrollArea className="flex-1 mt-4">
-          <div className="space-y-4">
-            {cambios.length > 0 ? (
-              cambios.map((cambio, index) => (
-                <div key={index} className="border rounded-md p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Cambio en elemento {cambio.idElemento}</h3>
-                    <span className="text-xs text-muted-foreground">
-                      Diapositiva: {cambio.idDiapositiva}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Contenido Original</h4>
-                      <div className="bg-muted p-3 rounded-md text-sm whitespace-pre-wrap">
-                        {cambio.contenidoAnterior || <em className="text-muted-foreground">Vacío</em>}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Nuevo Contenido</h4>
-                      <div className="bg-primary/5 border-primary/20 border p-3 rounded-md text-sm whitespace-pre-wrap">
-                        {cambio.contenidoNuevo || <em className="text-muted-foreground">Vacío</em>}
-                      </div>
-                    </div>
+    <Dialog 
+      open={abierto} 
+      onClose={onCerrar}
+      maxWidth="lg"
+      fullWidth
+    >
+      <DialogContent sx={{ height: '80vh', display: 'flex', flexDirection: 'column', p: 3 }}>
+        <DialogTitle>Vista Previa de Cambios</DialogTitle>
+        <div className="text-sm text-gray-500 mb-4">
+          Revisa los cambios antes de aplicarlos a la presentación
+        </div>
+
+        <ScrollArea className="flex-1 px-1">
+          <div className="space-y-4 py-4">
+            {cambios.map((cambio, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-2 gap-4 p-4 border rounded-lg"
+              >
+                <div>
+                  <h3 className="font-medium mb-2">Contenido Original</h3>
+                  <div className="p-3 bg-muted rounded-md whitespace-pre-wrap">
+                    {cambio.contenidoAnterior}
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay cambios para aplicar
+                <div>
+                  <h3 className="font-medium mb-2">Contenido Nuevo</h3>
+                  <div className="p-3 bg-muted rounded-md whitespace-pre-wrap">
+                    {cambio.contenidoNuevo}
+                  </div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </ScrollArea>
-        
-        <DialogFooter className="mt-6 gap-2">
-          <Button variant="outline" onClick={onCerrar}>
-            <X className="mr-2 h-4 w-4" />
+
+        <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+          <Button 
+            variant="outlined" 
+            onClick={onCerrar}
+            startIcon={<X />}
+          >
             Cancelar
           </Button>
-          
-          <Button onClick={onConfirmar} disabled={cambios.length === 0}>
-            <Check className="mr-2 h-4 w-4" />
-            Aplicar Cambios
+          <Button
+            variant="contained"
+            onClick={onAplicar}
+            disabled={cargando}
+            startIcon={<Check />}
+          >
+            {cargando ? 'Aplicando...' : 'Aplicar Cambios'}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

@@ -8,16 +8,17 @@ import {
   TextField,
   CircularProgress,
   Alert,
-  Typography
+  Typography,
+  Box,
+  LinearProgress
 } from '@mui/material';
-import { Lugar } from '../servicios/google-places-service';
-import { GoogleSheetsService } from '@/servicios/google/googleSheets';
-import { signIn } from 'next-auth/react';
+import { LugarExportable } from '../tipos';
+import { signIn, useSession } from 'next-auth/react';
 
 interface ExportarEstablecimientosProps {
-  establecimientos: Lugar[];
+  establecimientos: LugarExportable[];
   onClose: () => void;
-  onSheetCreated?: (spreadsheetId: string) => void;
+  onSheetCreated: (id: string) => void;
 }
 
 export function ExportarEstablecimientos({ 
@@ -25,75 +26,89 @@ export function ExportarEstablecimientos({
   onClose,
   onSheetCreated 
 }: ExportarEstablecimientosProps) {
+  const { data: session } = useSession();
   const [nombreHoja, setNombreHoja] = useState('Establecimientos');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const formatearHorarios = (horarios: string[] | undefined): string => {
-    if (!horarios || !Array.isArray(horarios)) {
-      return 'No disponible';
-    }
-    return horarios.join('\n');
+  const prepararDatosExportacion = (establecimientos: LugarExportable[]): any[][] => {
+    // Encabezados
+    const headers = [
+      'Nombre',
+      'Dirección',
+      'Teléfono',
+      'Sitio Web',
+      'Calificación',
+      'Total Reseñas',
+      'Horarios'
+    ];
+
+    // Datos de los establecimientos
+    const rows = establecimientos.map(est => {
+      console.log('Procesando establecimiento para exportación:', est); // Para debugging
+      
+      // Formatear horarios de manera más legible
+      const horariosFormateados = est.horarios?.join('\n') || 'No disponible';
+
+      return [
+        est.nombre || 'No disponible',
+        est.direccion || 'No disponible',
+        est.telefono || 'No disponible',
+        est.sitioWeb || 'No disponible',
+        // Formatear calificación con un decimal si existe
+        est.rating ? est.rating.toFixed(1) : 'No disponible',
+        // Formatear total de reseñas como número entero
+        est.totalRatings ? est.totalRatings.toString() : 'No disponible',
+        horariosFormateados
+      ];
+    });
+
+    console.log('Datos preparados para exportación:', rows); // Para debugging
+    return [headers, ...rows];
   };
 
   const handleExportar = async () => {
+    if (!session?.accessToken) {
+      setError('No hay sesión activa. Por favor, inicia sesión.');
+      return;
+    }
+
     try {
       setCargando(true);
       setError(null);
 
-      console.log('Establecimientos a exportar:', establecimientos);
+      console.log('Establecimientos a exportar:', establecimientos); // Para debugging
 
-      // Preparar los datos para exportar
-      const datosParaExportar = establecimientos.map(establecimiento => {
-        console.log('Procesando establecimiento:', establecimiento);
-        
-        // Asegurarnos de que todos los campos tengan valores válidos
-        const nombre = establecimiento.nombre || 'No disponible';
-        const direccion = establecimiento.direccion || 'No disponible';
-        const telefono = establecimiento.telefono || 'No disponible';
-        const sitioWeb = establecimiento.sitioWeb || 'No disponible';
-        const horarios = (establecimiento.horarios || []).join('\n') || 'No disponible';
-        const puntuacion = establecimiento.puntuacion?.toString() || 'No disponible';
-        const totalPuntuaciones = establecimiento.totalPuntuaciones?.toString() || 'No disponible';
-        const nivelPrecio = establecimiento.nivelPrecio ? '€'.repeat(establecimiento.nivelPrecio) : 'No disponible';
-        const completitud = `${Math.round(establecimiento.completitud)}%`;
+      const datos = prepararDatosExportacion(establecimientos);
 
-        const fila = [
-          nombre,
-          direccion,
-          telefono,
-          sitioWeb,
-          horarios,
-          puntuacion,
-          totalPuntuaciones,
-          nivelPrecio,
-          completitud
-        ];
-
-        console.log('Fila preparada:', fila);
-        return fila;
+      const response = await fetch('/api/google/places/sheets/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: JSON.stringify({
+          titulo: nombreHoja,
+          datos
+        })
       });
 
-      console.log('Datos finales para exportar:', datosParaExportar);
+      const resultado = await response.json();
 
-      // Crear la hoja de cálculo
-      const spreadsheetId = await GoogleSheetsService.getInstance().crearHojaCalculo(
-        nombreHoja,
-        [
-          ['Nombre', 'Dirección', 'Teléfono', 'Sitio Web', 'Horarios', 'Puntuación', 'Total Puntuaciones', 'Nivel de Precio', 'Completitud'],
-          ...datosParaExportar
-        ]
-      );
-
-      // Guardar el ID en localStorage
-      localStorage.setItem('lastSpreadsheetId', spreadsheetId);
-      
-      if (onSheetCreated) {
-        onSheetCreated(spreadsheetId);
+      if (!resultado.exito) {
+        throw new Error(resultado.error || 'Error al exportar los establecimientos');
       }
 
-      // Abrir la hoja en una nueva pestaña
-      window.open(`https://docs.google.com/spreadsheets/d/${spreadsheetId}`, '_blank');
+      if (onSheetCreated && resultado.datos) {
+        onSheetCreated(resultado.datos.spreadsheetId);
+      }
+
+      // Guardar el ID en localStorage
+      if (resultado.datos) {
+        localStorage.setItem('lastSpreadsheetId', resultado.datos.spreadsheetId);
+        // Abrir la hoja en una nueva pestaña
+        window.open(resultado.datos.url, '_blank');
+      }
       
       onClose();
     } catch (error) {
@@ -108,7 +123,7 @@ export function ExportarEstablecimientos({
           scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file'
         });
       } else {
-        setError('Error al exportar los establecimientos');
+        setError(error instanceof Error ? error.message : 'Error al exportar los establecimientos');
       }
     } finally {
       setCargando(false);

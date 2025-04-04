@@ -10,7 +10,7 @@ import {
   styled
 } from "@mui/material"
 import { ChevronLeft as ChevronLeftIcon } from "@mui/icons-material"
-import { cn } from "@/lib/utils"
+import { cn } from "@/app/lib/utils"
 
 const DRAWER_WIDTH = 256
 const DRAWER_WIDTH_MOBILE = 288
@@ -230,3 +230,4 @@ export const SidebarMenuAction = styled(IconButton)(({ theme }) => ({
     opacity: 1,
   },
 }))
+

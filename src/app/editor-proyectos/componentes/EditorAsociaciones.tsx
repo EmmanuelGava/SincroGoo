@@ -1,118 +1,55 @@
 "use client"
 
-import React from 'react';
-import { 
-  Box, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem,
-  Typography
-} from '@mui/material';
+import { useSlides } from '../contexts/SlidesContext'
+import { useSheets } from '../contexts/SheetsContext'
+import { useUI } from '../contexts/UIContext'
+import { ElementoDiapositiva } from '../types'
 
-interface EditorAsociacionesProps {
-  elementos: Array<{
-    id: string;
-    tipo: string;
-    columnaAsociada: string | null;
-  }>;
-  columnas: string[];
-  onAsociar?: (elementoId: string, columna: string | null) => void;
-  marcarCambiosAsociaciones?: (cambios: boolean) => void;
-  idPresentacion?: string;
-  idHoja?: string;
-  idDiapositiva?: string;
-}
+export function EditorAsociaciones() {
+  const { elementosActuales, setElementosModificados, setHayElementosModificados } = useSlides()
+  const { columnas } = useSheets()
+  const { idProyecto } = useUI()
 
-// Manejar cambio en la asociación
-const handleAsociacionChange = (
-  elementoId: string, 
-  columna: string | null,
-  onAsociar?: (elementoId: string, columna: string | null) => void,
-  marcarCambiosAsociaciones?: (cambios: boolean) => void,
-  idPresentacion?: string,
-  idHoja?: string,
-  idDiapositiva?: string
-) => {
-  console.log(`🔍 [EditorAsociaciones] Cambio de asociación para elemento ${elementoId}`);
-  console.log(`- Columna seleccionada: ${columna || 'ninguna'}`);
-  
-  // Si tenemos función de asociación, llamarla
-  if (onAsociar) {
-    onAsociar(elementoId, columna);
+  const handleElementoChange = (elemento: ElementoDiapositiva, columnaId: string) => {
+    const nuevosElementos = elementosActuales.map((el: ElementoDiapositiva) =>
+      el.id === elemento.id
+        ? { ...el, columnaAsociada: columnaId || undefined }
+        : el
+    )
+    setElementosModificados(nuevosElementos)
+    setHayElementosModificados(true)
   }
-  
-  // Marcar que hay cambios en asociaciones para habilitar el botón de guardar
-  if (marcarCambiosAsociaciones) {
-    console.log('🔍 [EditorAsociaciones] Marcando cambio en asociaciones en el estado global');
-    marcarCambiosAsociaciones(true);
-  }
-  
-  // Emitir un evento para que otros componentes puedan reaccionar
-  try {
-    const evento = new CustomEvent('cambio-asociacion', {
-      detail: {
-        idPresentacion,
-        idHoja,
-        idDiapositiva,
-        elementoId,
-        columna,
-        timestamp: new Date().getTime()
-      }
-    });
-    
-    console.log('✅ [EditorAsociaciones] Emitiendo evento cambio-asociacion:', evento.detail);
-    document.dispatchEvent(evento);
-  } catch (error) {
-    console.error('❌ [EditorAsociaciones] Error al emitir evento de cambio:', error);
-  }
-};
 
-export function EditorAsociaciones({
-  elementos,
-  columnas,
-  onAsociar,
-  marcarCambiosAsociaciones,
-  idPresentacion,
-  idHoja,
-  idDiapositiva
-}: EditorAsociacionesProps) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Asociaciones
-      </Typography>
-      {elementos.map((elemento) => (
-        <FormControl key={elemento.id} fullWidth>
-          <InputLabel id={`asociacion-${elemento.id}-label`}>
-            {elemento.tipo}
-          </InputLabel>
-          <Select
-            labelId={`asociacion-${elemento.id}-label`}
-            id={`asociacion-${elemento.id}`}
-            value={elemento.columnaAsociada || ''}
-            label={elemento.tipo}
-            onChange={(e) => handleAsociacionChange(
-              elemento.id,
-              e.target.value || null,
-              onAsociar,
-              marcarCambiosAsociaciones,
-              idPresentacion,
-              idHoja,
-              idDiapositiva
-            )}
-          >
-            <MenuItem value="">
-              <em>Sin asociar</em>
-            </MenuItem>
-            {columnas.map((columna) => (
-              <MenuItem key={columna} value={columna}>
-                {columna}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+    <div className="space-y-4">
+      {elementosActuales.map((elemento: ElementoDiapositiva) => (
+        <div key={elemento.id} className="p-4 border rounded-lg">
+          <h3 className="font-medium mb-2">Elemento: {elemento.id}</h3>
+          <div className="grid gap-4">
+            <div>
+              <label className="text-sm font-medium">Contenido</label>
+              <p className="mt-1">{typeof elemento.contenido === 'string' ? elemento.contenido : 
+                typeof elemento.contenido === 'object' && elemento.contenido.texto ? elemento.contenido.texto : 
+                JSON.stringify(elemento.contenido)}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Columna Asociada</label>
+              <select
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                value={elemento.columnaAsociada || ''}
+                onChange={(e) => handleElementoChange(elemento, e.target.value)}
+              >
+                <option value="">Sin asociar</option>
+                {columnas.map((columna) => (
+                  <option key={columna.id} value={columna.id}>
+                    {columna.titulo}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
       ))}
-    </Box>
-  );
+    </div>
+  )
 } 

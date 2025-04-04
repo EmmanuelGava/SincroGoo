@@ -1,86 +1,101 @@
 'use client';
 
-import { useState } from 'react';
-import { authService } from '@/servicios/supabase/globales/auth-service';
+import { useState, useEffect } from 'react';
 import { Box, AppBar, Toolbar, Typography, Container, Paper, Button, CircularProgress } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Redirigir si ya está autenticado
-  if (status === 'authenticated') {
-    router.push('/dashboard');
-    return null;
-  }
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.email) {
+      console.log('✅ Usuario autenticado con datos completos, redirigiendo a dashboard');
+      router.push('/dashboard');
+    }
+  }, [status, session, router]);
 
-  const handleLogin = async (provider: string) => {
+  const handleLogin = async () => {
     try {
       setIsLoading(true);
-      await authService.signIn(provider);
+      console.log('🔄 Iniciando proceso de login...');
+
+      const result = await signIn('google', {
+        callbackUrl: '/dashboard',
+        redirect: false
+      });
+
+      console.log('📝 Resultado del login:', result);
+
+      if (result?.error) {
+        console.error('❌ Error al iniciar sesión:', result.error);
+        let mensajeError = 'Error al iniciar sesión con Google';
+        
+        // Personalizar mensajes de error
+        if (result.error.includes('AccessDenied')) {
+          mensajeError = 'No tienes permiso para acceder a esta aplicación. Por favor, contacta al administrador.';
+          console.error('❌ Error de acceso denegado:', result);
+        } else if (result.error.includes('Configuration')) {
+          mensajeError = 'Error de configuración en la autenticación. Por favor, contacta al administrador.';
+          console.error('❌ Error de configuración:', result);
+        } else if (result.error.includes('OAuth')) {
+          mensajeError = 'Error en la autenticación con Google. Por favor, intenta nuevamente.';
+          console.error('❌ Error de OAuth:', result);
+        } else if (result.error.includes('Callback')) {
+          mensajeError = 'Error en el proceso de autenticación. Por favor, intenta nuevamente.';
+          console.error('❌ Error en callback:', result);
+        }
+        
+        toast.error(mensajeError);
+      } else if (result?.ok) {
+        console.log('✅ Login exitoso, redirigiendo al dashboard...');
+        toast.success('Inicio de sesión exitoso');
+      }
     } catch (error) {
-      console.error('Error al iniciar sesión:', error);
+      console.error('❌ Error inesperado al iniciar sesión:', error);
+      toast.error('Error inesperado al iniciar sesión. Por favor, intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  if (status === 'loading') {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* Encabezado del Sistema */}
-      <AppBar position="static" color="primary" elevation={0}>
+    <Box sx={{ flexGrow: 1 }}>
+      <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             SincroGoo
           </Typography>
         </Toolbar>
       </AppBar>
-
-      {/* Contenido Principal */}
-      <Container component="main" maxWidth="xs" sx={{ mt: 8 }}>
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 4, 
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.8)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: 2
-          }}
-        >
-          <Typography component="h1" variant="h5" gutterBottom>
-            Iniciar Sesión
+      <Container maxWidth="sm" sx={{ mt: 8 }}>
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Bienvenido a SincroGoo
           </Typography>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            Accede a tu cuenta para continuar
+          <Typography variant="body1" color="text.secondary" paragraph>
+            Inicia sesión con tu cuenta de Google para continuar
           </Typography>
-          
           <Button
             variant="contained"
             startIcon={<GoogleIcon />}
-            onClick={() => handleLogin('google')}
+            onClick={handleLogin}
             disabled={isLoading}
-            fullWidth
-            sx={{ 
-              mt: 2,
-              mb: 2,
-              py: 1.5,
-              borderRadius: 2,
-              textTransform: 'none',
-              fontSize: '1rem'
-            }}
+            sx={{ mt: 2 }}
           >
-            {isLoading ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              'Continuar con Google'
-            )}
+            {isLoading ? <CircularProgress size={24} /> : 'Iniciar sesión con Google'}
           </Button>
         </Paper>
       </Container>

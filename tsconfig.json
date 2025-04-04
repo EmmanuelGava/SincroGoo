@@ -37,13 +37,13 @@
         "./src/app/servicios/*"
       ],
       "@/lib/*": [
-        "./src/app/lib/*"
+        "./src/lib/*"
       ],
       "@/styles/*": [
         "./src/app/styles/*"
       ],
       "@/types/*": [
-        "./src/app/types/*"
+        "./src/types/*"
       ],
       "@/tipos/*": [
         "./src/app/tipos/*"

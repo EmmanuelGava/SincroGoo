@@ -25,7 +25,6 @@ import SelectorArchivo from './componentes/SelectorArchivo';
 import PasosStepper from './componentes/PasosStepper';
 import VisualizadorArchivo from './componentes/VisualizadorArchivo';
 import ConfiguradorPlantillaSlides from './componentes/ConfiguradorPlantillaSlides';
-import { ExcelToSlidesService, DatosDiapositiva } from '@/app/servicios/excel-to-slides/excel-to-slides-service';
 import { ConfiguracionPaginacion } from '@/app/modelos/configuracion-paginacion';
 import { Diapositiva } from './modelos/diapositiva';
 
@@ -60,16 +59,48 @@ export default function ExcelToSlidesPage() {
         setError(null);
         
         try {
-          const servicio = await ExcelToSlidesService.getInstance();
-          const hojasExcel = await servicio.leerHojasExcel(archivo);
-          setHojas(hojasExcel);
+          // Crear FormData para enviar el archivo
+          const formData = new FormData();
+          formData.append('file', archivo);
+
+          // Llamar al endpoint para leer las hojas
+          const response = await fetch('/api/google/slides/excel-to-slides/hojas', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.accessToken}`
+            },
+            body: formData
+          });
+
+          const resultado = await response.json();
           
-          if (hojasExcel.length > 0) {
-            const encabezadosHoja = await servicio.leerEncabezadosHoja(archivo, hojasExcel[0]);
-            setEncabezados(encabezadosHoja);
+          if (!resultado.exito) {
+            throw new Error(resultado.error || 'Error al leer las hojas del archivo');
+          }
+
+          setHojas(resultado.datos);
+          
+          if (resultado.datos.length > 0) {
+            // Llamar al endpoint para leer los encabezados
+            formData.append('nombreHoja', resultado.datos[0]);
+            const encabezadosResponse = await fetch('/api/google/slides/excel-to-slides/encabezados', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.accessToken}`
+              },
+              body: formData
+            });
+
+            const encabezadosResultado = await encabezadosResponse.json();
+            
+            if (!encabezadosResultado.exito) {
+              throw new Error(encabezadosResultado.error || 'Error al leer los encabezados');
+            }
+
+            setEncabezados(encabezadosResultado.datos);
           }
         } catch (error) {
-          setError('Error al leer el archivo Excel');
+          setError('Error al leer el archivo Excel: ' + (error instanceof Error ? error.message : 'Error desconocido'));
           console.error('Error:', error);
         }
       } else {
@@ -79,16 +110,33 @@ export default function ExcelToSlidesPage() {
   };
 
   const handleCambioHoja = async (nombreHoja: string) => {
-    if (!archivoSeleccionado) return;
+    if (!archivoSeleccionado || !session?.accessToken) return;
     
     try {
-      const servicio = await ExcelToSlidesService.getInstance();
-      // Obtener la fila de encabezados de la configuración actual
-      const filaEncabezados = diapositivas[0]?.filas?.filaEncabezados || 1;
-      const nuevosEncabezados = await servicio.leerEncabezadosHoja(archivoSeleccionado, nombreHoja, filaEncabezados);
-      setEncabezados(nuevosEncabezados);
+      // Crear FormData para enviar el archivo y el nombre de la hoja
+      const formData = new FormData();
+      formData.append('file', archivoSeleccionado);
+      formData.append('nombreHoja', nombreHoja);
+      formData.append('filaEncabezados', String(diapositivas[0]?.filas?.filaEncabezados || 1));
+
+      // Llamar al endpoint para leer los encabezados
+      const response = await fetch('/api/google/slides/excel-to-slides/encabezados', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: formData
+      });
+
+      const resultado = await response.json();
+      
+      if (!resultado.exito) {
+        throw new Error(resultado.error || 'Error al leer los encabezados');
+      }
+
+      setEncabezados(resultado.datos);
     } catch (error) {
-      setError('Error al leer los encabezados de la hoja');
+      setError('Error al leer los encabezados de la hoja: ' + (error instanceof Error ? error.message : 'Error desconocido'));
       console.error('Error:', error);
     }
   };
@@ -110,23 +158,28 @@ export default function ExcelToSlidesPage() {
     setDiapositivas(nuevasDiapositivas);
 
     try {
-      const servicio = await ExcelToSlidesService.getInstance();
-      // Convertir las diapositivas al nuevo formato
-      const diapositivasConFilas: DatosDiapositiva[] = nuevasDiapositivas.map(diapositiva => ({
-        ...diapositiva,
-        hoja: diapositiva.hoja || '',
-        filas: diapositiva.filas || {
-          inicio: 2,
-          filaEncabezados: 1,
-          fin: undefined
-        }
-      }));
+      // Crear FormData para enviar los datos
+      const formData = new FormData();
+      formData.append('file', archivoSeleccionado);
+      formData.append('nombrePresentacion', nombrePresentacion);
+      formData.append('diapositivas', JSON.stringify(nuevasDiapositivas));
 
-      const resultado = await servicio.generarPresentacionPaginada(
-        nombrePresentacion,
-        diapositivasConFilas
-      );
-      setPresentacionId(resultado);
+      // Llamar al endpoint para generar la presentación
+      const response = await fetch('/api/google/slides/excel-to-slides', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: formData
+      });
+
+      const resultado = await response.json();
+      
+      if (!resultado.exito) {
+        throw new Error(resultado.error || 'Error al generar la presentación');
+      }
+
+      setPresentacionId(resultado.datos);
       setExito('¡Presentación generada con éxito! Haz clic en el botón para verla.');
       setPasoActivo(3);
     } catch (error) {
@@ -134,7 +187,7 @@ export default function ExcelToSlidesPage() {
         setError('La sesión ha expirado. Por favor, inicia sesión nuevamente.');
         signIn('google');
       } else {
-        setError('Error al generar la presentación: ' + (error as Error).message);
+        setError('Error al generar la presentación: ' + (error instanceof Error ? error.message : 'Error desconocido'));
       }
       console.error('Error:', error);
     } finally {

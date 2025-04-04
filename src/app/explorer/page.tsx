@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Container, Grid, Paper, Typography, TextField, Button, Slider, FormControlLabel, Switch, LinearProgress, Tooltip, List, ListItem, ListItemText, Alert, Checkbox, Rating, Select, MenuItem, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails, IconButton, Autocomplete, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from '@mui/material';
-import { GooglePlacesService, Lugar } from './servicios/google-places-service';
+import { Box, Container, Grid, Paper, Typography, TextField, Button, Slider, FormControlLabel, Switch, LinearProgress, Tooltip, List, ListItem, ListItemText, Alert, Checkbox, Rating, Select, MenuItem, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails, IconButton, Autocomplete, TableContainer, Table, TableHead, TableBody, TableRow, TableCell, CircularProgress } from '@mui/material';
+import { Lugar as LugarExport } from '../servicios/google/types';
+import { Lugar } from '../servicios/google/explorer/types';
+import { LugarExportable } from './tipos';
 import { MapaEstablecimientos } from './componentes/MapaEstablecimientos';
 import { DetallesEstablecimiento } from './componentes/DetallesEstablecimiento';
 import { ExportarEstablecimientos } from './componentes/ExportarEstablecimientos';
@@ -29,11 +31,9 @@ interface UbicacionSugerida {
 }
 
 interface Filtros {
-  precioMinimo: number;
-  precioMaximo: number;
-  puntuacionMinima: number;
-  horarioApertura: ReturnType<typeof dayjs> | null;
-  horarioCierre: ReturnType<typeof dayjs> | null;
+  abiertoAhora: boolean;
+  ratingMinimo: number;
+  rubro: string;
 }
 
 interface ExplorerPageState {
@@ -47,13 +47,11 @@ interface ExplorerPageState {
   busqueda: string;
   busquedaUbicacion: string;
   mostrarExportar: boolean;
-  establecimientosDetallados: Lugar[];
+  establecimientosDetallados: LugarExportable[];
   spreadsheetId: string | null;
   filtros: Filtros;
   ubicacionesSugeridas: UbicacionSugerida[];
   cargandoSugerencias: boolean;
-  historialBusquedas: any[];
-  mostrarHistorial: boolean;
 }
 
 export const dynamic = 'force-dynamic';
@@ -66,7 +64,7 @@ export default function ExplorerPage() {
     establecimientoSeleccionado: null,
     cargando: false,
     error: null,
-    centro: { lat: 19.4326, lng: -99.1332 },
+    centro: { lat: -34.6037, lng: -58.3816 },
     radio: 5,
     busqueda: '',
     busquedaUbicacion: '',
@@ -74,88 +72,15 @@ export default function ExplorerPage() {
     establecimientosDetallados: [],
     spreadsheetId: null,
     filtros: {
-      precioMinimo: 1,
-      precioMaximo: 4,
-      puntuacionMinima: 0,
-      horarioApertura: null,
-      horarioCierre: null
+      abiertoAhora: false,
+      ratingMinimo: 0,
+      rubro: ''
     },
     ubicacionesSugeridas: [],
-    cargandoSugerencias: false,
-    historialBusquedas: [],
-    mostrarHistorial: false
+    cargandoSugerencias: false
   });
 
-  const googlePlacesService = useMemo(() => {
-    try {
-      return GooglePlacesService.getInstance();
-    } catch (error) {
-      console.error('Error al inicializar GooglePlacesService:', error);
-      return null;
-    }
-  }, []);
-
   const googleSheetsService = GoogleSheetsService.getInstance();
-
-  const obtenerUbicacionActual = useCallback(() => {
-    if (navigator.geolocation) {
-      setState(prev => ({ ...prev, cargando: true }));
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setState(prev => ({
-            ...prev,
-            centro: {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            },
-            cargando: false
-          }));
-        },
-        (error) => {
-          console.error('Error al obtener la ubicación:', error);
-          setState(prev => ({ ...prev, error: 'No se pudo obtener tu ubicación', cargando: false }));
-        }
-      );
-    } else {
-      setState(prev => ({ ...prev, error: 'Tu navegador no soporta geolocalización', cargando: false }));
-    }
-  }, []);
-
-  useEffect(() => {
-    obtenerUbicacionActual();
-  }, [obtenerUbicacionActual]);
-
-  const buscarUbicacion = async () => {
-    if (!state.busquedaUbicacion.trim()) {
-      // Si el campo está vacío, usar la ubicación actual
-      obtenerUbicacionActual();
-      return;
-    }
-
-    try {
-      setState(prev => ({ ...prev, cargando: true, error: null }));
-      const response = await fetch(`/api/places/geocode?address=${encodeURIComponent(state.busquedaUbicacion)}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al buscar la ubicación');
-      }
-
-      if (data.results && data.results.length > 0) {
-        const location = data.results[0].geometry.location;
-        setState(prev => ({
-          ...prev,
-          centro: { lat: location.lat, lng: location.lng },
-          cargando: false
-        }));
-      } else {
-        setState(prev => ({ ...prev, error: 'No se encontró la ubicación', cargando: false }));
-      }
-    } catch (error) {
-      console.error('Error al buscar ubicación:', error);
-      setState(prev => ({ ...prev, error: 'Error al buscar la ubicación', cargando: false }));
-    }
-  };
 
   const buscarEstablecimientos = async () => {
     if (!state.busqueda.trim()) {
@@ -163,50 +88,155 @@ export default function ExplorerPage() {
       return;
     }
 
-    if (!googlePlacesService) {
-      setState(prev => ({ ...prev, error: 'El servicio de Google Places no está disponible' }));
-      return;
-    }
-
     try {
       setState(prev => ({ ...prev, cargando: true, error: null }));
-      const service = googlePlacesService!;
-      const resultados = await service.buscarEstablecimientos(
-        state.busqueda,
-        state.centro.lat,
-        state.centro.lng,
-        state.radio * 1000 // Convertir a metros
+      
+      // Construir la URL con todos los parámetros necesarios
+      const searchParams = new URLSearchParams({
+        query: state.busqueda,
+        lat: state.centro.lat.toString(),
+        lng: state.centro.lng.toString(),
+        radius: (state.radio * 1000).toString() // Convertir de km a metros
+      });
+
+      // Agregar ubicación si existe
+      if (state.busquedaUbicacion) {
+        searchParams.append('location', state.busquedaUbicacion);
+      }
+      
+      const response = await fetch(
+        `/api/google/places/search?${searchParams.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`
+          }
+        }
       );
+
+      if (!response.ok) {
+        throw new Error('Error al buscar establecimientos');
+      }
+
+      const data = await response.json();
+      if (!data.exito) {
+        throw new Error(data.error || 'Error al buscar establecimientos');
+      }
+
       setState(prev => ({
         ...prev,
-        establecimientos: resultados,
-        establecimientosDetallados: resultados,
-        cargando: false
+        establecimientos: data.datos?.results || [],
+        establecimientosDetallados: data.datos?.results || [],
+        cargando: false,
+        error: null
       }));
     } catch (error) {
       console.error('Error al buscar establecimientos:', error);
-      setState(prev => ({ ...prev, error: 'Error al buscar establecimientos', cargando: false }));
+      setState(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : 'Error al buscar establecimientos',
+        cargando: false 
+      }));
     }
   };
 
-  const handleSeleccionarEstablecimiento = async (establecimiento: Lugar) => {
-    if (!googlePlacesService) {
-      setState(prev => ({ ...prev, error: 'El servicio de Google Places no está disponible' }));
-      return;
-    }
+  const obtenerUbicacionActual = useCallback(() => {
+    if (navigator.geolocation) {
+      setState(prev => ({ ...prev, cargando: true }));
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          
+          try {
+            // Obtener la dirección de las coordenadas
+            const response = await fetch(
+              `/api/google/places/geocode?lat=${lat}&lng=${lng}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${session?.accessToken}`
+                }
+              }
+            );
 
+            if (!response.ok) {
+              throw new Error('Error al obtener la dirección');
+            }
+
+            const data = await response.json();
+            if (!data.exito) {
+              throw new Error(data.error || 'Error al obtener la dirección');
+            }
+
+            const direccion = data.datos?.formatted_address || '';
+            
+            setState(prev => ({
+              ...prev,
+              centro: { lat, lng },
+              busquedaUbicacion: direccion,
+              cargando: false,
+              error: null
+            }));
+          } catch (error) {
+            console.error('Error al obtener la dirección:', error);
+            setState(prev => ({ 
+              ...prev, 
+              centro: { lat, lng },
+              cargando: false,
+              error: 'Error al obtener la dirección'
+            }));
+          }
+        },
+        (error) => {
+          console.error('Error al obtener la ubicación:', error);
+          setState(prev => ({ ...prev, error: 'No se pudo obtener tu ubicación', cargando: false }));
+        },
+        { 
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      setState(prev => ({ ...prev, error: 'Tu navegador no soporta geolocalización', cargando: false }));
+    }
+  }, [session]);
+
+  const handleSeleccionarEstablecimiento = async (establecimiento: Lugar) => {
     try {
       setState(prev => ({ ...prev, cargando: true }));
-      const service = googlePlacesService!;
-      const detalles = await service.obtenerDetallesLugar(establecimiento.id);
+      
+      const response = await fetch(
+        `/api/google/places/details?placeId=${establecimiento.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Error al obtener detalles del establecimiento');
+      }
+
+      const data = await response.json();
+      
+      if (!data.exito) {
+        throw new Error(data.error || 'Error al obtener detalles del establecimiento');
+      }
+
       setState(prev => ({
         ...prev,
-        establecimientoSeleccionado: detalles,
-        establecimientosDetallados: prev.establecimientosDetallados.map(e => e.id === detalles.id ? detalles : e)
+        establecimientoSeleccionado: data.datos,
+        cargando: false,
+        error: null
       }));
     } catch (error) {
-      console.error('Error al obtener detalles del establecimiento:', error);
-      setState(prev => ({ ...prev, error: 'Error al obtener detalles del establecimiento', cargando: false }));
+      console.error('Error al obtener detalles:', error);
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Error al obtener detalles del establecimiento',
+        cargando: false
+      }));
     }
   };
 
@@ -247,18 +277,42 @@ export default function ExplorerPage() {
 
     try {
       setState(prev => ({ ...prev, cargandoSugerencias: true }));
-      const response = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(valor)}`);
-      const data = await response.json();
+      const params = new URLSearchParams({
+        input: valor
+      });
+      
+      const response = await fetch(
+        `/api/google/places/autocomplete?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`
+          }
+        }
+      );
 
       if (!response.ok) {
+        throw new Error('Error al buscar sugerencias');
+      }
+
+      const data = await response.json();
+      if (!data.exito) {
         throw new Error(data.error || 'Error al buscar sugerencias');
       }
 
-      setState(prev => ({ ...prev, ubicacionesSugeridas: data.predictions || [] }));
+      setState(prev => ({ 
+        ...prev, 
+        ubicacionesSugeridas: data.datos?.predictions || [],
+        cargandoSugerencias: false,
+        error: null
+      }));
     } catch (error) {
       console.error('Error al buscar sugerencias:', error);
-    } finally {
-      setState(prev => ({ ...prev, cargandoSugerencias: false }));
+      setState(prev => ({ 
+        ...prev, 
+        ubicacionesSugeridas: [],
+        cargandoSugerencias: false,
+        error: error instanceof Error ? error.message : 'Error al buscar sugerencias'
+      }));
     }
   };
 
@@ -266,92 +320,133 @@ export default function ExplorerPage() {
   const seleccionarUbicacion = async (placeId: string) => {
     try {
       setState(prev => ({ ...prev, cargando: true }));
-      const response = await fetch(`/api/places/details?place_id=${placeId}`);
-      const data = await response.json();
+      const response = await fetch(
+        `/api/google/places/details?placeId=${placeId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`
+          }
+        }
+      );
 
       if (!response.ok) {
+        throw new Error('Error al obtener detalles de la ubicación');
+      }
+
+      const data = await response.json();
+      if (!data.exito) {
         throw new Error(data.error || 'Error al obtener detalles de la ubicación');
       }
 
-      if (data.result?.geometry?.location) {
+      const result = data.datos;
+      if (result.latitud && result.longitud) {
         setState(prev => ({
           ...prev,
           centro: {
-            lat: data.result.geometry.location.lat,
-            lng: data.result.geometry.location.lng
+            lat: result.latitud,
+            lng: result.longitud
           },
-          cargando: false
+          cargando: false,
+          error: null
         }));
+      } else {
+        throw new Error('La ubicación no tiene coordenadas');
       }
     } catch (error) {
       console.error('Error al obtener detalles de la ubicación:', error);
-      setState(prev => ({ ...prev, error: 'Error al obtener detalles de la ubicación', cargando: false }));
-    }
-  };
-
-  const cargarHistorial = useCallback(async () => {
-    try {
-      const historial = await googleSheetsService.obtenerHistorialBusquedas();
-      setState(prev => ({ ...prev, historialBusquedas: historial }));
-    } catch (error) {
-      console.error('Error al cargar el historial:', error);
-    }
-  }, [googleSheetsService]);
-
-  useEffect(() => {
-    cargarHistorial();
-  }, [cargarHistorial]);
-
-  const handleBuscar = async () => {
-    if (!googlePlacesService) {
-      setState(prev => ({ ...prev, error: 'El servicio de Google Places no está disponible' }));
-      return;
-    }
-
-    try {
-      setState(prev => ({ ...prev, cargando: true }));
-      // Primero buscar la ubicación
-      await buscarUbicacion();
-      
-      // Luego buscar establecimientos
-      const service = googlePlacesService!;
-      const resultados = await service.buscarEstablecimientos(
-        state.busqueda,
-        state.centro.lat,
-        state.centro.lng,
-        state.radio * 1000
-      );
-
-      // Actualizar estado con los resultados
-      setState(prev => ({
-        ...prev,
-        establecimientos: resultados,
-        establecimientosDetallados: resultados,
-        cargando: false
-      }));
-
-      // Guardar en el historial
-      await googleSheetsService.guardarHistorialBusqueda(
-        state.busqueda,
-        {
-          ubicacion: state.busquedaUbicacion,
-          lat: state.centro.lat,
-          lng: state.centro.lng,
-          radio: state.radio,
-          ...state.filtros
-        },
-        resultados.length
-      );
-      
-      await cargarHistorial();
-    } catch (error) {
-      console.error('Error en la búsqueda:', error);
       setState(prev => ({ 
         ...prev, 
-        error: 'Error al realizar la búsqueda',
+        error: error instanceof Error ? error.message : 'Error al obtener detalles de la ubicación',
         cargando: false 
       }));
     }
+  };
+
+  const handleBuscar = async () => {
+    if (!state.busqueda.trim()) {
+      setState(prev => ({ ...prev, error: 'Por favor, ingresa un término de búsqueda' }));
+      return;
+    }
+
+    await buscarEstablecimientos();
+  };
+
+  // Función auxiliar para transformar al formato correcto
+  const transformarAFormatoExport = (lugar: Lugar): LugarExportable => {
+    return {
+      id: lugar.id,
+      nombre: lugar.nombre,
+      direccion: lugar.direccion,
+      telefono: lugar.telefono || 'No disponible',
+      sitioWeb: lugar.sitioWeb || '',
+      rating: lugar.rating,
+      totalRatings: lugar.totalRatings,
+      horarios: lugar.horarios || []
+    };
+  };
+
+  // Función para obtener los detalles de los establecimientos seleccionados
+  const obtenerDetallesSeleccionados = async (establecimientos: Lugar[]): Promise<LugarExportable[]> => {
+    try {
+      const establecimientosDetallados = await Promise.all(
+        establecimientos.map(async (est) => {
+          try {
+            const response = await fetch(
+              `/api/google/places/details?placeId=${est.id}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${session?.accessToken}`
+                }
+              }
+            );
+
+            if (!response.ok) {
+              console.error(`Error al obtener detalles para ${est.nombre}`);
+              return transformarAFormatoExport(est);
+            }
+
+            const data = await response.json();
+            if (!data.exito) {
+              console.error(`Error en datos para ${est.nombre}:`, data.error);
+              return transformarAFormatoExport(est);
+            }
+
+            return transformarAFormatoExport(data.datos);
+          } catch (error) {
+            console.error(`Error al procesar ${est.nombre}:`, error);
+            return transformarAFormatoExport(est);
+          }
+        })
+      );
+
+      return establecimientosDetallados;
+    } catch (error) {
+      console.error('Error al obtener detalles de establecimientos:', error);
+      return establecimientos.map(est => transformarAFormatoExport(est));
+    }
+  };
+
+  const handleMostrarExportar = async () => {
+    const establecimientosParaExportar = await obtenerDetallesSeleccionados(
+      state.establecimientos.filter(e => state.establecimientosSeleccionados.has(e.id))
+    );
+    setState(prev => ({ 
+      ...prev, 
+      mostrarExportar: true,
+      establecimientosDetallados: establecimientosParaExportar
+    }));
+  };
+
+  const handleUbicacionSeleccionada = (ubicacion: { lat: number; lng: number; direccion?: string }) => {
+    setState(prev => ({
+      ...prev,
+      centro: {
+        lat: ubicacion.lat,
+        lng: ubicacion.lng
+      },
+      busquedaUbicacion: ubicacion.direccion || `${ubicacion.lat.toFixed(6)}, ${ubicacion.lng.toFixed(6)}`,
+      ubicacionesSugeridas: [] // Limpiar sugerencias
+    }));
   };
 
   if (!session) {
@@ -365,24 +460,6 @@ export default function ExplorerPage() {
             </Typography>
             <Typography color="text.secondary">
               Necesitas estar autenticado para acceder a esta funcionalidad.
-            </Typography>
-          </Paper>
-        </Container>
-      </>
-    );
-  }
-
-  if (!googlePlacesService) {
-    return (
-      <>
-        <EncabezadoSistema />
-        <Container maxWidth="xl" sx={{ py: 4 }}>
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom color="error">
-              Error de Configuración
-            </Typography>
-            <Typography color="text.secondary">
-              El servicio de Google Places no está configurado correctamente. Por favor, contacta al administrador del sistema.
             </Typography>
           </Paper>
         </Container>
@@ -415,48 +492,74 @@ export default function ExplorerPage() {
                     onChange={(e) => setState(prev => ({ ...prev, busqueda: e.target.value }))}
                     error={!!state.error && !state.busqueda.trim()}
                     helperText={state.error && !state.busqueda.trim() ? state.error : ''}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                      }
+                    }}
                   />
                 </Grid>
+                
                 <Grid item xs={12} md={4}>
                   <Autocomplete<UbicacionSugerida>
                     fullWidth
                     options={state.ubicacionesSugeridas}
                     getOptionLabel={(option) => option.description}
                     loading={state.cargandoSugerencias}
-                    onInputChange={(_, newValue) => {
-                      setState(prev => ({ ...prev, busquedaUbicacion: newValue }));
-                      buscarSugerenciasUbicacion(newValue);
+                    value={null}
+                    inputValue={state.busquedaUbicacion}
+                    onInputChange={(_, newValue, reason) => {
+                      if (reason === 'input') {
+                        setState(prev => ({ ...prev, busquedaUbicacion: newValue }));
+                        buscarSugerenciasUbicacion(newValue);
+                      }
                     }}
                     onChange={(_, newValue) => {
                       if (newValue) {
+                        setState(prev => ({ 
+                          ...prev, 
+                          busquedaUbicacion: newValue.description,
+                          ubicacionesSugeridas: [] // Limpiar sugerencias al seleccionar
+                        }));
                         seleccionarUbicacion(newValue.place_id);
                       }
                     }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Buscar ubicación"
-                        error={!!state.error && !state.busquedaUbicacion.trim()}
-                        helperText={state.error && !state.busquedaUbicacion.trim() ? state.error : ''}
+                        label="Ubicación"
+                        placeholder="Escribe para buscar lugares..."
                         InputProps={{
                           ...params.InputProps,
                           endAdornment: (
                             <>
+                              {state.cargandoSugerencias ? <CircularProgress color="inherit" size={20} /> : null}
                               {params.InputProps.endAdornment}
-                              <IconButton 
-                                onClick={obtenerUbicacionActual}
-                                disabled={state.cargando}
-                                size="small"
-                              >
-                                <MyLocationIcon />
-                              </IconButton>
+                              <Tooltip title="Usar mi ubicación actual">
+                                <IconButton 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    obtenerUbicacionActual();
+                                  }}
+                                >
+                                  <MyLocationIcon />
+                                </IconButton>
+                              </Tooltip>
                             </>
                           ),
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                          }
+                        }}
                       />
                     )}
+                    noOptionsText="No se encontraron ubicaciones"
+                    loadingText="Buscando ubicaciones..."
                   />
                 </Grid>
+
                 <Grid item xs={12} md={4}>
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button
@@ -464,102 +567,18 @@ export default function ExplorerPage() {
                       onClick={handleBuscar}
                       disabled={state.cargando || !state.busqueda.trim()}
                       fullWidth
+                      startIcon={<SearchIcon />}
                     >
                       {state.cargando ? 'Buscando...' : 'Buscar'}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setState(prev => ({ ...prev, mostrarHistorial: !prev.mostrarHistorial }))}
-                      sx={{ minWidth: 'auto' }}
-                    >
-                      <HistoryIcon />
                     </Button>
                   </Box>
                 </Grid>
               </Grid>
 
-              {state.mostrarHistorial && state.historialBusquedas.length > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Fecha</TableCell>
-                          <TableCell>Búsqueda</TableCell>
-                          <TableCell>Ubicación</TableCell>
-                          <TableCell>Radio</TableCell>
-                          <TableCell>Filtros</TableCell>
-                          <TableCell>Resultados</TableCell>
-                          <TableCell>Acciones</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {state.historialBusquedas.slice(1).map((entrada, index) => {
-                          const filtros = entrada[6] ? JSON.parse(entrada[6]) : {};
-                          return (
-                            <TableRow key={index}>
-                              <TableCell>{entrada[0]}</TableCell>
-                              <TableCell>{entrada[1]}</TableCell>
-                              <TableCell>{entrada[2]}</TableCell>
-                              <TableCell>{entrada[5]} km</TableCell>
-                              <TableCell>
-                                <Tooltip title={
-                                  <Box>
-                                    <Typography variant="caption">Precio: {filtros.precioMinimo}$ - {filtros.precioMaximo}$</Typography><br/>
-                                    <Typography variant="caption">Puntuación mínima: {filtros.puntuacionMinima}⭐</Typography><br/>
-                                    {filtros.horarioApertura && <Typography variant="caption">Horario: {filtros.horarioApertura} - {filtros.horarioCierre}</Typography>}
-                                  </Box>
-                                }>
-                                  <IconButton size="small">
-                                    <InfoOutlinedIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              </TableCell>
-                              <TableCell>{entrada[7]}</TableCell>
-                              <TableCell>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => {
-                                    setState(prev => ({
-                                      ...prev,
-                                      busqueda: entrada[1],
-                                      busquedaUbicacion: entrada[2],
-                                      centro: {
-                                        lat: Number(entrada[3]),
-                                        lng: Number(entrada[4])
-                                      },
-                                      radio: Number(entrada[5]),
-                                      filtros: JSON.parse(entrada[6]),
-                                      mostrarHistorial: false
-                                    }));
-                                    handleBuscar();
-                                  }}
-                                >
-                                  <SearchIcon />
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-              )}
-
               <Box sx={{ mt: 2 }}>
-                <Typography gutterBottom>
-                  Radio de búsqueda: {state.radio} km
+                <Typography variant="body2" color="text.secondary">
+                  Ajusta el radio de búsqueda arrastrando el borde del círculo en el mapa
                 </Typography>
-                <Slider
-                  value={state.radio}
-                  onChange={(_, value) => setState(prev => ({ ...prev, radio: value as number }))}
-                  min={1}
-                  max={50}
-                  step={1}
-                  marks
-                  valueLabelDisplay="auto"
-                />
               </Box>
             </Paper>
           </Grid>
@@ -570,6 +589,8 @@ export default function ExplorerPage() {
                 establecimientos={state.establecimientos}
                 centro={state.centro}
                 onCentroChange={(newCentro) => setState(prev => ({ ...prev, centro: newCentro }))}
+                onRadioChange={(newRadio) => setState(prev => ({ ...prev, radio: newRadio }))}
+                onUbicacionSeleccionada={handleUbicacionSeleccionada}
                 establecimientoSeleccionado={state.establecimientoSeleccionado}
                 onSeleccionarEstablecimiento={handleSeleccionarEstablecimiento}
                 radio={state.radio}
@@ -579,225 +600,49 @@ export default function ExplorerPage() {
 
           <Grid item xs={12}>
             <Paper sx={{ p: 2 }}>
-              <Accordion>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls="filtros-content"
-                  id="filtros-header"
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <FilterListIcon />
-                    <Typography variant="h6">Filtros de Búsqueda</Typography>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Grid container spacing={3}>
-                    {/* Rango de precios */}
-                    <Grid item xs={12} md={4}>
-                      <Typography gutterBottom>Rango de precios</Typography>
-                      <Box sx={{ px: 2 }}>
-                        <Slider
-                          value={[state.filtros.precioMinimo, state.filtros.precioMaximo]}
-                          onChange={(_, value) => {
-                            const [min, max] = value as number[];
-                            setState(prev => ({
-                              ...prev,
-                              filtros: {
-                                ...prev.filtros,
-                                precioMinimo: min,
-                                precioMaximo: max
-                              }
-                            }));
-                          }}
-                          valueLabelDisplay="auto"
-                          min={1}
-                          max={4}
-                          marks={[
-                            { value: 1, label: '$' },
-                            { value: 2, label: '$$' },
-                            { value: 3, label: '$$$' },
-                            { value: 4, label: '$$$$' }
-                          ]}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="h6">
+                    Resultados ({state.establecimientos.length})
+                  </Typography>
+                  {state.establecimientos.length > 0 && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={state.establecimientosSeleccionados.size === state.establecimientos.length}
+                          onChange={handleSeleccionarTodos}
                         />
-                      </Box>
-                    </Grid>
-
-                    {/* Puntuación mínima */}
-                    <Grid item xs={12} md={4}>
-                      <Typography gutterBottom>Puntuación mínima</Typography>
-                      <Rating
-                        value={state.filtros.puntuacionMinima}
-                        onChange={(_, newValue) => setState(prev => ({
-                          ...prev,
-                          filtros: {
-                            ...prev.filtros,
-                            puntuacionMinima: newValue || 0
-                          }
-                        }))}
-                        precision={0.5}
-                      />
-                    </Grid>
-
-                    {/* Horario de apertura */}
-                    <Grid item xs={12} md={4}>
-                      <Typography gutterBottom>Horario de atención</Typography>
-                      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                          <TimePicker
-                            label="Hora de apertura"
-                            value={state.filtros.horarioApertura}
-                            onChange={(newValue) => setState(prev => ({
-                              ...prev,
-                              filtros: {
-                                ...prev.filtros,
-                                horarioApertura: newValue
-                              }
-                            }))}
-                          />
-                          <TimePicker
-                            label="Hora de cierre"
-                            value={state.filtros.horarioCierre}
-                            onChange={(newValue) => setState(prev => ({
-                              ...prev,
-                              filtros: {
-                                ...prev.filtros,
-                                horarioCierre: newValue
-                              }
-                            }))}
-                          />
-                        </Box>
-                      </LocalizationProvider>
-                    </Grid>
-                  </Grid>
-                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="contained"
-                      onClick={buscarEstablecimientos}
-                      startIcon={<FilterListIcon />}
-                    >
-                      Aplicar Filtros
-                    </Button>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="h6">
-                  Resultados ({state.establecimientos.length})
-                </Typography>
-                {state.establecimientos.length > 0 && (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={state.establecimientosSeleccionados.size === state.establecimientos.length}
-                        onChange={handleSeleccionarTodos}
-                      />
-                    }
-                    label="Seleccionar todos"
-                  />
-                )}
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                {state.establecimientos.length > 0 && (
-                  <>
-                    <Button
-                      variant="outlined"
-                      startIcon={<FileDownloadIcon />}
-                      onClick={() => setState(prev => ({ ...prev, mostrarExportar: true }))}
-                      disabled={state.establecimientosSeleccionados.size === 0}
-                    >
-                      Exportar seleccionados ({state.establecimientosSeleccionados.size})
-                    </Button>
-                    {state.spreadsheetId && (
+                      }
+                      label="Seleccionar todos"
+                    />
+                  )}
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  {state.establecimientos.length > 0 && (
+                    <>
                       <Button
                         variant="outlined"
-                        onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${state.spreadsheetId}`, '_blank')}
-                        startIcon={<TableChartIcon />}
+                        startIcon={<FileDownloadIcon />}
+                        onClick={handleMostrarExportar}
+                        disabled={state.establecimientosSeleccionados.size === 0}
                       >
-                        Ver en Sheets
+                        Exportar seleccionados ({state.establecimientosSeleccionados.size})
                       </Button>
-                    )}
-                  </>
-                )}
+                      {state.spreadsheetId && (
+                        <Button
+                          variant="outlined"
+                          onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${state.spreadsheetId}`, '_blank')}
+                          startIcon={<TableChartIcon />}
+                        >
+                          Ver en Sheets
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </Box>
               </Box>
-            </Box>
 
-            <Paper sx={{ p: 2 }}>
-              {state.mostrarHistorial && state.historialBusquedas.length > 0 ? (
-                <>
-                  <Typography variant="h6" gutterBottom>
-                    Historial de búsquedas
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Fecha</TableCell>
-                          <TableCell>Búsqueda</TableCell>
-                          <TableCell>Ubicación</TableCell>
-                          <TableCell>Radio</TableCell>
-                          <TableCell>Filtros</TableCell>
-                          <TableCell>Resultados</TableCell>
-                          <TableCell>Acciones</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {state.historialBusquedas.slice(1).map((entrada, index) => {
-                          const filtros = entrada[6] ? JSON.parse(entrada[6]) : {};
-                          return (
-                            <TableRow key={index}>
-                              <TableCell>{entrada[0]}</TableCell>
-                              <TableCell>{entrada[1]}</TableCell>
-                              <TableCell>{entrada[2]}</TableCell>
-                              <TableCell>{entrada[5]} km</TableCell>
-                              <TableCell>
-                                <Tooltip title={
-                                  <Box>
-                                    <Typography variant="caption">Precio: {filtros.precioMinimo}$ - {filtros.precioMaximo}$</Typography><br/>
-                                    <Typography variant="caption">Puntuación mínima: {filtros.puntuacionMinima}⭐</Typography><br/>
-                                    {filtros.horarioApertura && <Typography variant="caption">Horario: {filtros.horarioApertura} - {filtros.horarioCierre}</Typography>}
-                                  </Box>
-                                }>
-                                  <IconButton size="small">
-                                    <InfoOutlinedIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              </TableCell>
-                              <TableCell>{entrada[7]}</TableCell>
-                              <TableCell>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => {
-                                    setState(prev => ({
-                                      ...prev,
-                                      busqueda: entrada[1],
-                                      busquedaUbicacion: entrada[2],
-                                      centro: {
-                                        lat: Number(entrada[3]),
-                                        lng: Number(entrada[4])
-                                      },
-                                      radio: Number(entrada[5]),
-                                      filtros: JSON.parse(entrada[6]),
-                                      mostrarHistorial: false
-                                    }));
-                                    handleBuscar();
-                                  }}
-                                >
-                                  <SearchIcon />
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </>
-              ) : (
+              {state.establecimientos.length > 0 ? (
                 <Grid container spacing={2}>
                   {state.establecimientos.map((establecimiento) => (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={establecimiento.id}>
@@ -817,7 +662,7 @@ export default function ExplorerPage() {
                           bgcolor: establecimiento.id === state.establecimientoSeleccionado?.id ? 'action.selected' : 'background.paper'
                         }}
                       >
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, height: '100%' }}>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
                           <Checkbox
                             checked={state.establecimientosSeleccionados.has(establecimiento.id)}
                             onChange={(e) => {
@@ -869,7 +714,7 @@ export default function ExplorerPage() {
                             <Box sx={{ mt: 'auto' }}>
                               <LinearProgress
                                 variant="determinate"
-                                value={establecimiento.completitud}
+                                value={establecimiento.completitud ? Math.round(establecimiento.completitud) : 0}
                                 sx={{ mb: 1 }}
                               />
                               <Typography 
@@ -877,7 +722,7 @@ export default function ExplorerPage() {
                                 color="text.secondary"
                                 sx={{ display: 'block' }}
                               >
-                                Información disponible: {Math.round(establecimiento.completitud)}%
+                                Información disponible: {establecimiento.completitud ? Math.round(establecimiento.completitud) : 0}%
                               </Typography>
                             </Box>
                           </Box>
@@ -885,14 +730,12 @@ export default function ExplorerPage() {
                       </Paper>
                     </Grid>
                   ))}
-
-                  {state.establecimientos.length === 0 && !state.cargando && (
-                    <Grid item xs={12}>
-                      <Typography variant="body1" color="text.secondary" textAlign="center" py={3}>
-                        No se encontraron establecimientos. Intenta ajustar los filtros o aumentar el radio de búsqueda.
-                      </Typography>
-                    </Grid>
-                  )}
+                </Grid>
+              ) : (
+                <Grid item xs={12}>
+                  <Typography variant="body1" color="text.secondary" textAlign="center" py={3}>
+                    No se encontraron establecimientos. Intenta ajustar los filtros o aumentar el radio de búsqueda.
+                  </Typography>
                 </Grid>
               )}
             </Paper>
@@ -907,7 +750,7 @@ export default function ExplorerPage() {
 
           {state.mostrarExportar && (
             <ExportarEstablecimientos
-              establecimientos={state.establecimientos.filter(e => state.establecimientosSeleccionados.has(e.id))}
+              establecimientos={state.establecimientosDetallados}
               onClose={() => setState(prev => ({ ...prev, mostrarExportar: false }))}
               onSheetCreated={(id) => setState(prev => ({ ...prev, spreadsheetId: id }))}
             />

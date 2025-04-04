@@ -2,13 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useSession, getSession } from "next-auth/react"
-import { redirect } from "next/navigation"
+import { useSession, signIn } from "next-auth/react"
 import { toast } from "sonner"
-import { authService } from "@/servicios/supabase/globales/auth-service"
-import { supabase } from "@/servicios/supabase/globales/auth-service"
-import { SincroGooAPI } from "@/servicios/supabase/globales/sincroGooAPI"
-import { SlidesAPI, SheetsAPI } from "@/servicios/supabase/globales/index-service"
 
 // Material UI
 import Box from '@mui/material/Box'
@@ -39,10 +34,10 @@ import SpreadsheetIcon from '@mui/icons-material/TableChart'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 
-// Servicios y utilidades
+// Componentes
 import { EncabezadoSistema } from "@/componentes/EncabezadoSistema"
 
-// Interfaces para los documentos de Google
+// Interfaces
 interface GoogleDocument {
   id: string
   name: string
@@ -76,29 +71,17 @@ export default function NuevoProyecto() {
 
   // Función para cargar presentaciones de Google Slides
   const cargarPresentaciones = async () => {
-    const accessToken = session?.accessToken as string | undefined
-    
-    if (!accessToken) {
-      toast.error("No hay sesión activa. Por favor, inicia sesión nuevamente.")
-      return
-    }
-    
     setCargandoPresentaciones(true)
     try {
-      const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.presentation'&fields=files(id,name,thumbnailLink,iconLink,modifiedTime)&pageSize=50",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
+      const response = await fetch('/api/editor-proyectos/google/presentaciones')
       
       if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Error detallado:', errorData)
+        
         if (response.status === 401) {
           toast.error("Sesión expirada. Por favor, inicia sesión nuevamente.")
-          authService.signIn("google")
+          signIn("google")
           return
         }
         throw new Error("Error al cargar presentaciones")
@@ -116,29 +99,14 @@ export default function NuevoProyecto() {
   
   // Función para cargar hojas de cálculo de Google Sheets
   const cargarHojas = async () => {
-    const accessToken = session?.accessToken as string | undefined
-    
-    if (!accessToken) {
-      toast.error("No hay sesión activa. Por favor, inicia sesión nuevamente.")
-      return
-    }
-    
     setCargandoHojas(true)
     try {
-      const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet'&fields=files(id,name,thumbnailLink,iconLink,modifiedTime)&pageSize=50",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
+      const response = await fetch('/api/editor-proyectos/google/hojas')
       
       if (!response.ok) {
         if (response.status === 401) {
           toast.error("Sesión expirada. Por favor, inicia sesión nuevamente.")
-          authService.signIn("google")
+          signIn("google")
           return
         }
         throw new Error("Error al cargar hojas de cálculo")
@@ -153,30 +121,15 @@ export default function NuevoProyecto() {
       setCargandoHojas(false)
     }
   }
-  
+
   // Cargar documentos de Google cuando el usuario está autenticado
   useEffect(() => {
-    const accessToken = session?.accessToken as string | undefined
-    
-    if (status === "authenticated" && accessToken && metodoSeleccion === "seleccionar") {
+    if (status === "authenticated" && metodoSeleccion === "seleccionar") {
       cargarPresentaciones()
       cargarHojas()
-      
-      // Sincronizar usuario con Supabase
-      if (session?.user) {
-        authService.sincronizarUsuario(session.user).then(usuario => {
-          if (!usuario) {
-            console.error("No se pudo sincronizar el usuario con Supabase")
-            toast.error("Error al sincronizar el usuario")
-          }
-        }).catch(err => {
-          console.error("Error al sincronizar usuario:", err)
-          toast.error("Error al sincronizar el usuario")
-        })
-      }
     }
-  }, [status, session, metodoSeleccion])
-  
+  }, [status, metodoSeleccion])
+
   // Verificar estado de autenticación
   if (status === "loading") {
     return (
@@ -185,21 +138,22 @@ export default function NuevoProyecto() {
       </Box>
     )
   }
-  
+
   if (status === "unauthenticated") {
-    redirect("/auth/login")
+    router.push("/auth/signin")
+    return null
   }
-  
+
   // Filtrar presentaciones según la búsqueda
   const presentacionesFiltradas = presentaciones.filter(doc => 
     doc.name.toLowerCase().includes(busquedaPresentacion.toLowerCase())
   )
-  
+
   // Filtrar hojas según la búsqueda
   const hojasFiltradas = hojas.filter(doc => 
     doc.name.toLowerCase().includes(busquedaHoja.toLowerCase())
   )
-  
+
   const validarDatos = () => {
     if (!titulo.trim()) {
       setError("El título del proyecto es obligatorio")
@@ -207,254 +161,12 @@ export default function NuevoProyecto() {
     }
     return true
   }
-  
+
   const avanzarPaso = () => {
     if (validarDatos()) {
       setError(null)
       setPasoActual("documentos")
     }
-  }
-  
-  const validarFormulario = () => {
-    if (!titulo.trim()) {
-      setError("El título del proyecto es obligatorio")
-      return false
-    }
-    
-    if (metodoSeleccion === "manual") {
-      if (!presentacionId.trim() && !hojaCalculoId.trim()) {
-        setError("Debe proporcionar al menos un ID de documento (presentación o hoja de cálculo)")
-        return false
-      }
-    } else {
-      if (!presentacionSeleccionada && !hojaSeleccionada) {
-        setError("Debe seleccionar al menos un documento (presentación o hoja de cálculo)")
-        return false
-      }
-    }
-    
-    return true
-  }
-  
-  const guardarProyecto = async () => {
-    try {
-      setCargando(true)
-      setError("")
-      
-      // Validar campos
-      if (!titulo.trim()) {
-        toast.error("El título del proyecto es obligatorio")
-        setError("El título es requerido")
-        return
-      }
-      
-      // Extraer IDs de los documentos
-      const { idPresentacion, idHoja } = extraerIdsDocumentos()
-      console.log('IDs extraídos:', { idPresentacion, idHoja })
-      
-      if (!idPresentacion && !idHoja) {
-        toast.error("Debe seleccionar al menos una presentación o una hoja de cálculo")
-        setError("Debes proporcionar al menos un documento (presentación o hoja de cálculo)")
-        return
-      }
-      
-      // Obtener el ID del usuario de Google
-      const googleId = session?.user?.id || (session?.user as any)?.sub
-      if (!googleId) {
-        toast.error("No se pudo obtener el ID del usuario")
-        setError("Error de autenticación")
-        return
-      }
-      
-      // Sincronizar usuario para obtener el UUID
-      let usuarioUUID: string | null = null
-      try {
-        if (session?.user) {
-          const usuario = await authService.sincronizarUsuario(session.user)
-          usuarioUUID = usuario?.id || null
-        }
-      } catch (error) {
-        console.error("Error al sincronizar usuario:", error)
-        // No bloquear la creación si no podemos obtener el UUID
-      }
-      
-      console.log('Usando ID de Google para crear proyecto:', googleId)
-      console.log('UUID de usuario (opcional):', usuarioUUID)
-      
-      // Obtener títulos para sheets y slides si existen
-      let tituloHoja = "Hoja de cálculo"
-      let tituloPresentacion = "Presentación"
-      
-      if (metodoSeleccion === "seleccionar") {
-        if (idHoja) {
-          tituloHoja = hojas.find(h => h.id === hojaSeleccionada)?.name || tituloHoja
-        }
-        if (idPresentacion) {
-          tituloPresentacion = presentaciones.find(p => p.id === presentacionSeleccionada)?.name || tituloPresentacion
-        }
-      }
-      
-      // Crear el proyecto
-      const nuevoProyecto = {
-        userid: googleId, // ID de Google como TEXT
-        usuario_id: usuarioUUID, // UUID de la tabla usuarios (opcional)
-        nombre: titulo.trim(),
-        descripcion: descripcion.trim() || null,
-        fecha_creacion: new Date().toISOString(),
-        fecha_actualizacion: new Date().toISOString(),
-        sheets_id: idHoja || null,
-        slides_id: idPresentacion || null,
-        hojastitulo: idHoja ? tituloHoja : null,
-        presentaciontitulo: idPresentacion ? tituloPresentacion : null
-      }
-      
-      console.log('Creando proyecto:', nuevoProyecto)
-      
-      // Guardar en Supabase
-      const { data: proyecto, error } = await supabase
-        .from('proyectos')
-        .insert([nuevoProyecto])
-        .select()
-        .single()
-      
-      if (error) {
-        console.error('Error al crear proyecto:', error)
-        toast.error("Error al crear el proyecto")
-        setError(error.message)
-        return
-      }
-      
-      if (!proyecto) {
-        toast.error("No se pudo crear el proyecto")
-        setError("Error al crear el proyecto")
-        return
-      }
-      
-      // IMPORTANTE: Guardar los slides y sheets en Supabase
-      console.log('Sincronizando slides y sheets con Supabase...')
-      
-      try {
-        // Guardar slide si existe
-        if (idPresentacion) {
-          console.log('Guardando slide en Supabase:', idPresentacion)
-            
-          const slideResult = await SincroGooAPI.guardarSlide({
-            proyecto_id: proyecto.id || '',
-            google_presentation_id: idPresentacion,
-            titulo: tituloPresentacion,
-            url: `https://docs.google.com/presentation/d/${idPresentacion}/edit`,
-            google_id: idPresentacion
-          })
-          
-          console.log('Resultado de guardar slide:', slideResult)
-          
-          // Llamar también al API REST para asegurar la sincronización
-          try {
-            const apiResult = await fetch('/api/slides', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                proyectoId: proyecto.id,
-                slidesId: idPresentacion,
-                titulo: tituloPresentacion,
-                url: `https://docs.google.com/presentation/d/${idPresentacion}/edit`
-              })
-            })
-            
-            if (!apiResult.ok) {
-              console.warn('Advertencia: No se pudo sincronizar correctamente con la API:', await apiResult.text())
-            } else {
-              console.log('Sincronización con API exitosa:', await apiResult.json())
-            }
-          } catch (apiError) {
-            console.warn('Error al sincronizar con API:', apiError)
-          }
-        }
-        
-        // Guardar sheet si existe
-        if (idHoja) {
-          console.log('Guardando sheet en Supabase:', idHoja)
-            
-          const sheetResult = await SheetsAPI.crearSheet({
-            proyecto_id: proyecto.id || '',
-            sheets_id: idHoja,
-            titulo: tituloHoja,
-            nombre: tituloHoja,
-            google_id: idHoja,
-            url: `https://docs.google.com/spreadsheets/d/${idHoja}/edit`
-          })
-          
-          console.log('Resultado de guardar sheet:', sheetResult)
-          
-          // Llamar también al API REST para asegurar la sincronización
-          try {
-            const apiResult = await fetch('/api/sheets', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                proyectoId: proyecto.id,
-                sheetsId: idHoja,
-                titulo: tituloHoja,
-                url: `https://docs.google.com/spreadsheets/d/${idHoja}/edit`
-              })
-            })
-            
-            if (!apiResult.ok) {
-              console.warn('Advertencia: No se pudo sincronizar correctamente con la API:', await apiResult.text())
-            } else {
-              console.log('Sincronización con API exitosa:', await apiResult.json())
-            }
-          } catch (apiError) {
-            console.warn('Error al sincronizar con API:', apiError)
-          }
-        }
-      } catch (syncError) {
-        console.error('Error al sincronizar con Supabase:', syncError)
-        // No bloquear la redirección si falla la sincronización
-      }
-      
-      // Mostrar mensaje de éxito
-      toast.success("Proyecto creado correctamente")
-      
-      // Redirigir al editor del proyecto con los parámetros correctos
-      router.push(`/editor-proyectos?idProyectoActual=${proyecto.id}&idPresentacion=${idPresentacion || ''}&idHojaCalculo=${idHoja || ''}`);
-      
-    } catch (error) {
-      console.error('Error al guardar proyecto:', error)
-      toast.error("Error al crear el proyecto")
-      setError("Error al crear el proyecto")
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  const extraerIdsDocumentos = () => {
-    let idPresentacion = ""
-    let idHoja = ""
-    
-    if (metodoSeleccion === "manual") {
-      // Si es manual, usar los IDs ingresados directamente
-      idPresentacion = presentacionId.trim()
-      idHoja = hojaCalculoId.trim()
-    } else {
-      // Si es selección, usar los IDs de los documentos seleccionados
-      idPresentacion = presentacionSeleccionada
-      idHoja = hojaSeleccionada
-    }
-    
-    // Si los IDs son URLs, extraer el ID
-    if (idPresentacion.includes("docs.google.com")) {
-      idPresentacion = extraerIdDesdeUrl(idPresentacion)
-    }
-    if (idHoja.includes("docs.google.com")) {
-      idHoja = extraerIdDesdeUrl(idHoja)
-    }
-    
-    return { idPresentacion, idHoja }
   }
 
   const extraerIdDesdeUrl = (url: string): string => {
@@ -489,7 +201,6 @@ export default function NuevoProyecto() {
         }
       }
       
-      console.error(`No se pudo extraer ID de ${url}`)
       return url  // Si no se puede extraer, devolver la URL original
     } catch (e) {
       console.error("Error al extraer ID desde URL:", e)
@@ -502,18 +213,69 @@ export default function NuevoProyecto() {
       setCargando(true)
       setError(null)
 
-      // Validar formulario
-      if (!validarFormulario()) {
-        setCargando(false)
+      // Validar campos
+      if (!titulo.trim()) {
+        toast.error("El título del proyecto es obligatorio")
+        setError("El título es requerido")
         return
       }
 
-      // Crear el proyecto
-      await guardarProyecto()
+      // Obtener IDs de documentos
+      let idPresentacionFinal = ""
+      let idHojaCalculoFinal = ""
+
+      if (metodoSeleccion === "manual") {
+        idPresentacionFinal = extraerIdDesdeUrl(presentacionId)
+        idHojaCalculoFinal = extraerIdDesdeUrl(hojaCalculoId)
+      } else {
+        idPresentacionFinal = presentacionSeleccionada
+        idHojaCalculoFinal = hojaSeleccionada
+      }
+
+      console.log('🔄 IDs a guardar:', {
+        presentacion: idPresentacionFinal,
+        hojaCalculo: idHojaCalculoFinal
+      })
+
+      // Crear el proyecto usando el endpoint
+      const response = await fetch('/api/editor-proyectos/proyectos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nombre: titulo.trim(),
+          descripcion: descripcion.trim(),
+          slides_id: idPresentacionFinal || null,
+          sheets_id: idHojaCalculoFinal || null,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Error al crear proyecto:', errorData)
+        throw new Error(errorData.error || 'Error al crear el proyecto')
+      }
+
+      const proyecto = await response.json()
+      console.log('✅ Proyecto creado:', proyecto)
+
+      toast.success("Proyecto creado exitosamente")
       
+      // Construir URL con los IDs
+      const params = new URLSearchParams({
+        ...(idPresentacionFinal && { idPresentacion: idPresentacionFinal }),
+        ...(idHojaCalculoFinal && { idHojaCalculo: idHojaCalculoFinal })
+      })
+
+      const url = `/editor-proyectos/${proyecto.id}${params.toString() ? `?${params.toString()}` : ''}`
+      console.log('🔄 Redirigiendo a:', url)
+      
+      router.push(url)
     } catch (error) {
-      console.error('Error al guardar proyecto:', error)
-      setError('Error al guardar el proyecto. Por favor, inténtalo de nuevo.')
+      console.error("Error al guardar proyecto:", error)
+      toast.error("Error al crear el proyecto")
+      setError(error instanceof Error ? error.message : "Error al crear el proyecto")
     } finally {
       setCargando(false)
     }
@@ -533,7 +295,7 @@ export default function NuevoProyecto() {
           </Typography>
         </Box>
 
-        <Card sx={{ mb: 4 }}>
+        <Card>
           <CardContent>
             <Tabs value={pasoActual} onChange={(_, value) => setPasoActual(value)}>
               <Tab value="datos" label="Información Básica" />
@@ -568,34 +330,61 @@ export default function NuevoProyecto() {
               <Box sx={{ mt: 4 }}>
                 <FormControl component="fieldset" sx={{ mb: 4 }}>
                   <FormLabel component="legend">Método de Selección</FormLabel>
-                    <RadioGroup 
-                      value={metodoSeleccion} 
+                  <RadioGroup 
+                    value={metodoSeleccion} 
                     onChange={(e) => setMetodoSeleccion(e.target.value as "manual" | "seleccionar")}
                   >
                     <FormControlLabel value="manual" control={<Radio />} label="Ingresar IDs manualmente" />
                     <FormControlLabel value="seleccionar" control={<Radio />} label="Seleccionar de mi Drive" />
-                    </RadioGroup>
+                  </RadioGroup>
                 </FormControl>
                   
-                  {metodoSeleccion === "manual" ? (
+                {metodoSeleccion === "manual" ? (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
                     <TextField
                       label="ID de Presentación"
-                            value={presentacionId}
-                            onChange={(e) => setPresentacionId(e.target.value)}
+                      value={presentacionId}
+                      onChange={(e) => setPresentacionId(e.target.value)}
                       fullWidth
                       placeholder="URL o ID de Google Slides"
+                      helperText="Pega la URL completa o el ID de la presentación"
                     />
                     <TextField
                       label="ID de Hoja de Cálculo"
-                            value={hojaCalculoId}
-                            onChange={(e) => setHojaCalculoId(e.target.value)}
+                      value={hojaCalculoId}
+                      onChange={(e) => setHojaCalculoId(e.target.value)}
                       fullWidth
                       placeholder="URL o ID de Google Sheets"
+                      helperText="Pega la URL completa o el ID de la hoja de cálculo"
                     />
                   </Box>
                 ) : (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {/* Resumen de selección */}
+                    <Box sx={{ mb: 2, p: 2, bgcolor: "background.paper", borderRadius: 1 }}>
+                      <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: "bold" }}>
+                        Archivos Seleccionados:
+                      </Typography>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <PresentationIcon color={presentacionSeleccionada ? "primary" : "disabled"} />
+                          <Typography>
+                            {presentacionSeleccionada ? 
+                              presentaciones.find(p => p.id === presentacionSeleccionada)?.name || "Presentación seleccionada" :
+                              "Ninguna presentación seleccionada"}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <SpreadsheetIcon color={hojaSeleccionada ? "primary" : "disabled"} />
+                          <Typography>
+                            {hojaSeleccionada ? 
+                              hojas.find(h => h.id === hojaSeleccionada)?.name || "Hoja de cálculo seleccionada" :
+                              "Ninguna hoja de cálculo seleccionada"}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+
                     <Box>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
                         <PresentationIcon />
@@ -605,9 +394,9 @@ export default function NuevoProyecto() {
                         </IconButton>
                       </Box>
                       <TextField
-                            placeholder="Buscar presentaciones..."
-                            value={busquedaPresentacion}
-                            onChange={(e) => setBusquedaPresentacion(e.target.value)}
+                        placeholder="Buscar presentaciones..."
+                        value={busquedaPresentacion}
+                        onChange={(e) => setBusquedaPresentacion(e.target.value)}
                         fullWidth
                         sx={{ mb: 2 }}
                         InputProps={{
@@ -619,14 +408,14 @@ export default function NuevoProyecto() {
                         }}
                       />
                       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
-                          {cargandoPresentaciones ? (
+                        {cargandoPresentaciones ? (
                           Array.from({ length: 4 }).map((_, i) => (
                             <Skeleton key={i} variant="rectangular" height={100} />
                           ))
                         ) : (
                           presentacionesFiltradas.map(doc => (
                             <Card
-                                  key={doc.id} 
+                              key={doc.id} 
                               sx={{
                                 cursor: "pointer",
                                 border: presentacionSeleccionada === doc.id ? 2 : 1,
@@ -652,9 +441,9 @@ export default function NuevoProyecto() {
                         </IconButton>
                       </Box>
                       <TextField
-                            placeholder="Buscar hojas de cálculo..."
-                            value={busquedaHoja}
-                            onChange={(e) => setBusquedaHoja(e.target.value)}
+                        placeholder="Buscar hojas de cálculo..."
+                        value={busquedaHoja}
+                        onChange={(e) => setBusquedaHoja(e.target.value)}
                         fullWidth
                         sx={{ mb: 2 }}
                         InputProps={{
@@ -666,14 +455,14 @@ export default function NuevoProyecto() {
                         }}
                       />
                       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
-                          {cargandoHojas ? (
+                        {cargandoHojas ? (
                           Array.from({ length: 4 }).map((_, i) => (
                             <Skeleton key={i} variant="rectangular" height={100} />
                           ))
                         ) : (
                           hojasFiltradas.map(doc => (
                             <Card
-                                  key={doc.id} 
+                              key={doc.id} 
                               sx={{
                                 cursor: "pointer",
                                 border: hojaSeleccionada === doc.id ? 2 : 1,
@@ -696,10 +485,10 @@ export default function NuevoProyecto() {
 
             {error && (
               <Alert severity="error" sx={{ mt: 3 }}>
-                      {error}
+                {error}
               </Alert>
-                  )}
-                </CardContent>
+            )}
+          </CardContent>
 
           <CardActions sx={{ justifyContent: "flex-end", p: 2 }}>
             {pasoActual === "datos" ? (
@@ -709,7 +498,7 @@ export default function NuevoProyecto() {
                 disabled={!titulo.trim()}
               >
                 Siguiente
-                  </Button>
+              </Button>
             ) : (
               <>
                 <Button
@@ -729,7 +518,7 @@ export default function NuevoProyecto() {
               </>
             )}
           </CardActions>
-              </Card>
+        </Card>
       </Box>
     </Box>
   )

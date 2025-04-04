@@ -21,7 +21,8 @@ import {
   useTheme,
   Theme,
   ThemeProvider,
-  createTheme
+  createTheme,
+  Alert,
 } from '@mui/material';
 import { styled } from '@mui/system';
 import SecurityOutlinedIcon from '@mui/icons-material/SecurityOutlined';
@@ -45,7 +46,7 @@ import { alpha } from '@mui/system';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import { useThemeMode } from "@/lib/theme";
+import { useThemeMode } from "@/app/lib/theme";
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -56,6 +57,7 @@ import MapIcon from '@mui/icons-material/Map';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SlideshowIcon from '@mui/icons-material/Slideshow';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 // Componentes estilizados
 const GradientText = styled('span')(({ theme }) => ({
@@ -262,11 +264,37 @@ export default function HomePage() {
     }
   })
 
+  // Lógica simplificada que solo redirecciona si hay sesión completa
   useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/dashboard")
+    if (status === "authenticated" && session?.user?.email) {
+      console.log('Usuario autenticado completo, redirigiendo a dashboard');
+      router.push("/dashboard");
     }
-  }, [status, router])
+  }, [status, router, session]);
+
+  // Función para limpiar completamente la sesión cuando hay problemas
+  const limpiarSesionCompletamente = async () => {
+    try {
+      console.log('Iniciando limpieza completa de sesión...');
+      // Llamar al endpoint específico para limpiar todas las cookies
+      await fetch('/api/auth/clear-session');
+      
+      // Limpiar localStorage
+      localStorage.clear();
+      
+      // Limpiar cookies manualmente
+      document.cookie = "next-auth.session-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "next-auth.csrf-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "__Secure-next-auth.session-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "__Secure-next-auth.csrf-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "__Host-next-auth.csrf-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      
+      // Recargar la página
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error al limpiar sesión:', error);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -285,6 +313,50 @@ export default function HomePage() {
   return (
     <ThemeProvider theme={customTheme}>
       <EncabezadoSitio />
+      
+      {/* Botón de emergencia para limpiar sesión (solo visible si hay problemas) */}
+      {status === "authenticated" && !session?.user?.email && (
+        <Container maxWidth="sm" sx={{ mt: 10, mb: -6, position: 'relative', zIndex: 5 }}>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 2,
+              borderRadius: 2,
+              boxShadow: 2
+            }}
+          >
+            Se ha detectado un problema con la sesión actual (autenticado pero sin datos completos)
+          </Alert>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 3, 
+              borderRadius: 2,
+              textAlign: 'center',
+              bgcolor: mode === 'dark' ? 'rgba(0,0,0,0.5)' : '#fff'
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Solución de problemas de sesión
+            </Typography>
+            <Typography variant="body2" color="text.secondary" paragraph>
+              Hemos detectado que tu sesión está autenticada pero incompleta, lo que puede causar bucles de redirección.
+              Usa este botón para limpiar completamente todas las cookies de sesión y solucionar el problema.
+            </Typography>
+            <Button 
+              variant="contained" 
+              color="error" 
+              onClick={limpiarSesionCompletamente}
+              startIcon={<RefreshIcon />}
+              fullWidth
+              sx={{ mt: 1 }}
+            >
+              Limpiar sesión y reiniciar
+            </Button>
+          </Paper>
+        </Container>
+      )}
+      
       <Box
         component="main"
         sx={{
@@ -1651,7 +1723,8 @@ export default function HomePage() {
                     alt="SincroGoo Logo"
                     sx={{ 
                       height: 40,
-                      width: 'auto',
+                      width: 40,
+                      objectFit: 'contain',
                       mb: 2
                     }}
                   />

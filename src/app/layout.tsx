@@ -1,7 +1,7 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { Providers } from "@/app/componentes/providers"
+import ProvidersCliente from "@/app/componentes/providers-cliente"
 import EmotionRegistry from "./registry"
 
 const inter = Inter({
@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   referrer: 'origin-when-cross-origin',
   keywords: ['Google Slides', 'Google Sheets', 'Sincronización', 'Automatización', 'Presentaciones', 'Hojas de cálculo'],
   authors: [{ name: 'Emmanuel Gava' }],
-  colorScheme: 'dark light',
   creator: 'Emmanuel Gava',
   publisher: 'Emmanuel Gava',
   formatDetection: {
@@ -58,11 +57,13 @@ export const metadata: Metadata = {
     },
   },
   manifest: '/site.webmanifest',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  colorScheme: 'dark light'
 }
 
 // Definir la política de seguridad de contenido
@@ -89,7 +90,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <EmotionRegistry>
-          <Providers>{children}</Providers>
+          <ProvidersCliente>
+            {children}
+          </ProvidersCliente>
         </EmotionRegistry>
       </body>
     </html>

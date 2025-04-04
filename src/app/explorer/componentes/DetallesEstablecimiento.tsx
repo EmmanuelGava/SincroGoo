@@ -12,7 +12,9 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  Stack
+  Stack,
+  Rating,
+  Chip
 } from '@mui/material';
 import {
   Phone as PhoneIcon,
@@ -20,9 +22,10 @@ import {
   Star as StarIcon,
   AccessTime as AccessTimeIcon,
   Language as WebsiteIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Category as CategoryIcon
 } from '@mui/icons-material';
-import { Lugar } from '../servicios/google-places-service';
+import { Lugar } from '@/app/servicios/google/explorer/types';
 
 interface DetallesEstablecimientoProps {
   establecimiento: Lugar;
@@ -30,6 +33,25 @@ interface DetallesEstablecimientoProps {
 }
 
 export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEstablecimientoProps) {
+  // Adaptamos los nombres de las propiedades que vienen de la API
+  const establecimientoAdaptado = {
+    ...establecimiento,
+    puntuacion: establecimiento.rating || establecimiento.puntuacion,
+    totalPuntuaciones: establecimiento.totalRatings || establecimiento.totalPuntuaciones,
+    completitud: establecimiento.completitud || 0 // Valor por defecto si no existe
+  };
+
+  console.log('Datos del establecimiento:', {
+    nombre: establecimientoAdaptado.nombre,
+    direccion: establecimientoAdaptado.direccion,
+    telefono: establecimientoAdaptado.telefono,
+    sitioWeb: establecimientoAdaptado.sitioWeb,
+    puntuacion: establecimientoAdaptado.puntuacion,
+    totalPuntuaciones: establecimientoAdaptado.totalPuntuaciones,
+    horarios: establecimientoAdaptado.horarios,
+    completitud: establecimientoAdaptado.completitud
+  });
+
   return (
     <Dialog 
       open={true} 
@@ -40,7 +62,7 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6" component="div">
-            {establecimiento.nombre}
+            {establecimientoAdaptado.nombre}
           </Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
@@ -50,6 +72,43 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
       
       <DialogContent>
         <List>
+          {/* Rating y Total de Reseñas */}
+          {establecimientoAdaptado.puntuacion && (
+            <ListItem>
+              <ListItemIcon>
+                <StarIcon color="primary" />
+              </ListItemIcon>
+              <ListItemText 
+                primary={
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Rating value={establecimientoAdaptado.puntuacion} precision={0.1} readOnly />
+                    <Typography variant="body2" component="span">
+                      ({establecimientoAdaptado.puntuacion.toFixed(1)})
+                    </Typography>
+                    {establecimientoAdaptado.totalPuntuaciones && (
+                      <Typography variant="body2" component="span" color="text.secondary">
+                        {establecimientoAdaptado.totalPuntuaciones} reseñas
+                      </Typography>
+                    )}
+                  </Stack>
+                }
+              />
+            </ListItem>
+          )}
+
+          {/* Nivel de Precio */}
+          {establecimientoAdaptado.nivelPrecio !== undefined && (
+            <ListItem>
+              <ListItemIcon>
+                <CategoryIcon color="primary" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Nivel de Precio"
+                secondary={'$'.repeat(establecimientoAdaptado.nivelPrecio)}
+              />
+            </ListItem>
+          )}
+
           {/* Dirección */}
           <ListItem>
             <ListItemIcon>
@@ -57,12 +116,12 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
             </ListItemIcon>
             <ListItemText 
               primary="Dirección"
-              secondary={establecimiento.direccion}
+              secondary={establecimientoAdaptado.direccion}
             />
           </ListItem>
 
           {/* Teléfono */}
-          {establecimiento.telefono && (
+          {establecimientoAdaptado.telefono && establecimientoAdaptado.telefono !== 'No disponible' && (
             <ListItem>
               <ListItemIcon>
                 <PhoneIcon color="primary" />
@@ -71,7 +130,7 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
                 primary="Teléfono"
                 secondary={
                   <Link 
-                    href={`tel:${establecimiento.telefono}`}
+                    href={`tel:${establecimientoAdaptado.telefono}`}
                     sx={{ 
                       textDecoration: 'none',
                       color: 'primary.main',
@@ -80,7 +139,7 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
                       }
                     }}
                   >
-                    {establecimiento.telefono}
+                    {establecimientoAdaptado.telefono}
                   </Link>
                 }
               />
@@ -88,7 +147,7 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
           )}
 
           {/* Sitio Web */}
-          {establecimiento.sitioWeb && (
+          {establecimientoAdaptado.sitioWeb && (
             <ListItem>
               <ListItemIcon>
                 <WebsiteIcon color="primary" />
@@ -97,7 +156,7 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
                 primary="Sitio Web"
                 secondary={
                   <Link 
-                    href={establecimiento.sitioWeb}
+                    href={establecimientoAdaptado.sitioWeb}
                     target="_blank"
                     rel="noopener noreferrer"
                     sx={{ 
@@ -108,7 +167,7 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
                       }
                     }}
                   >
-                    {establecimiento.sitioWeb}
+                    {establecimientoAdaptado.sitioWeb}
                   </Link>
                 }
               />
@@ -116,7 +175,7 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
           )}
 
           {/* Horarios */}
-          {establecimiento.horarios && establecimiento.horarios.length > 0 && (
+          {establecimientoAdaptado.horarios && establecimientoAdaptado.horarios.length > 0 && (
             <ListItem>
               <ListItemIcon>
                 <AccessTimeIcon color="primary" />
@@ -125,8 +184,8 @@ export function DetallesEstablecimiento({ establecimiento, onClose }: DetallesEs
                 primary="Horarios"
                 secondary={
                   <Stack spacing={0.5}>
-                    {establecimiento.horarios.map((horario, index) => (
-                      <Typography key={index} variant="body2" component="div">
+                    {establecimientoAdaptado.horarios.map((horario, index) => (
+                      <Typography key={index} variant="body2" component="span">
                         {horario}
                       </Typography>
                     ))}

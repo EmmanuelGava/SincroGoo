@@ -1,7 +1,7 @@
 "use client"
 
-import { Button } from "@/componentes/ui/button"
-import { LogOut, User } from "lucide-react"
+import { AppBar, Toolbar, Typography, Button, Box, Avatar } from '@mui/material';
+import { LogoutOutlined, PersonOutline } from '@mui/icons-material';
 import { useRouter } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { toast } from "sonner"
@@ -25,19 +25,28 @@ export function DashboardHeader({ userName }: DashboardHeaderProps) {
   }
 
   return (
-    <header className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Button variant="outline" onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Cerrar sesión
-        </Button>
-      </div>
-      <div className="flex items-center text-muted-foreground">
-        <User className="mr-2 h-4 w-4" />
-        <span>Bienvenido, {userName}</span>
-      </div>
-    </header>
+    <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 4 }}>
+      <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Typography variant="h4" component="h1" fontWeight="bold">
+          Dashboard
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PersonOutline fontSize="small" color="action" />
+            <Typography variant="body2" color="text.secondary">
+              Bienvenido, {userName}
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            onClick={handleLogout}
+            startIcon={<LogoutOutlined />}
+          >
+            Cerrar sesión
+          </Button>
+        </Box>
+      </Toolbar>
+    </AppBar>
   )
 }
 

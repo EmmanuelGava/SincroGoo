@@ -1,8 +1,12 @@
-export interface ResultadoServicio<T> {
+export interface ResultadoServicio<T = void> {
   exito: boolean;
   datos?: T;
   error?: string;
-  advertencia?: string;
   codigo?: number;
-  timestamp?: Date;
+}
+
+export interface TokenInfo {
+  accessToken: string;
+  refreshToken?: string;
+  expiryDate?: number;
 } 

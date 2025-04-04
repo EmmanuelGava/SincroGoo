@@ -47,8 +47,8 @@ function esNumerico(texto: string): boolean {
 function esFecha(texto: string): boolean {
   // Patrones comunes de fecha
   const patronesFecha = [
-    /^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/, // 01/01/2022, 1-1-2022
-    /^\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}$/,   // 2022/01/01, 2022-1-1
+    /^\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}$/, // 01/01/2022, 1-1-2022
+    /^\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2}$/,   // 2022/01/01, 2022-1-1
     /^\d{1,2}\s+de\s+\w+\s+de\s+\d{2,4}$/i     // 1 de enero de 2022
   ];
   
@@ -59,7 +59,7 @@ function esFecha(texto: string): boolean {
  * Determina si un texto parece ser un precio o valor monetario
  */
 function esPrecio(texto: string): boolean {
-  return /^[\$€£¥]?\s*\d+([.,]\d+)?\s*[\$€£¥]?$/.test(texto);
+  return /^[$€£¥]?\s*\d+([.,]\d+)?\s*[$€£¥]?$/.test(texto);
 }
 
 /**

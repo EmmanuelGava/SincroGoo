@@ -27,7 +27,11 @@ export async function GET(request: NextRequest) {
     
     // Intentar buscar usuario por auth_id primero
     console.log(`🔍 [API Users] Buscando usuario por auth_id: ${auth_id}`);
-    let { data: userData, error: userError } = await client
+    const { error: userError } = await client
+      .from('usuarios')
+      .select('id, email, nombre, auth_id')
+      .eq('auth_id', auth_id);
+    let { data: userData } = await client
       .from('usuarios')
       .select('id, email, nombre, auth_id')
       .eq('auth_id', auth_id);

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ThemeProvider as NextThemesProvider } from 'next-themes'
+// import { NextThemesProvider } from 'next-themes' // Comentado porque no se utiliza
 import { ThemeProvider as MuiThemeProvider } from '@/app/lib/theme'
 
 interface ThemeProviderProps {

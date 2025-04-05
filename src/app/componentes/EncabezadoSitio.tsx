@@ -21,11 +21,9 @@ import {
   useMediaQuery,
   useTheme,
   Fade,
-  Chip,
   Badge,
 } from '@mui/material';
 import { styled, alpha } from '@mui/material/styles';
-import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
@@ -33,7 +31,6 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import SlideshowOutlinedIcon from '@mui/icons-material/SlideshowOutlined';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
-import DevicesOutlinedIcon from '@mui/icons-material/DevicesOutlined';
 import Image from "next/image"
 import { useThemeMode } from "@/app/lib/theme"
 import { ThemeToggleButton } from "./ThemeToggleButton"
@@ -140,11 +137,6 @@ export function EncabezadoSitio() {
   
   const handleCloseMobileMenu = () => {
     setMobileAnchorEl(null)
-  }
-
-  // Función para acceder directamente en modo desarrollo
-  const accederDirecto = () => {
-    router.push("/proyectos")
   }
 
   // Función para cerrar sesión usando el servicio de autenticación

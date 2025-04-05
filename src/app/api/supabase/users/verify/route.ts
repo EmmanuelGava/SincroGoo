@@ -28,12 +28,14 @@ export async function GET(request: NextRequest) {
     const client = getSupabaseClient();
     
     // Buscar si el usuario ya existe
+    // eslint-disable-next-line prefer-const
     let { data: userData, error: userError } = await client
       .from('usuarios')
       .select('id, email, nombre, auth_id')
       .eq('auth_id', auth_id);
     
     if (userError) {
+      // eslint-disable-next-line no-useless-escape
       console.error('❌ [API Users Verify] Error buscando usuario:', userError);
       throw userError;
     }

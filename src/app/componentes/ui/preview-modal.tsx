@@ -8,7 +8,7 @@ import {
   Box,
   CircularProgress,
   Grid,
-  Paper
+  // Paper
 } from '@mui/material';
 import type { PreviewChange } from "@/types/preview"
 

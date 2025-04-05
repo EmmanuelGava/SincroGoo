@@ -15,7 +15,8 @@ import {
 } from '@/componentes/ui'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Check, Search, Refresh, Visibility } from '@mui/icons-material'
+// import Check from '@mui/icons-material/Check'; // Comentado porque no se utiliza
+import { Search, Refresh, Visibility } from '@mui/icons-material'
 
 interface Price {
   id: string

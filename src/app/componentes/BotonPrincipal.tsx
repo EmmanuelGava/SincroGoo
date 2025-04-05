@@ -3,7 +3,7 @@
 import React from 'react';
 import { Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { useThemeMode } from '@/app/lib/theme';
+// const mode = ... // Comentado porque no se utiliza
 
 const StyledButton = styled(Button)(({ theme }) => ({
   borderRadius: '0.5rem',
@@ -51,7 +51,7 @@ export function BotonPrincipal({
   className,
   ...props
 }: BotonPrincipalProps) {
-  const { mode } = useThemeMode();
+  // const mode = ... // Comentado porque no se utiliza
   
   return (
     <StyledButton

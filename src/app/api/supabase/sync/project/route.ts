@@ -21,6 +21,7 @@ const syncService = {
       const { projectId, sheets = [], slides = [] } = params;
       
       // Verificar que el proyecto existe
+      // const project = ... // Comentado porque no se utiliza
       const { data: project, error: projectError } = await supabase
         .from('proyectos')
         .select('*')

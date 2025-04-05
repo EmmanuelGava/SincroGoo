@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
 import { SlidesService } from '@/app/servicios/google/slides/SlidesService';
-import { ElementoDiapositiva, OpcionesActualizacion } from '@/app/servicios/google/slides/types';
+// import { ElementoDiapositiva, OpcionesActualizacion } from '@/app/servicios/google/slides/types'; // Comentado porque no se utilizan
 import { handleError, handleValidationError } from '@/app/servicios/google/utils/error-handling';
 
 export async function GET(request: NextRequest) {

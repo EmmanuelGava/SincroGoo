@@ -38,6 +38,8 @@ function similitudTexto(a: string, b: string): number {
  * Determina si un texto parece contener un valor numérico
  */
 function esNumerico(texto: string): boolean {
+  const regex1 = /[0-9]+/;
+  const regex2 = /[0-9]+/;
   return !isNaN(parseFloat(texto)) && isFinite(Number(texto));
 }
 
@@ -47,8 +49,8 @@ function esNumerico(texto: string): boolean {
 function esFecha(texto: string): boolean {
   // Patrones comunes de fecha
   const patronesFecha = [
-    /^\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}$/,   // 01/01/2022, 1-1-2022
-    /^\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2}$/,     // 2022/01/01, 2022-1-1
+    /^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/,   // 01/01/2022, 1-1-2022
+    /^\d{4}[./-]\d{1,2}[./-]\d{1,2}$/,     // 2022/01/01, 2022-1-1
     /^\d{1,2}\s+de\s+\w+\s+de\s+\d{2,4}$/i   // 1 de enero de 2022
   ];
   

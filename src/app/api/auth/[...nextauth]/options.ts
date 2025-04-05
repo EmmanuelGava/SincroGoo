@@ -1,7 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import { getServerSession } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { Session } from 'next-auth'
+// import { Session } from 'next-auth' // Comentado porque no se utiliza
 
 // Extender el tipo Session para incluir nuestras propiedades personalizadas
 declare module 'next-auth' {

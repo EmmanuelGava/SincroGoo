@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
@@ -28,7 +28,6 @@ import Badge from '@mui/material/Badge';
 import Chip from '@mui/material/Chip';
 import { alpha } from '@mui/system';
 import Image from 'next/image';
-import { toast } from 'sonner';
 
 import { useThemeMode } from "@/app/lib/theme"
 import { ThemeToggleButton } from './ThemeToggleButton';
@@ -42,7 +41,6 @@ import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
-import RefreshIcon from '@mui/icons-material/Refresh';
 
 // Páginas principales del sistema
 const pages = [

@@ -110,7 +110,7 @@ export function Sidebar({
   anchor = "left",
 }: SidebarProps) {
   const { open, isMobile, toggleSidebar } = useSidebar()
-  const theme = useTheme()
+  // const theme = useTheme(); // Comentado porque no se utiliza
 
   const StyledDrawer = styled(Drawer)(({ theme }) => ({
     width: DRAWER_WIDTH,

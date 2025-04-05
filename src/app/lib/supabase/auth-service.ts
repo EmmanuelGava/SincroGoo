@@ -73,6 +73,7 @@ export class AuthService {
       if (!supabaseAdmin) {
         try {
           // Primero, buscar por auth_id
+          // eslint-disable-next-line prefer-const
           let { data: usuarioExistente, error: errorBusqueda } = await supabase
             .from('usuarios')
             .select('*')
@@ -176,6 +177,7 @@ export class AuthService {
       // Si tenemos acceso a supabaseAdmin, usar ese cliente
       try {
         // Primero, buscar por auth_id
+        // eslint-disable-next-line prefer-const
         let { data: usuarioExistente, error: errorBusqueda } = await supabaseAdmin
           .from('usuarios')
           .select('*')

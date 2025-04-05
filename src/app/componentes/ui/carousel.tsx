@@ -13,7 +13,7 @@ import {
   KeyboardArrowRight as ArrowRightIcon
 } from '@mui/icons-material';
 
-import { cn } from "@/app/lib/utils"
+// import cn from 'classnames'; // Comentado porque no se utiliza
 
 type CarouselProps = {
   children: React.ReactNode;

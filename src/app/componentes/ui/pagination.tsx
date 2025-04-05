@@ -24,7 +24,7 @@ const Pagination = ({
   onChange,
   ...props 
 }: PaginationProps) => {
-  const theme = useTheme();
+  // const theme = useTheme(); // Comentado porque no se utiliza
 
   return (
     <Box

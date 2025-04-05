@@ -10,10 +10,10 @@ export async function GET(request: NextRequest) {
     const lat = searchParams.get('lat');
     const lng = searchParams.get('lng');
     const radio = searchParams.get('radius');
-    const tipo = searchParams.get('type');
+    // const tipo = searchParams.get('type'); // Comentado porque no se utiliza
     const pageToken = searchParams.get('pageToken');
+    // const maxWidth = searchParams.get('maxWidth'); // Comentado porque no se utiliza
     const photoReference = searchParams.get('photoReference');
-    const maxWidth = searchParams.get('maxWidth');
 
     const placesService = ExplorerPlacesService.getInstance();
 

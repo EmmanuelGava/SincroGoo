@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
 // Función para procesar solicitudes GET
-export async function GET(request: Request) {
+export async function GET(/* request: Request */) {
   return handleSignout();
 }
 
 // Función para procesar solicitudes POST
-export async function POST(request: Request) {
+export async function POST(/* request: Request */) {
   return handleSignout();
 }
 

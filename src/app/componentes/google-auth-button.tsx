@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { Button } from "@/componentes/ui";
 import { Google } from '@mui/icons-material';
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+// const router = useRouter(); // Comentado porque no se utiliza
 import { toast } from "sonner"
 
 export function GoogleAuthButton() {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter()
+  // const result = await signIn('google'); // Comentado porque no se utiliza
 
   const handleClick = async () => {
     try {

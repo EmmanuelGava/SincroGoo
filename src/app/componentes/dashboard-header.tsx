@@ -1,6 +1,6 @@
 "use client"
 
-import { AppBar, Toolbar, Typography, Button, Box, Avatar } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import { LogoutOutlined, PersonOutline } from '@mui/icons-material';
 import { useRouter } from "next/navigation"
 import { signOut } from "next-auth/react"

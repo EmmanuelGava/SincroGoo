@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import Image from 'next/image';
+// import Image from 'next/image'; // Comentado porque no se utiliza
 
 export default function SignIn() {
   const [loading, setLoading] = useState(false);

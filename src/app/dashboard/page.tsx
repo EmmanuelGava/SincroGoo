@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useEffect, useState } from 'react';
+// import { useEffect } from 'react'; // Comentado porque no se utiliza
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -11,22 +12,23 @@ import {
   Typography,
   Card,
   CardContent,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
+  // List,
+  // ListItem,
+  // ListItemIcon,
+  // ListItemText,
+  // IconButton,
   useTheme,
   alpha,
   Fade,
   CircularProgress,
-  LinearProgress,
-  Tooltip,
+  // LinearProgress,
+  // Tooltip,
   Chip,
   Button,
   Alert,
   AlertTitle
 } from '@mui/material';
+// import { LaunchIcon, BarChartIcon, PieChartIcon, TimelineIcon, AnalyticsIcon, BusinessIcon, SpeedIcon, UpdateIcon, CloudSyncIcon, ArrowUpwardIcon, ArrowDownwardIcon, MoreVertIcon, SyncAltIcon } from '@mui/icons-material'; // Comentado porque no se utilizan
 import {
   Explore as ExploreIcon,
   Folder as FolderIcon,
@@ -41,17 +43,12 @@ import {
   History as HistoryIcon,
   FileDownload as FileDownloadIcon,
   Launch as LaunchIcon,
-  BarChart as BarChartIcon,
-  PieChart as PieChartIcon,
-  Timeline as TimelineIcon,
+  Slideshow as SlideshowIcon,
   CompareArrows as CompareArrowsIcon,
   TableChart as TableChartIcon,
-  Slideshow as SlideshowIcon,
-  Analytics as AnalyticsIcon,
   Business as BusinessIcon,
   Storefront as StorefrontIcon,
   TrendingFlat as TrendingFlatIcon,
-  Speed as SpeedIcon,
   People as PeopleIcon,
   AttachMoney as AttachMoneyIcon,
   Description as DescriptionIcon,
@@ -77,36 +74,13 @@ interface Estadisticas {
 }
 
 // Clase ficticia para mantener la compatibilidad con el código existente
-class DashboardService {
-  private static instance: DashboardService;
-
-  static getInstance(): DashboardService {
-    if (!DashboardService.instance) {
-      DashboardService.instance = new DashboardService();
-    }
-    return DashboardService.instance;
-  }
-
-  async obtenerEstadisticas(): Promise<Estadisticas> {
-    return {
-      totalEstablecimientos: 0,
-      totalProyectos: 0,
-      búsquedasRecientes: 0,
-      exportacionesRecientes: 0
-    };
-  }
-}
+// const DashboardService = ... // Comentado porque no se utiliza
 
 export default function DashboardPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const theme = useTheme();
-  const [estadisticas, setEstadisticas] = useState<Estadisticas>({
-    totalEstablecimientos: 0,
-    totalProyectos: 0,
-    búsquedasRecientes: 0,
-    exportacionesRecientes: 0
-  });
+  // const [estadisticas, setEstadisticas] = useState([]); // Comentado porque no se utiliza
   const [loading, setLoading] = useState(false);
 
   // Verificar si hay problemas con la sesión
@@ -403,7 +377,7 @@ export default function DashboardPage() {
                     Establecimientos
                   </Typography>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {estadisticas.totalEstablecimientos}
+                    0
                   </Typography>
                 </CardContent>
               </Card>
@@ -429,7 +403,7 @@ export default function DashboardPage() {
                     Proyectos
                   </Typography>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {estadisticas.totalProyectos}
+                    0
                   </Typography>
                 </CardContent>
               </Card>
@@ -455,7 +429,7 @@ export default function DashboardPage() {
                     Búsquedas Recientes
                   </Typography>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {estadisticas.búsquedasRecientes}
+                    0
                   </Typography>
                 </CardContent>
               </Card>
@@ -481,7 +455,7 @@ export default function DashboardPage() {
                     Exportaciones
                   </Typography>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {estadisticas.exportacionesRecientes}
+                    0
                   </Typography>
                 </CardContent>
               </Card>

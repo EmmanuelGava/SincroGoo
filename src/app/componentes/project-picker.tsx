@@ -26,10 +26,10 @@ interface Project {
 
 interface ProjectPickerProps {
   onSave: (project: Project) => void
-  savedProjects?: Project[]
+  // savedProjects?: Project[] // Comentado porque no se utiliza
 }
 
-export function ProjectPicker({ onSave, savedProjects = [] }: ProjectPickerProps) {
+export function ProjectPicker({ onSave }: ProjectPickerProps) {
   const { data: session } = useSession()
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")

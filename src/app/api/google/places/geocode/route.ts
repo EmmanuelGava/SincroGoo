@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const placesService = ExplorerPlacesService.getInstance(session.accessToken);
+    // const placesService = ExplorerPlacesService.getInstance(session.accessToken);
     
     try {
       const response = await fetch(

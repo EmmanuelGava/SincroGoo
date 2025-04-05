@@ -67,31 +67,32 @@ function TabPanel(props: TabPanelProps) {
   )
 }
 
+const documents: Document[] = [
+  {
+    id: "1",
+    name: "Precios Q1 2024",
+    iconUrl: "/sheets-icon.png",
+    lastModified: "2024-03-20"
+  },
+  {
+    id: "2",
+    name: "Catálogo de Productos",
+    iconUrl: "/sheets-icon.png",
+    lastModified: "2024-03-19"
+  },
+  {
+    id: "3",
+    name: "Inventario Actualizado",
+    iconUrl: "/sheets-icon.png",
+    lastModified: "2024-03-18"
+  }
+];
+
 export function DocumentPicker({ type, onSelect, selectedDoc }: DocumentPickerProps) {
   const [open, setOpen] = useState(false)
   const [urlInput, setUrlInput] = useState("")
   const [urlError, setUrlError] = useState("")
   const [tabValue, setTabValue] = useState(0)
-  const [documents, setDocuments] = useState<Document[]>([
-    {
-      id: "1",
-      name: "Precios Q1 2024",
-      iconUrl: "/sheets-icon.png",
-      lastModified: "2024-03-20"
-    },
-    {
-      id: "2",
-      name: "Catálogo de Productos",
-      iconUrl: "/sheets-icon.png",
-      lastModified: "2024-03-19"
-    },
-    {
-      id: "3",
-      name: "Inventario Actualizado",
-      iconUrl: "/sheets-icon.png",
-      lastModified: "2024-03-18"
-    }
-  ])
   const [searchTerm, setSearchTerm] = useState("")
 
   const icon = type === "sheets" ? 

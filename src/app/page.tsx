@@ -58,6 +58,7 @@ import ImportExportIcon from '@mui/icons-material/ImportExport';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SlideshowIcon from '@mui/icons-material/Slideshow';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import GoogleSyncAnimation from '@/app/componentes/GoogleSyncAnimation';
 
 // Componentes estilizados
 const GradientText = styled('span')(({ theme }) => ({
@@ -500,6 +501,8 @@ export default function HomePage() {
             }}>
               Sincroniza tus datos con presentaciones profesionales y descubre oportunidades de negocio analizando la competencia en tu zona | Optimiza tu tiempo y cierra más ventas con presentaciones que se actualizan automáticamente
             </Typography>
+
+            <GoogleSyncAnimation />
 
             <Box sx={{ 
               display: 'flex', 

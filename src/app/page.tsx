@@ -67,6 +67,7 @@ import { HerramientasComerciales } from "@/app/componentes/HerramientasComercial
 import { SeccionesPrincipales } from "@/app/componentes/SeccionesPrincipales"
 import { Automatizaciones } from "@/app/componentes/Automatizaciones"
 import { Testimonios } from '@/app/componentes/Testimonios';
+import HeroSection from '@/app/components/HeroSection';
 
 // Componentes estilizados
 const GradientText = styled('span')(({ theme }) => ({
@@ -365,6 +366,8 @@ export default function HomePage() {
           </Paper>
         </Container>
       )}
+
+      <HeroSection />
       
       <Box
         component="main"
@@ -416,426 +419,57 @@ export default function HomePage() {
           }} />
         </Box>
 
-        {/* Hero Section */}
-        <Container maxWidth="lg" sx={{ 
-          pt: { xs: 2, md: 3 },
-          pb: 8, 
-          textAlign: 'center',
-          position: 'relative',
-          zIndex: 1
-        }}>
-
-        {/* Manchas de color para el contenido principal */}
-        <Box sx={{
-          position: 'absolute',
-          width: '70%',
-          height: '70%',
-          background: mode === 'dark'
-            ? 'radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, rgba(124, 58, 237, 0) 70%)'
-            : 'radial-gradient(circle, rgba(124, 58, 237, 0.2) 0%, rgba(124, 58, 237, 0) 75%)',
-          top: -100,
-          right: -200,
-          borderRadius: '50%',
-          filter: 'blur(80px)',
-          zIndex: 0,
-          transform: 'rotate(-15deg)',
-          pointerEvents: 'none',
-        }} />
-
-        <Box sx={{
-          position: 'absolute',
-          width: '60%',
-          height: '60%',
-          background: mode === 'dark'
-            ? 'radial-gradient(circle, rgba(255, 142, 83, 0.15) 0%, rgba(255, 142, 83, 0) 70%)'
-            : 'radial-gradient(circle, rgba(255, 142, 83, 0.12) 0%, rgba(255, 142, 83, 0) 70%)',
-          top: '30%',
-          left: -100,
-          borderRadius: '50%',
-          filter: 'blur(80px)',
-          zIndex: 0,
-          transform: 'rotate(15deg)',
-          pointerEvents: 'none',
-        }} />
-
-        <Box sx={{
-          position: 'absolute',
-          width: '50%',
-          height: '50%',
-          background: mode === 'dark'
-            ? 'radial-gradient(circle, rgba(101, 52, 172, 0.15) 0%, rgba(101, 52, 172, 0) 70%)'
-            : 'radial-gradient(circle, rgba(101, 52, 172, 0.12) 0%, rgba(101, 52, 172, 0) 70%)',
-          bottom: '10%',
-          right: '20%',
-          borderRadius: '50%',
-          filter: 'blur(80px)',
-          zIndex: 0,
-          transform: 'rotate(-10deg)',
-          pointerEvents: 'none',
-        }} />
-
-          <Box sx={{ 
-            maxWidth: '1000px', 
-            mx: 'auto', 
-            px: 3,
-            position: 'relative',
-            zIndex: 1
-          }}>
-            <Typography variant="h4" component="h1" gutterBottom sx={{ 
-              textAlign: 'center',
-              fontWeight: 700,
-              mb: 4,
-              fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
-              background: mode === 'dark' 
-                ? 'linear-gradient(45deg, #8C5FD0 30%, #FF8E53 90%)'
-                : 'linear-gradient(45deg, #6534AC 30%, #FF8E53 90%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: mode === 'dark' 
-                ? '0 0 20px rgba(140, 95, 208, 0.3)' 
-                : '0 0 20px rgba(101, 52, 172, 0.2)',
-              position: 'relative',
-              zIndex: 1
-            }}>
-              SincroGoo: Automatiza tus Datos y Multiplica tus Ventas
-            </Typography>
-
-            <Box sx={{ 
-              position: 'relative',
-              width: '100%',
-              maxWidth: '600px',
-              mx: 'auto',
-              mb: 6,
-              zIndex: 2,
-              backgroundColor: 'transparent',
-              minHeight: '200px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <GoogleSyncAnimation />
-            </Box>
-
-            <Typography variant="h6" sx={{ 
-              textAlign: 'center', 
-              mb: 4,
-              color: mode === 'dark' ? 'text.secondary' : 'text.primary',
-              maxWidth: '800px',
-              mx: 'auto',
-              fontSize: { xs: '1rem', sm: '1.1rem', md: '1.25rem' },
-              lineHeight: 1.6
-            }}>
-              Sincroniza tus datos con presentaciones profesionales y descubre oportunidades de negocio analizando la competencia en tu zona | Optimiza tu tiempo y cierra más ventas con presentaciones que se actualizan automáticamente
-            </Typography>
-
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: { xs: 'column', sm: 'row' }, 
-              gap: 2, 
-              justifyContent: 'center',
-              mb: 8
-            }}>
-              <Button 
-                variant="contained" 
-                size="large" 
-                href="/src/proyectos"
-                startIcon={<PlayArrowOutlinedIcon />}
-                sx={{ 
-                  py: 1.5, 
-                  px: 3, 
-                  borderRadius: 2,
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  boxShadow: mode === 'dark' 
-                    ? '0 0 20px rgba(140, 95, 208, 0.4)' 
-                    : '0 8px 25px rgba(101, 52, 172, 0.25)',
-                  '&:hover': {
-                    transform: 'translateY(-3px)',
-                    boxShadow: mode === 'dark' 
-                      ? '0 0 30px rgba(140, 95, 208, 0.6)' 
-                      : '0 12px 30px rgba(101, 52, 172, 0.35)',
-                  },
-                  transition: 'all 0.3s ease',
-                  minWidth: '180px'
-                }}
-              >
-                Comenzar ahora
-              </Button>
-
-              <Button 
-                variant="outlined" 
-                size="large" 
-                href="/demo"
-                startIcon={<VisibilityOutlinedIcon />}
-                sx={{ 
-                  py: 1.5, 
-                  px: 3, 
-                  borderRadius: 2,
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  borderWidth: 2,
-                  '&:hover': {
-                    borderWidth: 2,
-                    transform: 'translateY(-3px)',
-                    backgroundColor: mode === 'dark' 
-                      ? 'rgba(255, 255, 255, 0.03)' 
-                      : 'rgba(0, 0, 0, 0.02)',
-                  },
-                  transition: 'all 0.3s ease',
-                  minWidth: '180px'
-                }}
-              >
-                Ver demo
-              </Button>
-            </Box>
-
-            <Box sx={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: 3, 
-              justifyContent: 'center',
-              mb: 4
-            }}>
-              {[
-                { text: "Excel a Sheets", icon: <ImportExportIcon /> },
-                { text: "Sheets a Slides", icon: <SlideshowIcon /> },
-                { text: "Sincronización automática", icon: <AutorenewOutlinedIcon /> },
-                { text: "Reportes profesionales", icon: <PictureAsPdfIcon /> }
-              ].map((feature, index) => (
-                <Box 
-                  key={index}
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    gap: 1,
-                    color: mode === 'dark' ? 'text.secondary' : 'text.primary',
-                  }}
-                >
-                  <Box sx={{ 
-                    color: mode === 'dark' ? '#8C5FD0' : '#6534AC',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}>
-                    {feature.icon}
-                  </Box>
-                  <Typography variant="body1">
-                    {feature.text}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-
-            <Grid container spacing={4} sx={{ mb: 8 }}>
-              <Grid item xs={12} md={4}>
-                <Card 
-                  component={motion.div}
-                  variants={cardVariants}
-                  initial="hidden"
-                  animate="visible"
-                  sx={{ 
-                    height: '100%',
-                    p: 3,
-                    borderRadius: 4,
-                    transition: 'all 0.3s ease',
-                    bgcolor: 'background.paper',
-                    border: mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.03)',
-                    '&:hover': {
-                      transform: 'translateY(-8px)',
-                      boxShadow: mode === 'dark' 
-                        ? '0 10px 30px rgba(0, 0, 0, 0.3)' 
-                        : '0 10px 30px rgba(0, 0, 0, 0.1)',
-                      borderColor: 'primary.main',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box 
-                      sx={{ 
-                        width: 50,
-                        height: 50,
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        bgcolor: mode === 'dark' ? 'rgba(140, 95, 208, 0.1)' : 'rgba(101, 52, 172, 0.1)',
-                        color: mode === 'dark' ? '#8C5FD0' : '#6534AC',
-                        mr: 2
-                      }}
-                    >
-                      <TableChartOutlinedIcon sx={{ fontSize: 30 }} />
-                    </Box>
-                    <Typography variant="h6" component="h3">
-                      Editor Visual Inteligente
-                    </Typography>
-                  </Box>
-                  <Typography variant="body1" color="text.secondary">
-                    Interfaz intuitiva para gestionar elementos y asociaciones. 
-                    Vista previa en tiempo real y personalización completa de tu presentación.
-                  </Typography>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card 
-                  component={motion.div}
-                  variants={cardVariants}
-                  initial="hidden"
-                  animate="visible"
-                  sx={{ 
-                    height: '100%',
-                    p: 3,
-                    borderRadius: 4,
-                    transition: 'all 0.3s ease',
-                    bgcolor: 'background.paper',
-                    border: mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.03)',
-                    '&:hover': {
-                      transform: 'translateY(-8px)',
-                      boxShadow: mode === 'dark' 
-                        ? '0 10px 30px rgba(0, 0, 0, 0.3)' 
-                        : '0 10px 30px rgba(0, 0, 0, 0.1)',
-                      borderColor: 'primary.main',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box 
-                      sx={{ 
-                        width: 50,
-                        height: 50,
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        bgcolor: mode === 'dark' ? 'rgba(140, 95, 208, 0.1)' : 'rgba(101, 52, 172, 0.1)',
-                        color: mode === 'dark' ? '#8C5FD0' : '#6534AC',
-                        mr: 2
-                      }}
-                    >
-                      <DesignServicesOutlinedIcon sx={{ fontSize: 30 }} />
-                    </Box>
-                    <Typography variant="h6" component="h3">
-                      Sincronización Inteligente
-                    </Typography>
-                  </Box>
-                  <Typography variant="body1" color="text.secondary">
-                    Conecta automáticamente tus hojas de cálculo con presentaciones. 
-                    Actualiza datos en tiempo real y mantén tus presentaciones siempre actualizadas.
-                  </Typography>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card 
-                  component={motion.div}
-                  variants={cardVariants}
-                  initial="hidden"
-                  animate="visible"
-                  sx={{ 
-                    height: '100%',
-                    p: 3,
-                    borderRadius: 4,
-                    transition: 'all 0.3s ease',
-                    bgcolor: 'background.paper',
-                    border: mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.03)',
-                    '&:hover': {
-                      transform: 'translateY(-8px)',
-                      boxShadow: mode === 'dark' 
-                        ? '0 10px 30px rgba(0, 0, 0, 0.3)' 
-                        : '0 10px 30px rgba(0, 0, 0, 0.1)',
-                      borderColor: 'primary.main',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box 
-                      sx={{ 
-                        width: 50,
-                        height: 50,
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        bgcolor: mode === 'dark' ? 'rgba(140, 95, 208, 0.1)' : 'rgba(101, 52, 172, 0.1)',
-                        color: mode === 'dark' ? '#8C5FD0' : '#6534AC',
-                        mr: 2
-                      }}
-                    >
-                      <AutorenewOutlinedIcon sx={{ fontSize: 30 }} />
-                    </Box>
-                    <Typography variant="h6" component="h3">
-                      Modos de Sincronización
-                    </Typography>
-                  </Box>
-                  <Typography variant="body1" color="text.secondary">
-                    Elige entre sincronización automática o manual. 
-                    Control total sobre cuándo y cómo actualizar tus presentaciones.
-                  </Typography>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-          
-          {/* Imagen de demostración con efecto de sombra y animación */}
-          <Box 
-            sx={{ 
-              position: 'relative',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                width: '80%',
-                height: '80%',
-                bottom: '-5%',
-                left: '10%',
-                background: mode === 'dark' 
-                  ? 'radial-gradient(ellipse at center, rgba(101, 52, 172, 0.15) 0%, rgba(0, 0, 0, 0) 70%)' 
-                  : 'radial-gradient(ellipse at center, rgba(101, 52, 172, 0.1) 0%, rgba(0, 0, 0, 0) 70%)',
-                borderRadius: '50%',
-                filter: 'blur(20px)',
-                zIndex: 0,
-              }
-            }}
-          >
-            <Box 
-              component="img"
-              src="/demo-image.png"
-              alt="Vista previa de la aplicación"
-              sx={{ 
-                width: '100%',
-                maxWidth: '1000px',
-                height: 'auto',
-                borderRadius: 4,
-                boxShadow: mode === 'dark' 
-                  ? '0 20px 80px rgba(0, 0, 0, 0.5)' 
-                  : '0 20px 80px rgba(0, 0, 0, 0.15)',
-                border: mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.05)',
-                position: 'relative',
-                zIndex: 1,
-                transform: 'translateY(0)',
-                transition: 'all 0.5s ease',
-                '&:hover': {
-                  transform: 'translateY(-5px)',
-                  boxShadow: mode === 'dark' 
-                    ? '0 25px 100px rgba(0, 0, 0, 0.6)' 
-                    : '0 25px 100px rgba(0, 0, 0, 0.2)',
-                }
-              }}
-            />
-          </Box>
-        </Container>
-
         {/* Automatizaciones */}
-        <Automatizaciones />
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '1920px',
+            margin: '0 auto',
+            padding: '0 32px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <Automatizaciones />
+        </Box>
 
         {/* Testimonios */}
-        <Testimonios />
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '1920px',
+            margin: '0 auto',
+            padding: '0 32px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <Testimonios />
+        </Box>
 
         {/* Secciones Principales */}
-        <SeccionesPrincipales />
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '1920px',
+            margin: '0 auto',
+            padding: '0 32px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <SeccionesPrincipales />
+        </Box>
 
         {/* Herramientas para Comerciantes */}
-        <HerramientasComerciales />
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '1920px',
+            margin: '0 auto',
+            padding: '0 32px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <HerramientasComerciales />
+        </Box>
 
         {/* CTA Section */}
         <Box 
@@ -843,6 +477,11 @@ export default function HomePage() {
             py: 12,
             position: 'relative',
             overflow: 'hidden',
+            width: '100%',
+            maxWidth: '1920px',
+            margin: '0 auto',
+            padding: '32px',
+            boxSizing: 'border-box',
             '&::before': {
               content: '""',
               position: 'absolute',
@@ -853,18 +492,6 @@ export default function HomePage() {
               background: mode === 'dark' 
                 ? 'linear-gradient(135deg, rgba(101, 52, 172, 0.2) 0%, rgba(0, 0, 0, 0) 100%)'
                 : 'linear-gradient(135deg, rgba(101, 52, 172, 0.1) 0%, rgba(255, 255, 255, 0) 100%)',
-              zIndex: 0,
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              bottom: 0,
-              right: 0,
-              width: '70%',
-              height: '70%',
-              background: mode === 'dark' 
-                ? 'radial-gradient(circle at bottom right, rgba(140, 95, 208, 0.1), transparent 70%)'
-                : 'radial-gradient(circle at bottom right, rgba(140, 95, 208, 0.05), transparent 70%)',
               zIndex: 0,
             }
           }}

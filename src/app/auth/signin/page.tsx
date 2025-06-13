@@ -6,7 +6,10 @@ import { useSearchParams } from 'next/navigation';
 // import Image from 'next/image'; // Comentado porque no se utiliza
 
 export default function SignIn() {
-  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const searchParams = useSearchParams();
   
@@ -14,23 +17,25 @@ export default function SignIn() {
     // Verificar si hay un error en los parámetros de búsqueda
     const errorParam = searchParams?.get('error');
     if (errorParam) {
-      console.error('Error en inicio de sesión:', errorParam);
+      console.error('Error en inicio de sesión detectado:', errorParam);
       
       if (errorParam === 'OAuthSignin') {
-        setError('Error al conectar con Google. Por favor, inténtalo de nuevo.');
+        setError('Error al intentar conectar con Google. Por favor, inténtalo de nuevo.');
       } else if (errorParam === 'OAuthCallback') {
         setError('Error en la respuesta de Google. Por favor, inténtalo de nuevo.');
       } else if (errorParam === 'AccessDenied') {
         setError('Acceso denegado. No tienes permiso para acceder.');
+      } else if (errorParam === 'CredentialsSignin') {
+        setError('Email o contraseña incorrectos. Por favor, verifica tus datos.');
       } else {
-        setError(`Error de autenticación: ${errorParam}`);
+        setError(`Error de autenticación. Código: ${errorParam}`);
       }
     }
   }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     try {
-      setLoading(true);
+      setGoogleLoading(true);
       setError('');
       
       // Incluir los scopes necesarios para Google Sheets y Drive
@@ -44,7 +49,28 @@ export default function SignIn() {
       console.error('Error al iniciar sesión con Google:', err);
       setError('Error al conectar con Google. Por favor, inténtalo de nuevo.');
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleCredentialsSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCredentialsLoading(true);
+    setError('');
+
+    const result = await signIn('credentials', {
+      redirect: false,
+      email,
+      password,
+    });
+
+    setCredentialsLoading(false);
+
+    if (result?.error) {
+      console.error('Credentials sign-in error from next-auth:', result.error);
+      setError(result.error === 'CredentialsSignin' ? 'Email o contraseña incorrectos.' : result.error || 'Error desconocido al iniciar sesión.');
+    } else if (result?.ok) {
+      window.location.href = searchParams?.get('callbackUrl') || '/';
     }
   };
 
@@ -56,7 +82,7 @@ export default function SignIn() {
             Iniciar Sesión
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mb-8">
-            Conecta con Google para empezar a crear tus proyectos
+            Usa tu email o cuenta de Google para acceder.
           </p>
         </div>
         
@@ -66,12 +92,69 @@ export default function SignIn() {
           </div>
         )}
         
+        <form onSubmit={handleCredentialsSignIn} className="space-y-6">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Correo Electrónico
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={credentialsLoading || googleLoading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {credentialsLoading ? (
+              <div className="w-5 h-5 border-2 border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
+            ) : (
+              'Iniciar Sesión con Email'
+            )}
+          </button>
+        </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+              O continúa con
+            </span>
+          </div>
+        </div>
+
         <button
           onClick={handleGoogleSignIn}
-          disabled={loading}
+          disabled={googleLoading || credentialsLoading}
           className="flex w-full justify-center items-center py-3 px-4 text-gray-800 dark:text-white rounded-lg border border-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {loading ? (
+          {googleLoading ? (
             <div className="w-5 h-5 border-2 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
           ) : (
             <>

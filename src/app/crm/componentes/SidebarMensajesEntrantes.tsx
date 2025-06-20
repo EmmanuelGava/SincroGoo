@@ -78,18 +78,23 @@ export default function SidebarMensajesEntrantes() {
     fetchEstados();
 
     // Suscripción a Supabase Realtime para refrescar mensajes automáticamente
+    console.log('Intentando suscribirse a realtime...');
     const channel = supabase
       .channel('mensajes_conversacion')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
         (payload) => {
+          console.log('Evento realtime recibido', payload);
           fetchMensajes();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Estado de la suscripción realtime:', status);
+      });
 
     return () => {
+      console.log('Eliminando canal realtime...');
       supabase.removeChannel(channel);
     };
   }, []);

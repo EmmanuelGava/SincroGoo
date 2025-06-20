@@ -111,10 +111,10 @@ class AuthService {
    */
   async getUserProfile(token: string): Promise<UserProfile | null> {
     try {
-      const client = getSupabaseClient(token);
+      const { supabase } = await getSupabaseClient();
       
       // Primero obtener datos de auth
-      const { data: userData, error: userError } = await client.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       
       if (!userData.user) {
@@ -122,7 +122,7 @@ class AuthService {
       }
       
       // Luego obtener datos extendidos del perfil
-      const { data: profileData, error: profileError } = await client
+      const { data: profileData, error: profileError } = await supabase
         .from('perfiles')
         .select('*')
         .eq('id', userData.user.id)
@@ -156,10 +156,10 @@ class AuthService {
    */
   async updateUserProfile(token: string, profile: Partial<UserProfile>): Promise<UserProfile | null> {
     try {
-      const client = getSupabaseClient(token);
+      const { supabase } = await getSupabaseClient();
       
       // Obtener usuario actual
-      const { data: userData, error: userError } = await client.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       
       if (!userData.user) {
@@ -167,7 +167,7 @@ class AuthService {
       }
       
       // Actualizar datos en la tabla de perfiles
-      const { data: updatedProfile, error: updateError } = await client
+      const { data: updatedProfile, error: updateError } = await supabase
         .from('perfiles')
         .update({
           nombre: profile.nombre,
@@ -185,7 +185,7 @@ class AuthService {
       
       // Actualizar metadatos en auth si es necesario
       if (profile.nombre || profile.apellido) {
-        await client.auth.updateUser({
+        await supabase.auth.updateUser({
           data: {
             nombre: profile.nombre,
             apellido: profile.apellido
@@ -240,8 +240,8 @@ class AuthService {
         return null;
       }
 
-      const client = getSupabaseClient();
-      const { data, error } = await client
+      const { supabase } = await getSupabaseClient();
+      const { data, error } = await supabase
         .from('usuarios')
         .select('*')
         .eq('email', email)
@@ -271,10 +271,10 @@ class AuthService {
         return null;
       }
 
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Buscar si el usuario ya existe
-      const { data: existingUser, error: searchError } = await client
+      const { data: existingUser, error: searchError } = await supabase
         .from('usuarios')
         .select('*')
         .eq('email', userData.email)
@@ -287,7 +287,7 @@ class AuthService {
 
       if (existingUser) {
         // Actualizar usuario existente
-        const { data: updatedUser, error: updateError } = await client
+        const { data: updatedUser, error: updateError } = await supabase
           .from('usuarios')
           .update({
             nombre: userData.name || existingUser.nombre,
@@ -306,7 +306,7 @@ class AuthService {
         return this.mapUserFromAuth(updatedUser);
       } else {
         // Crear nuevo usuario
-        const { data: newUser, error: createError } = await client
+        const { data: newUser, error: createError } = await supabase
           .from('usuarios')
           .insert({
             email: userData.email,
@@ -336,8 +336,8 @@ class AuthService {
    */
   async getCurrentUser(): Promise<User | null> {
     try {
-      const client = getSupabaseClient();
-      const { data, error } = await client.auth.getUser();
+      const { supabase } = await getSupabaseClient();
+      const { data, error } = await supabase.auth.getUser();
       
       if (error) {
         console.error('❌ [AuthService] Error al obtener usuario actual:', error);
@@ -450,10 +450,10 @@ class AuthService {
    */
   async deleteAccount(userId: string): Promise<boolean> {
     try {
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Primero eliminar datos del perfil
-      const { error: profileError } = await client
+      const { error: profileError } = await supabase
         .from('perfiles')
         .delete()
         .eq('id', userId);
@@ -461,7 +461,7 @@ class AuthService {
       if (profileError) throw profileError;
       
       // Luego eliminar usuario de auth
-      const { error: authError } = await client.auth.admin.deleteUser(userId);
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
       if (authError) throw authError;
       
       return true;

@@ -77,8 +77,8 @@ export class ProjectsService {
         porPagina = 20
       } = options;
       
-      const client = getSupabaseClient();
-      let query = client.from('proyectos').select('*');
+      const { supabase } = await getSupabaseClient();
+      let query = supabase.from('proyectos').select('*');
       
       // Aplicar filtros
       if (usuario_id) {
@@ -257,7 +257,7 @@ export class ProjectsService {
    */
   async createProject(params: ProjectCreateParams): Promise<string | null> {
     try {
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para inserción
       const projectData = {
@@ -275,7 +275,7 @@ export class ProjectsService {
       };
       
       // Insertar proyecto
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('proyectos')
         .insert(projectData)
         .select('id')
@@ -304,7 +304,7 @@ export class ProjectsService {
         throw new Error('ID de proyecto no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para actualización
       const updateData: Record<string, any> = {
@@ -326,7 +326,7 @@ export class ProjectsService {
       }
       
       // Actualizar proyecto
-      const { error } = await client
+      const { error } = await supabase
         .from('proyectos')
         .update(updateData)
         .eq('id', projectId);
@@ -353,10 +353,10 @@ export class ProjectsService {
         throw new Error('ID de proyecto no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Eliminar proyecto
-      const { error } = await client
+      const { error } = await supabase
         .from('proyectos')
         .delete()
         .eq('id', projectId);

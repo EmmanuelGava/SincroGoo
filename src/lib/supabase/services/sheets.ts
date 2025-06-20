@@ -42,8 +42,8 @@ export class SheetsService {
         porPagina = 20
       } = options;
       
-      const client = getSupabaseClient();
-      let query = client.from('sheets').select('*');
+      const { supabase } = await getSupabaseClient();
+      let query = supabase.from('sheets').select('*');
       
       // Aplicar filtros
       if (proyecto_id) {
@@ -102,10 +102,10 @@ export class SheetsService {
         throw new Error('ID de hoja de cálculo no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Consulta básica
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('sheets')
         .select('*')
         .eq('id', sheetId)
@@ -154,10 +154,10 @@ export class SheetsService {
         throw new Error('Google ID no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Consulta por google_id
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('sheets')
         .select('*')
         .eq('google_id', googleId)
@@ -218,7 +218,7 @@ export class SheetsService {
         }
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para inserción
       const sheetData = {
@@ -234,7 +234,7 @@ export class SheetsService {
       };
       
       // Insertar hoja
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('sheets')
         .insert(sheetData)
         .select('id')
@@ -263,7 +263,7 @@ export class SheetsService {
         throw new Error('ID de hoja de cálculo no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para actualización
       const updateData: Record<string, any> = {
@@ -279,7 +279,7 @@ export class SheetsService {
       if (params.metadata !== undefined) updateData.metadata = params.metadata;
       
       // Actualizar hoja
-      const { error } = await client
+      const { error } = await supabase
         .from('sheets')
         .update(updateData)
         .eq('id', sheetId);
@@ -306,10 +306,10 @@ export class SheetsService {
         throw new Error('ID de hoja de cálculo no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Eliminar hoja
-      const { error } = await client
+      const { error } = await supabase
         .from('sheets')
         .delete()
         .eq('id', sheetId);
@@ -336,9 +336,9 @@ export class SheetsService {
         throw new Error('ID de hoja de cálculo no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      let query = client
+      let query = supabase
         .from('celdas')
         .select('*')
         .eq('sheet_id', options.sheet_id);
@@ -400,7 +400,7 @@ export class SheetsService {
         return [];
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para upsert
       const cellsData = cells.map(cell => ({
@@ -416,7 +416,7 @@ export class SheetsService {
       }));
       
       // Upsert celdas (usando ON CONFLICT)
-      const { error } = await client
+      const { error } = await supabase
         .from('celdas')
         .upsert(cellsData, { 
           onConflict: 'sheet_id,fila,columna'
@@ -428,7 +428,7 @@ export class SheetsService {
       
       // Consultar las celdas que acabamos de insertar/actualizar
       const cellReferences = cells.map(c => c.referencia_celda);
-      const { data: insertedCells, error: fetchError } = await client
+      const { data: insertedCells, error: fetchError } = await supabase
         .from('celdas')
         .select('id')
         .eq('sheet_id', sheetId)
@@ -457,7 +457,7 @@ export class SheetsService {
         throw new Error('ID de celda no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para actualización
       const updateData: Record<string, any> = {
@@ -470,7 +470,7 @@ export class SheetsService {
       if (params.formato !== undefined) updateData.formato = params.formato;
       
       // Actualizar celda
-      const { error } = await client
+      const { error } = await supabase
         .from('celdas')
         .update(updateData)
         .eq('id', cellId);
@@ -497,10 +497,10 @@ export class SheetsService {
         throw new Error('ID de hoja de cálculo no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Eliminar celdas
-      const { error } = await client
+      const { error } = await supabase
         .from('celdas')
         .delete()
         .eq('sheet_id', sheetId);
@@ -527,9 +527,9 @@ export class SheetsService {
         throw new Error('ID de celda no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('celdas')
         .select('*')
         .eq('id', cellId)
@@ -578,9 +578,9 @@ export class SheetsService {
         throw new Error('ID de hoja o referencia no proporcionados');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('celdas')
         .select('*')
         .eq('sheet_id', sheetId)
@@ -630,9 +630,9 @@ export class SheetsService {
         throw new Error('ID de hoja no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('celdas')
         .select('*')
         .eq('sheet_id', sheetId)
@@ -674,9 +674,9 @@ export class SheetsService {
         throw new Error('ID de hoja o columna no proporcionados');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('celdas')
         .select('*')
         .eq('sheet_id', sheetId)
@@ -717,7 +717,7 @@ export class SheetsService {
         throw new Error('ID de hoja o referencia de celda no proporcionados');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Verificar si ya existe una celda con la misma referencia
       const existingCell = await this.getCellByReference(params.sheet_id, params.referencia_celda);
@@ -747,7 +747,7 @@ export class SheetsService {
       };
       
       // Insertar celda
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('celdas')
         .insert(cellData)
         .select('id')
@@ -775,9 +775,9 @@ export class SheetsService {
         throw new Error('ID de celda no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      const { error } = await client
+      const { error } = await supabase
         .from('celdas')
         .delete()
         .eq('id', cellId);
@@ -814,8 +814,8 @@ export class SheetsService {
         throw new Error('ID de hoja no proporcionado');
       }
       
-      const client = getSupabaseClient();
-      let query = client
+      const { supabase } = await getSupabaseClient();
+      let query = supabase
         .from('celdas')
         .delete()
         .eq('sheet_id', sheetId)
@@ -974,10 +974,10 @@ export class SheetsService {
     updates: Array<{ referencia: string; cambios: SheetCellUpdateParams }>
   ): Promise<boolean> {
     try {
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Iniciar transacción
-      const { error: txError } = await client.rpc('begin_transaction');
+      const { error: txError } = await supabase.rpc('begin_transaction');
       if (txError) throw txError;
       
       try {
@@ -987,7 +987,7 @@ export class SheetsService {
           if (!celda) continue;
           
           // Actualizar celda
-          const { error } = await client
+          const { error } = await supabase
             .from('celdas')
             .update({
               ...update.cambios,
@@ -999,13 +999,13 @@ export class SheetsService {
         }
         
         // Confirmar transacción
-        const { error: commitError } = await client.rpc('commit_transaction');
+        const { error: commitError } = await supabase.rpc('commit_transaction');
         if (commitError) throw commitError;
         
         return true;
       } catch (error) {
         // Revertir transacción en caso de error
-        await client.rpc('rollback_transaction');
+        await supabase.rpc('rollback_transaction');
         throw error;
       }
     } catch (error) {

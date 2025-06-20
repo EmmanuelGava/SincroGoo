@@ -25,11 +25,11 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const client = getSupabaseClient();
+    const { supabase } = await getSupabaseClient();
     
     // Buscar si el usuario ya existe
     // eslint-disable-next-line prefer-const
-    let { data: userData, error: usuarioError } = await client
+    let { data: userData, error: usuarioError } = await supabase
       .from('usuarios')
       .select('id, email, nombre, auth_id')
       .eq('auth_id', auth_id);
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     if (!userData || userData.length === 0) {
       console.log(`🔍 [API Users Verify] No encontrado por auth_id, buscando por email: ${email}`);
       
-      const { data: emailData, error: emailError } = await client
+      const { data: emailData, error: emailError } = await supabase
         .from('usuarios')
         .select('id, email, nombre, auth_id')
         .eq('email', email);
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       if (userData && userData.length > 0) {
         console.log(`✅ [API Users Verify] Usuario encontrado por email, actualizando auth_id:`, userData[0].id);
         
-        const { error: updateError } = await client
+        const { error: updateError } = await supabase
           .from('usuarios')
           .update({
             auth_id,
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     if (!userData || userData.length === 0) {
       console.log('🆕 [API Users Verify] Creando nuevo usuario:', email);
       
-      const { data: newUser, error: insertError } = await client
+      const { data: newUser, error: insertError } = await supabase
         .from('usuarios')
         .insert({
           auth_id,
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     const user = userData[0];
     
     // Actualizar último acceso
-    const { error: updateError } = await client
+    const { error: updateError } = await supabase
       .from('usuarios')
       .update({
         ultimo_acceso: new Date().toISOString()

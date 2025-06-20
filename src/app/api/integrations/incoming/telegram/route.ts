@@ -18,16 +18,30 @@ export async function POST(req: NextRequest) {
     // Usar siempre el remitente_id numérico para agrupar correctamente
     const remitenteId = mensajeNormalizado.remitente_id;
 
-    // 3. Buscar si ya existe una conversación activa para este remitente y canal
-    const { data: conversacionExistente } = await supabase
+    // 3. Buscar primero una conversación asociada a un lead (lead_id no null)
+    let { data: conversacionExistente } = await supabase
       .from('conversaciones')
-      .select('id')
+      .select('id, lead_id')
       .eq('remitente', remitenteId)
       .eq('servicio_origen', 'telegram')
-      .is('lead_id', null)
+      .not('lead_id', 'is', null)
       .order('fecha_mensaje', { ascending: false })
       .limit(1)
       .single();
+
+    // Si no existe, buscar una conversación activa sin lead asociado
+    if (!conversacionExistente) {
+      const res = await supabase
+        .from('conversaciones')
+        .select('id, lead_id')
+        .eq('remitente', remitenteId)
+        .eq('servicio_origen', 'telegram')
+        .is('lead_id', null)
+        .order('fecha_mensaje', { ascending: false })
+        .limit(1)
+        .single();
+      conversacionExistente = res.data;
+    }
 
     let conversacionId;
     if (conversacionExistente) {

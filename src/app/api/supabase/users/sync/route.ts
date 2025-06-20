@@ -34,11 +34,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Verificar si el perfil del usuario ya existe en `usuarios`
-    let { data: user, error: findError } = await supabaseAdmin
+    const user = await supabaseAdmin
       .from('usuarios')
       .select('id')
       .eq('id', supabaseUserId)
       .single();
+
+    const findError = user.error;
 
     if (findError && findError.code !== 'PGRST116') {
       throw findError;
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (user) {
       console.log(`✅ [API Users Sync] El perfil del usuario ${supabaseUserId} ya existe. No se necesita acción.`);
       return NextResponse.json({
-        id: user.id,
+        id: user.data ? user.data.id : null,
         message: 'El perfil del usuario ya existe.'
       });
     }

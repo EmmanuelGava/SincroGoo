@@ -16,4 +16,6 @@ export interface Lead {
   creado_por?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
+  ultimo_mensaje?: string;
+  fecha_ultimo_mensaje?: string;
 } 

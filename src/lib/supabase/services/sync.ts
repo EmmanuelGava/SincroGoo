@@ -106,8 +106,8 @@ export class SyncService {
       for (const funcName of requiredFunctions) {
         try {
           // Intentar llamar a la función con parámetros mínimos
-          const client = getSupabaseClient();
-          const { error } = await client.rpc(funcName, {
+          const { supabase } = await getSupabaseClient();
+          const { error } = await supabase.rpc(funcName, {
             p_sheet_id: '00000000-0000-0000-0000-000000000000',
             p_celdas: '[]',
             p_google_id: '00000000-0000-0000-0000-000000000000'
@@ -139,8 +139,8 @@ export class SyncService {
       console.log(`🔍 [Supabase] Verificando tabla: ${tableName}`);
       
       // Intentar hacer una consulta simple a la tabla
-      const client = getSupabaseClient();
-      const { data, error } = await client
+      const { supabase } = await getSupabaseClient();
+      const { data, error } = await supabase
         .from(tableName)
         .select('id')
         .limit(1);
@@ -250,6 +250,7 @@ export class SyncService {
         
         // Sincronizar celdas
         if (sheet.cells && sheet.cells.length > 0) {
+          const { supabase } = await getSupabaseClient();
           const { data, error } = await supabase.rpc('guardar_celdas', {
             p_sheet_id: sheetId,
             p_celdas: JSON.stringify(sheet.cells),
@@ -300,6 +301,7 @@ export class SyncService {
         
         // Sincronizar elementos
         if (slide.elements && slide.elements.length > 0) {
+          const { supabase } = await getSupabaseClient();
           const { data, error } = await supabase
             .from('elementos')
             .upsert(
@@ -344,6 +346,7 @@ export class SyncService {
       
       // Si se solicita eliminar asociaciones existentes
       if (params.deleteExisting) {
+        const { supabase } = await getSupabaseClient();
         const { error: deleteError } = await supabase
           .from('asociaciones')
           .delete()
@@ -362,6 +365,7 @@ export class SyncService {
       for (const element of params.elements) {
         try {
           // Buscar si ya existe la asociación
+          const { supabase } = await getSupabaseClient();
           const { data: existing, error: searchError } = await supabase
             .from('asociaciones')
             .select('id')

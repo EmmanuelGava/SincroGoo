@@ -37,8 +37,8 @@ export class SlidesService {
         porPagina = 20
       } = options;
       
-      const client = getSupabaseClient();
-      let query = client.from('slides').select('*');
+      const { supabase } = await getSupabaseClient();
+      let query = supabase.from('slides').select('*');
       
       // Aplicar filtros
       if (proyecto_id) {
@@ -97,10 +97,10 @@ export class SlidesService {
         throw new Error('ID de presentación no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Consulta básica
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('slides')
         .select('*')
         .eq('id', slideId)
@@ -149,10 +149,10 @@ export class SlidesService {
         throw new Error('Google ID no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Consulta por google_id o google_presentation_id
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('slides')
         .select('*')
         .or(`google_id.eq.${googleId},google_presentation_id.eq.${googleId}`)
@@ -215,7 +215,7 @@ export class SlidesService {
         }
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para inserción
       const slideData = {
@@ -232,7 +232,7 @@ export class SlidesService {
       };
       
       // Insertar presentación
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('slides')
         .insert(slideData)
         .select('id')
@@ -261,7 +261,7 @@ export class SlidesService {
         throw new Error('ID de presentación no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para actualización
       const slideData = {
@@ -270,7 +270,7 @@ export class SlidesService {
       };
       
       // Actualizar presentación
-      const { error } = await client
+      const { error } = await supabase
         .from('slides')
         .update(slideData)
         .eq('id', slideId);
@@ -297,11 +297,11 @@ export class SlidesService {
         throw new Error('ID de presentación no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Primero, eliminar todas las diapositivas relacionadas y sus elementos
       // Obtener las diapositivas
-      const { data: slideItems } = await client
+      const { data: slideItems } = await supabase
         .from('diapositivas')
         .select('id')
         .eq('slides_id', slideId);
@@ -310,20 +310,20 @@ export class SlidesService {
         const diapositivaIds = slideItems.map(item => item.id);
         
         // Eliminar elementos de las diapositivas
-        await client
+        await supabase
           .from('elementos')
           .delete()
           .in('diapositiva_id', diapositivaIds);
         
         // Eliminar diapositivas
-        await client
+        await supabase
           .from('diapositivas')
           .delete()
           .eq('slides_id', slideId);
       }
       
       // Eliminar la presentación
-      const { error } = await client
+      const { error } = await supabase
         .from('slides')
         .delete()
         .eq('id', slideId);
@@ -350,9 +350,9 @@ export class SlidesService {
         throw new Error('ID de presentación no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      let query = client
+      let query = supabase
         .from('diapositivas')
         .select('*')
         .eq('slides_id', options.slides_id);
@@ -399,11 +399,11 @@ export class SlidesService {
         throw new Error('ID de presentación no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Verificar si ya existe una diapositiva con el mismo diapositiva_id
       if (params.diapositiva_id) {
-        const { data: existingSlideItem } = await client
+        const { data: existingSlideItem } = await supabase
           .from('diapositivas')
           .select('id')
           .eq('slides_id', params.slides_id)
@@ -426,7 +426,7 @@ export class SlidesService {
       
       // Obtener el orden de la última diapositiva si no se proporciona uno
       if (params.orden === undefined) {
-        const { data: lastSlideItem } = await client
+        const { data: lastSlideItem } = await supabase
           .from('diapositivas')
           .select('orden')
           .eq('slides_id', params.slides_id)
@@ -451,7 +451,7 @@ export class SlidesService {
       };
       
       // Insertar diapositiva
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('diapositivas')
         .insert(slideItemData)
         .select('id')
@@ -480,7 +480,7 @@ export class SlidesService {
         throw new Error('ID de diapositiva no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para actualización
       const updateData: Record<string, any> = {
@@ -496,7 +496,7 @@ export class SlidesService {
       if (params.thumbnail_url !== undefined) updateData.thumbnail_url = params.thumbnail_url;
       
       // Actualizar diapositiva
-      const { error } = await client
+      const { error } = await supabase
         .from('diapositivas')
         .update(updateData)
         .eq('id', slideItemId);
@@ -523,16 +523,16 @@ export class SlidesService {
         throw new Error('ID de diapositiva no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Primero, eliminar todos los elementos relacionados
-      await client
+      await supabase
         .from('elementos')
         .delete()
         .eq('diapositiva_id', slideItemId);
       
       // Eliminar diapositiva
-      const { error } = await client
+      const { error } = await supabase
         .from('diapositivas')
         .delete()
         .eq('id', slideItemId);
@@ -559,9 +559,9 @@ export class SlidesService {
         throw new Error('ID de diapositiva no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('elementos')
         .select('*')
         .eq('diapositiva_id', slideItemId);
@@ -601,10 +601,10 @@ export class SlidesService {
         throw new Error('Faltan datos requeridos para crear elemento');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Verificar si ya existe un elemento con el mismo elemento_id en la misma diapositiva
-      const { data: existingElement } = await client
+      const { data: existingElement } = await supabase
         .from('elementos')
         .select('id')
         .eq('diapositiva_id', params.diapositiva_id)
@@ -640,7 +640,7 @@ export class SlidesService {
       };
       
       // Insertar elemento
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('elementos')
         .insert(elementData)
         .select('id')
@@ -669,7 +669,7 @@ export class SlidesService {
         throw new Error('ID de elemento no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para actualización
       const updateData: Record<string, any> = {
@@ -685,7 +685,7 @@ export class SlidesService {
       if (params.tipo_asociacion !== undefined) updateData.tipo_asociacion = params.tipo_asociacion;
       
       // Actualizar elemento
-      const { error } = await client
+      const { error } = await supabase
         .from('elementos')
         .update(updateData)
         .eq('id', elementId);
@@ -712,16 +712,16 @@ export class SlidesService {
         throw new Error('ID de elemento no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Primero, eliminar todas las asociaciones relacionadas
-      await client
+      await supabase
         .from('asociaciones')
         .delete()
         .eq('elemento_id', elementId);
       
       // Eliminar elemento
-      const { error } = await client
+      const { error } = await supabase
         .from('elementos')
         .delete()
         .eq('id', elementId);
@@ -748,10 +748,10 @@ export class SlidesService {
         throw new Error('Faltan datos requeridos para crear asociación');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Verificar si ya existe una asociación con los mismos datos
-      const { data: existingAssociation } = await client
+      const { data: existingAssociation } = await supabase
         .from('asociaciones')
         .select('id')
         .eq('elemento_id', params.elemento_id)
@@ -775,7 +775,7 @@ export class SlidesService {
       };
       
       // Insertar asociación
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('asociaciones')
         .insert(associationData)
         .select('id')
@@ -803,9 +803,9 @@ export class SlidesService {
         throw new Error('ID de elemento no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('asociaciones')
         .select('*')
         .eq('elemento_id', elementId);
@@ -841,10 +841,10 @@ export class SlidesService {
         throw new Error('ID de asociación no proporcionado');
       }
       
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Eliminar asociación
-      const { error } = await client
+      const { error } = await supabase
         .from('asociaciones')
         .delete()
         .eq('id', associationId);
@@ -868,9 +868,9 @@ export class SlidesService {
   async countSlides(options: SlideListOptions = {}): Promise<number> {
     try {
       const { proyecto_id, busqueda } = options;
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
-      let query = client.from('slides').select('*', { count: 'exact', head: true });
+      let query = supabase.from('slides').select('*', { count: 'exact', head: true });
       
       if (proyecto_id) {
         query = query.eq('proyecto_id', proyecto_id);
@@ -926,7 +926,7 @@ export class SlidesService {
         throw new Error('No se proporcionaron diapositivas para crear');
       }
 
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Preparar datos para inserción
       const slideItems = items.map(item => ({
@@ -942,7 +942,7 @@ export class SlidesService {
       }));
       
       // Insertar diapositivas
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('diapositivas')
         .insert(slideItems)
         .select('id');
@@ -970,7 +970,7 @@ export class SlidesService {
         throw new Error('No se proporcionaron diapositivas para reordenar');
       }
 
-      const client = getSupabaseClient();
+      const { supabase } = await getSupabaseClient();
       
       // Actualizar el orden de cada diapositiva
       const updates = itemIds.map((id, index) => ({
@@ -979,7 +979,7 @@ export class SlidesService {
         fecha_actualizacion: new Date().toISOString()
       }));
       
-      const { error } = await client
+      const { error } = await supabase
         .from('slide_items')
         .upsert(updates)
         .eq('slide_id', slideId);

@@ -56,6 +56,10 @@ export default function SidebarMensajesEntrantes() {
   };
 
   useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+    console.log('MONTANDO SidebarMensajesEntrantes');
     fetchMensajes();
     // Obtener estados de lead y seleccionar el de orden 1
     async function fetchEstados() {
@@ -77,7 +81,6 @@ export default function SidebarMensajesEntrantes() {
     }
     fetchEstados();
 
-    // Suscripción a Supabase Realtime para refrescar mensajes automáticamente
     console.log('Intentando suscribirse a realtime...');
     const channel = supabase
       .channel('mensajes_conversacion')
@@ -93,9 +96,14 @@ export default function SidebarMensajesEntrantes() {
         console.log('Estado de la suscripción realtime:', status);
       });
 
+    console.log('Canal realtime creado:', channel);
+
     return () => {
+      console.log('DESMONTANDO SidebarMensajesEntrantes');
       console.log('Eliminando canal realtime...');
-      supabase.removeChannel(channel);
+      if (supabase && channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 

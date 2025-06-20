@@ -75,10 +75,22 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan conversationId o leadId' }, { status: 400 });
     }
 
+    // Obtener remitente y servicio_origen de la conversación original
+    const { data: conversacionOriginal, error: errorConsulta } = await supabase
+      .from('conversaciones')
+      .select('remitente, servicio_origen')
+      .eq('id', conversationId)
+      .single();
+    if (errorConsulta || !conversacionOriginal) {
+      return NextResponse.json({ error: 'No se pudo obtener la conversación original' }, { status: 400 });
+    }
+
+    // Actualizar TODAS las conversaciones de ese remitente y canal
     const { error } = await supabase
       .from('conversaciones')
       .update({ lead_id: leadId })
-      .eq('id', conversationId);
+      .eq('remitente', conversacionOriginal.remitente)
+      .eq('servicio_origen', conversacionOriginal.servicio_origen);
 
     if (error) throw error;
 

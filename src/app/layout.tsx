@@ -74,7 +74,7 @@ const cspContent = `
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.gstatic.com;
   img-src 'self' data: https://*.googleusercontent.com https://*.gstatic.com https://*.googleapis.com https://*.tile.openstreetmap.org;
   font-src 'self' https://fonts.gstatic.com;
-  connect-src 'self' https://*.googleapis.com https://*.google.com https://supabase.co https://*.supabase.co https://overpass-api.de;
+  connect-src 'self' https://*.googleapis.com https://*.google.com https://supabase.co https://*.supabase.co wss://*.supabase.co https://overpass-api.de;
   frame-src 'self' https://accounts.google.com https://*.googleusercontent.com;
   object-src 'none';
 `;

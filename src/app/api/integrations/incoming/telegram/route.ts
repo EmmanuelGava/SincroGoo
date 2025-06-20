@@ -15,28 +15,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se pudo normalizar el mensaje' }, { status: 400 });
     }
 
-    // 3. Buscar o crear la conversación (sin contenido)
-    const conversacion = {
-      lead_id: null,
-      servicio_origen: 'telegram',
-      tipo: 'entrante',
-      remitente: mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id,
-      fecha_mensaje: mensajeNormalizado.fecha_mensaje,
-      metadata: mensajeNormalizado.metadata || {},
-    };
-    const { data: conversacionInsertada, error: errorConversacion } = await supabase
+    // 3. Buscar si ya existe una conversación activa para este remitente y canal
+    const { data: conversacionExistente } = await supabase
       .from('conversaciones')
-      .insert(conversacion)
       .select('id')
+      .eq('remitente', mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id)
+      .eq('servicio_origen', 'telegram')
+      .is('lead_id', null)
+      .order('fecha_mensaje', { ascending: false })
+      .limit(1)
       .single();
-    if (errorConversacion) {
-      console.error('Error guardando conversación:', errorConversacion);
-      return NextResponse.json({ error: 'Error guardando conversación' }, { status: 500 });
+
+    let conversacionId;
+    if (conversacionExistente) {
+      conversacionId = conversacionExistente.id;
+      // Actualizar la fecha_mensaje de la conversación
+      await supabase.from('conversaciones').update({ fecha_mensaje: mensajeNormalizado.fecha_mensaje }).eq('id', conversacionId);
+    } else {
+      // Crear nueva conversación
+      const conversacion = {
+        lead_id: null,
+        servicio_origen: 'telegram',
+        tipo: 'entrante',
+        remitente: mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id,
+        fecha_mensaje: mensajeNormalizado.fecha_mensaje,
+        metadata: mensajeNormalizado.metadata || {},
+      };
+      const { data: conversacionInsertada, error: errorConversacion } = await supabase
+        .from('conversaciones')
+        .insert(conversacion)
+        .select('id')
+        .single();
+      if (errorConversacion) {
+        console.error('Error guardando conversación:', errorConversacion);
+        return NextResponse.json({ error: 'Error guardando conversación' }, { status: 500 });
+      }
+      conversacionId = conversacionInsertada.id;
     }
 
     // 4. Guardar el mensaje en mensajes_conversacion
     const mensaje = {
-      conversacion_id: conversacionInsertada.id,
+      conversacion_id: conversacionId,
       tipo: 'texto',
       contenido: mensajeNormalizado.contenido,
       remitente: mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id,

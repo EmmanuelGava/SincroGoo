@@ -8,6 +8,7 @@ import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useNotificacion } from '@/app/editor-proyectos/contexts/NotificacionContext';
 import { useLeadsKanbanContext } from '../contexts/LeadsKanbanContext';
+import { supabase } from '@/lib/supabase/browserClient';
 
 interface MensajeEntrante {
   id: string;
@@ -75,6 +76,22 @@ export default function SidebarMensajesEntrantes() {
       }
     }
     fetchEstados();
+
+    // Suscripción a Supabase Realtime para refrescar mensajes automáticamente
+    const channel = supabase
+      .channel('mensajes_conversacion')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
+        (payload) => {
+          fetchMensajes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleEliminar = async (id: string) => {

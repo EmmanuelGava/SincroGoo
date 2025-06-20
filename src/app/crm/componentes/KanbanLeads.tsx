@@ -100,7 +100,7 @@ function TarjetaLead({ lead, index, onEdit, onDelete }: { lead: Lead; index: num
             </Box>
           )}
 
-          {lead.valor_potencial && (
+              {lead.valor_potencial && (
              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <AttachMoneyIcon sx={{ fontSize: '0.875rem', color: colors.textSecondary }} />
               <Typography variant="caption" sx={{ color: colors.textSecondary }}>
@@ -276,13 +276,13 @@ export default function KanbanLeads() {
       </Box>
 
       <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden', p: 3, pt: 0 }}>
-        <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
-          <Droppable droppableId="kanban-columns" direction="horizontal" type="COLUMN">
+      <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
+        <Droppable droppableId="kanban-columns" direction="horizontal" type="COLUMN">
             {(provided) => (
               <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', gap: 2, height: '100%' }}>
-                {estados.map((estado, idx) => (
-                  <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id}>
-                    {(provided) => (
+              {estados.map((estado, idx) => (
+                <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id}>
+                  {(provided) => (
                       <Box ref={provided.innerRef} {...provided.draggableProps} sx={{ minWidth: 280, maxWidth: 280, ...provided.draggableProps.style, height: '100%' }}>
                         <Box {...provided.dragHandleProps} sx={{ p: 1.5, width: '100%', bgcolor: 'transparent', display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
@@ -291,47 +291,47 @@ export default function KanbanLeads() {
                               {!estado.icono && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: estado.color || colors.textSecondary }} />}
                               <Typography variant="body1" sx={{ fontWeight: 500, color: colors.textPrimary }}>{estado.nombre}</Typography>
                               <Typography component="span" sx={{ color: colors.textSecondary, fontWeight: 400, fontSize: '0.875rem' }}>
-                                  {leadsPorEstado[estado.id]?.length || 0}
-                              </Typography>
-                            </Box>
+                                {leadsPorEstado[estado.id]?.length || 0}
+                            </Typography>
+                          </Box>
                             <Box>
-                              <Tooltip title="Editar columna">
+                            <Tooltip title="Editar columna">
                                 <IconButton size="small" onClick={() => handleOpenEstado({ ...estado })}>
                                   <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
+                              </IconButton>
+                            </Tooltip>
                           </Box>
+                        </Box>
                           <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', p: '0 4px', m: '0 -4px' }}>
-                            <Droppable droppableId={estado.id.toString()} type="LEAD">
+                        <Droppable droppableId={estado.id.toString()} type="LEAD">
                               {(provided) => (
                                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: '1px' }}>
-                                  {leadsPorEstado[estado.id]?.map((lead, idx) => (
+                              {leadsPorEstado[estado.id]?.map((lead, idx) => (
                                     <TarjetaLead key={lead.id} lead={lead} index={idx} onEdit={handleOpenEditLead} onDelete={setConfirmDeleteLead} />
-                                  ))}
-                                  {provided.placeholder}
-                                </Box>
-                              )}
-                            </Droppable>
+                              ))}
+                              {provided.placeholder}
+                            </Box>
+                          )}
+                        </Droppable>
                           </Box>
                            <Button startIcon={<AddIcon />} sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}>
                               Nuevo elemento
                           </Button>
                         </Box>
                       </Box>
-                    )}
-                  </Draggable>
-                ))}
+                  )}
+                </Draggable>
+              ))}
                 <Box sx={{ minWidth: 280, maxWidth: 280 }}>
                   <Button fullWidth onClick={() => handleOpenEstado()} sx={{ color: colors.textSecondary, bgcolor: 'transparent', border: `1px dashed ${colors.border}`, borderRadius: 3, p: 1, textTransform: 'none', '&:hover': { bgcolor: colors.column, borderColor: colors.textSecondary }, height: '48px' }}>
                     <AddIcon sx={{ mr: 1 }} /> Nueva columna
                   </Button>
                 </Box>
-                {provided.placeholder}
+              {provided.placeholder}
               </Box>
-            )}
-          </Droppable>
-        </DragDropContext>
+          )}
+        </Droppable>
+      </DragDropContext>
       </Box>
       
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>

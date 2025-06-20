@@ -15,7 +15,7 @@ export interface Estado {
   icono?: string;
 }
 
-interface LeadsKanbanContextProps {
+export interface LeadsKanbanContextProps {
   leads: Lead[];
   estados: Estado[];
   leadsPorEstado: Record<string, Lead[]>;
@@ -28,6 +28,7 @@ interface LeadsKanbanContextProps {
   eliminarEstado: (id: string) => Promise<void>;
   loading: boolean;
   error: string | null;
+  refrescarLeads: () => void;
 }
 
 const LeadsKanbanContext = createContext<LeadsKanbanContextProps | undefined>(undefined);
@@ -87,6 +88,10 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const refrescarLeads = () => {
+    fetchAll();
+  };
 
   const agregarLead = async (lead: Partial<Lead>) => {
     setError(null);
@@ -207,20 +212,23 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <LeadsKanbanContext.Provider value={{
-      leads,
-      estados,
-      leadsPorEstado,
-      agregarLead,
-      actualizarLead,
-      moverLead,
-      eliminarLead,
-      agregarEstado,
-      actualizarEstado,
-      eliminarEstado,
-      loading,
-      error
-    }}>
+    <LeadsKanbanContext.Provider
+      value={{
+        leads,
+        estados,
+        leadsPorEstado,
+        agregarLead,
+        actualizarLead,
+        moverLead,
+        eliminarLead,
+        agregarEstado,
+        actualizarEstado,
+        eliminarEstado,
+        loading,
+        error,
+        refrescarLeads
+      }}
+    >
       {children}
     </LeadsKanbanContext.Provider>
   );

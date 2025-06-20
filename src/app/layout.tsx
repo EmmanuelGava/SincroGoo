@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/app/componentes/providers"
 import EmotionRegistry from "./registry"
+import { NotificacionProvider } from '@/app/editor-proyectos/contexts/NotificacionContext'
 
 const inter = Inter({
   subsets: ["latin"],
@@ -89,11 +90,13 @@ export default function RootLayout({
         <meta httpEquiv="Content-Security-Policy" content={cspContent.replace(/\s+/g, ' ').trim()} />
       </head>
       <body className={inter.className}>
-        <EmotionRegistry>
-          <Providers>
-            {children}
-          </Providers>
-        </EmotionRegistry>
+        <NotificacionProvider>
+          <EmotionRegistry>
+            <Providers>
+              {children}
+            </Providers>
+          </EmotionRegistry>
+        </NotificacionProvider>
       </body>
     </html>
   )

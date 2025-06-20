@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const estado_id = searchParams.get('estado_id');
     
-    let query = supabase.from('leads').select('*').eq('asignado_a', user.id);
+    let query = supabase.from('vista_leads_con_mensaje').select('*').eq('asignado_a', user.id);
 
     if (estado_id) {
       query = query.eq('estado_id', estado_id);

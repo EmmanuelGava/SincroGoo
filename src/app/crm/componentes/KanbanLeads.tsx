@@ -100,6 +100,13 @@ function TarjetaLead({ lead, index, onEdit, onDelete }: { lead: Lead; index: num
             </Box>
           )}
 
+          {/* Mostrar el último mensaje si existe */}
+          {lead.ultimo_mensaje && (
+            <Typography variant="body2" sx={{ color: colors.textSecondary, mt: 1, fontStyle: 'italic' }}>
+              Último mensaje: {lead.ultimo_mensaje}
+            </Typography>
+          )}
+
               {lead.valor_potencial && (
              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <AttachMoneyIcon sx={{ fontSize: '0.875rem', color: colors.textSecondary }} />
@@ -263,180 +270,183 @@ export default function KanbanLeads() {
 
   return (
     <Box sx={{ bgcolor: colors.background, color: colors.textPrimary, height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 3, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5" sx={{ fontWeight: 500 }}>Kanban de Leads</Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />} 
-          onClick={handleOpen}
-          sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' }, textTransform: 'none', fontWeight: 500, borderRadius: 2, boxShadow: 'none' }}
-        >
-          Nuevo Lead
-        </Button>
-      </Box>
+      {/* Kanban principal */}
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 3, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5" sx={{ fontWeight: 500 }}>Kanban de Leads</Typography>
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />} 
+            onClick={handleOpen}
+            sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' }, textTransform: 'none', fontWeight: 500, borderRadius: 2, boxShadow: 'none' }}
+          >
+            Nuevo Lead
+          </Button>
+        </Box>
 
-      <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden', p: 3, pt: 0 }}>
-      <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
-        <Droppable droppableId="kanban-columns" direction="horizontal" type="COLUMN">
-            {(provided) => (
-              <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', gap: 2, height: '100%' }}>
-              {estados.map((estado, idx) => (
-                <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id}>
-                  {(provided) => (
-                      <Box ref={provided.innerRef} {...provided.draggableProps} sx={{ minWidth: 280, maxWidth: 280, ...provided.draggableProps.style, height: '100%' }}>
-                        <Box {...provided.dragHandleProps} sx={{ p: 1.5, width: '100%', bgcolor: 'transparent', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              {estado.icono && React.createElement(iconMap[estado.icono] || RadioButtonUncheckedIcon, { sx: { color: estado.color || colors.textSecondary, fontSize: '1rem' } })}
-                              {!estado.icono && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: estado.color || colors.textSecondary }} />}
-                              <Typography variant="body1" sx={{ fontWeight: 500, color: colors.textPrimary }}>{estado.nombre}</Typography>
-                              <Typography component="span" sx={{ color: colors.textSecondary, fontWeight: 400, fontSize: '0.875rem' }}>
-                                {leadsPorEstado[estado.id]?.length || 0}
-                            </Typography>
-                          </Box>
-                            <Box>
-                            <Tooltip title="Editar columna">
-                                <IconButton size="small" onClick={() => handleOpenEstado({ ...estado })}>
-                                  <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </Box>
-                          <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', p: '0 4px', m: '0 -4px' }}>
-                        <Droppable droppableId={estado.id.toString()} type="LEAD">
-                              {(provided) => (
-                                <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: '1px' }}>
-                              {leadsPorEstado[estado.id]?.map((lead, idx) => (
-                                    <TarjetaLead key={lead.id} lead={lead} index={idx} onEdit={handleOpenEditLead} onDelete={setConfirmDeleteLead} />
-                              ))}
-                              {provided.placeholder}
+        <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden', p: 3, pt: 0 }}>
+          <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
+            <Droppable droppableId="kanban-columns" direction="horizontal" type="COLUMN">
+              {(provided) => (
+                <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', gap: 2, height: '100%' }}>
+                  {estados.map((estado, idx) => (
+                    <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id}>
+                      {(provided) => (
+                        <Box ref={provided.innerRef} {...provided.draggableProps} sx={{ minWidth: 280, maxWidth: 280, ...provided.draggableProps.style, height: '100%' }}>
+                          <Box {...provided.dragHandleProps} sx={{ p: 1.5, width: '100%', bgcolor: 'transparent', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                {estado.icono && React.createElement(iconMap[estado.icono] || RadioButtonUncheckedIcon, { sx: { color: estado.color || colors.textSecondary, fontSize: '1rem' } })}
+                                {!estado.icono && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: estado.color || colors.textSecondary }} />}
+                                <Typography variant="body1" sx={{ fontWeight: 500, color: colors.textPrimary }}>{estado.nombre}</Typography>
+                                <Typography component="span" sx={{ color: colors.textSecondary, fontWeight: 400, fontSize: '0.875rem' }}>
+                                  {leadsPorEstado[estado.id]?.length || 0}
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Tooltip title="Editar columna">
+                                  <IconButton size="small" onClick={() => handleOpenEstado({ ...estado })}>
+                                    <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
                             </Box>
-                          )}
-                        </Droppable>
-                          </Box>
-                           <Button startIcon={<AddIcon />} sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}>
+                            <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', p: '0 4px', m: '0 -4px' }}>
+                              <Droppable droppableId={estado.id.toString()} type="LEAD">
+                                {(provided) => (
+                                  <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: '1px' }}>
+                                    {leadsPorEstado[estado.id]?.map((lead, idx) => (
+                                      <TarjetaLead key={lead.id} lead={lead} index={idx} onEdit={handleOpenEditLead} onDelete={setConfirmDeleteLead} />
+                                    ))}
+                                    {provided.placeholder}
+                                  </Box>
+                                )}
+                              </Droppable>
+                            </Box>
+                            <Button startIcon={<AddIcon />} sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}>
                               Nuevo elemento
-                          </Button>
+                            </Button>
+                          </Box>
                         </Box>
-                      </Box>
-                  )}
-                </Draggable>
-              ))}
-                <Box sx={{ minWidth: 280, maxWidth: 280 }}>
-                  <Button fullWidth onClick={() => handleOpenEstado()} sx={{ color: colors.textSecondary, bgcolor: 'transparent', border: `1px dashed ${colors.border}`, borderRadius: 3, p: 1, textTransform: 'none', '&:hover': { bgcolor: colors.column, borderColor: colors.textSecondary }, height: '48px' }}>
-                    <AddIcon sx={{ mr: 1 }} /> Nueva columna
-                  </Button>
+                      )}
+                    </Draggable>
+                  ))}
+                  <Box sx={{ minWidth: 280, maxWidth: 280 }}>
+                    <Button fullWidth onClick={() => handleOpenEstado()} sx={{ color: colors.textSecondary, bgcolor: 'transparent', border: `1px dashed ${colors.border}`, borderRadius: 3, p: 1, textTransform: 'none', '&:hover': { bgcolor: colors.column, borderColor: colors.textSecondary }, height: '48px' }}>
+                      <AddIcon sx={{ mr: 1 }} /> Nueva columna
+                    </Button>
+                  </Box>
+                  {provided.placeholder}
                 </Box>
-              {provided.placeholder}
-              </Box>
-          )}
-        </Droppable>
-      </DragDropContext>
-      </Box>
-      
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
-        <DialogTitle>Nuevo Lead</DialogTitle>
-        <DialogContent>
-          {estados.length > 0 ? <FormularioLead estadoId={estados[0].id} onClose={handleClose} /> : <Typography>Crea una columna para añadir un lead.</Typography>}
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={openEstado} onClose={handleCloseEstado} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
-        <DialogTitle>{editEstado?.id ? 'Editar columna' : 'Nueva columna'}</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus margin="dense" label="Nombre" name="nombre" fullWidth value={editEstado?.nombre || ''} onChange={handleChangeEstado} />
-          
-          <Typography variant="body2" sx={{ mt: 2, mb: 1, color: colors.textSecondary }}>Color</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {colorPalette.map((color) => (
-              <Tooltip title={color} key={color}>
-                <IconButton 
-                  onClick={() => handleColorChange(color)}
-                  sx={{ 
-                    p: 0, 
-                    width: 32, 
-                    height: 32, 
-                    border: editEstado?.color === color ? `2px solid ${colors.primaryAccent}` : `2px solid transparent`,
-                    borderRadius: '50%',
-                    transition: 'border 0.2s'
-                  }}
-                >
-                  <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: color }} />
-                </IconButton>
-              </Tooltip>
-            ))}
-          </Box>
-
-          <Typography variant="body2" sx={{ mt: 2, mb: 1, color: colors.textSecondary }}>Icono</Typography>
-           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {iconList.map((iconName) => {
-              const IconComponent = iconMap[iconName];
-              return (
-                <Tooltip title={iconName} key={iconName}>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </Box>
+        
+        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
+          <DialogTitle>Nuevo Lead</DialogTitle>
+          <DialogContent>
+            {estados.length > 0 ? <FormularioLead estadoId={estados[0].id} onClose={handleClose} /> : <Typography>Crea una columna para añadir un lead.</Typography>}
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={openEstado} onClose={handleCloseEstado} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
+          <DialogTitle>{editEstado?.id ? 'Editar columna' : 'Nueva columna'}</DialogTitle>
+          <DialogContent>
+            <TextField autoFocus margin="dense" label="Nombre" name="nombre" fullWidth value={editEstado?.nombre || ''} onChange={handleChangeEstado} />
+            
+            <Typography variant="body2" sx={{ mt: 2, mb: 1, color: colors.textSecondary }}>Color</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {colorPalette.map((color) => (
+                <Tooltip title={color} key={color}>
                   <IconButton 
-                    onClick={() => handleIconChange(iconName)}
+                    onClick={() => handleColorChange(color)}
                     sx={{ 
-                      p: 0.5,
-                      border: editEstado?.icono === iconName ? `2px solid ${colors.primaryAccent}` : `2px solid transparent`,
-                      borderRadius: 1,
+                      p: 0, 
+                      width: 32, 
+                      height: 32, 
+                      border: editEstado?.color === color ? `2px solid ${colors.primaryAccent}` : `2px solid transparent`,
+                      borderRadius: '50%',
                       transition: 'border 0.2s'
                     }}
                   >
-                    <IconComponent sx={{ color: colors.textSecondary }} />
+                    <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: color }} />
                   </IconButton>
                 </Tooltip>
-              );
-            })}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', pt: 2, px: 3, pb: 2 }}>
-           <Box>
-            {editEstado?.id && (
-              <Button 
-                onClick={() => {
-                  if(editEstado.id) {
-                     setConfirmDelete({ id: editEstado.id, nombre: editEstado.nombre });
-                     handleCloseEstado();
-                  }
-                }}
-                variant="outlined"
-                color="error"
-              >
-                Eliminar
-              </Button>
-            )}
-          </Box>
-          <Box>
-            <Button onClick={handleCloseEstado} sx={{ color: colors.textSecondary, mr: 1 }}>Cancelar</Button>
-            <Button onClick={handleGuardarEstado} variant="contained" sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' } }}>Guardar</Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
-      
-      <Dialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
-        <DialogTitle>Eliminar columna</DialogTitle>
-        <DialogContent>
-          <Typography>¿Seguro que quieres eliminar la columna "{confirmDelete?.nombre}"?</Typography>
-          {confirmDelete && leadsPorEstado[confirmDelete.id]?.length > 0 && <Typography color="error" fontWeight={600}>Debes mover los leads antes de eliminarla.</Typography>}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDelete(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
-          <Button onClick={handleDeleteEstado} variant="contained" color="error" disabled={!!(confirmDelete && leadsPorEstado[confirmDelete.id]?.length > 0)}>Eliminar</Button>
-        </DialogActions>
-      </Dialog>
-      
-      <FormularioEdicionLead lead={editLead} estados={estados} open={!!editLead} onClose={handleCloseEditLead} />
-      
-      <Dialog open={!!confirmDeleteLead} onClose={() => setConfirmDeleteLead(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
-        <DialogTitle>Eliminar Lead</DialogTitle>
-        <DialogContent>
-          <Typography>¿Seguro que quieres eliminar el lead "{confirmDeleteLead?.nombre}"?</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteLead(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
-          <Button onClick={handleDeleteLead} variant="contained" color="error">Eliminar</Button>
-        </DialogActions>
-      </Dialog>
+              ))}
+            </Box>
+
+            <Typography variant="body2" sx={{ mt: 2, mb: 1, color: colors.textSecondary }}>Icono</Typography>
+             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {iconList.map((iconName) => {
+                const IconComponent = iconMap[iconName];
+                return (
+                  <Tooltip title={iconName} key={iconName}>
+                    <IconButton 
+                      onClick={() => handleIconChange(iconName)}
+                      sx={{ 
+                        p: 0.5,
+                        border: editEstado?.icono === iconName ? `2px solid ${colors.primaryAccent}` : `2px solid transparent`,
+                        borderRadius: 1,
+                        transition: 'border 0.2s'
+                      }}
+                    >
+                      <IconComponent sx={{ color: colors.textSecondary }} />
+                    </IconButton>
+                  </Tooltip>
+                );
+              })}
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: 'space-between', pt: 2, px: 3, pb: 2 }}>
+             <Box>
+              {editEstado?.id && (
+                <Button 
+                  onClick={() => {
+                    if(editEstado.id) {
+                       setConfirmDelete({ id: editEstado.id, nombre: editEstado.nombre });
+                       handleCloseEstado();
+                    }
+                  }}
+                  variant="outlined"
+                  color="error"
+                >
+                  Eliminar
+                </Button>
+              )}
+            </Box>
+            <Box>
+              <Button onClick={handleCloseEstado} sx={{ color: colors.textSecondary, mr: 1 }}>Cancelar</Button>
+              <Button onClick={handleGuardarEstado} variant="contained" sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' } }}>Guardar</Button>
+            </Box>
+          </DialogActions>
+        </Dialog>
+        
+        <Dialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
+          <DialogTitle>Eliminar columna</DialogTitle>
+          <DialogContent>
+            <Typography>¿Seguro que quieres eliminar la columna "{confirmDelete?.nombre}"?</Typography>
+            {confirmDelete && leadsPorEstado[confirmDelete.id]?.length > 0 && <Typography color="error" fontWeight={600}>Debes mover los leads antes de eliminarla.</Typography>}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDelete(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
+            <Button onClick={handleDeleteEstado} variant="contained" color="error" disabled={!!(confirmDelete && leadsPorEstado[confirmDelete.id]?.length > 0)}>Eliminar</Button>
+          </DialogActions>
+        </Dialog>
+        
+        <FormularioEdicionLead lead={editLead} estados={estados} open={!!editLead} onClose={handleCloseEditLead} />
+        
+        <Dialog open={!!confirmDeleteLead} onClose={() => setConfirmDeleteLead(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
+          <DialogTitle>Eliminar Lead</DialogTitle>
+          <DialogContent>
+            <Typography>¿Seguro que quieres eliminar el lead "{confirmDeleteLead?.nombre}"?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteLead(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
+            <Button onClick={handleDeleteLead} variant="contained" color="error">Eliminar</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     </Box>
   );
 } 

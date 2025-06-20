@@ -15,25 +15,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se pudo normalizar el mensaje' }, { status: 400 });
     }
 
-    // 3. Guardar la conversación en la base de datos sin asociar a lead
+    // 3. Buscar o crear la conversación (sin contenido)
     const conversacion = {
       lead_id: null,
       servicio_origen: 'telegram',
-      contenido: mensajeNormalizado.contenido,
       tipo: 'entrante',
       remitente: mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id,
       fecha_mensaje: mensajeNormalizado.fecha_mensaje,
       metadata: mensajeNormalizado.metadata || {},
     };
-    const { error: errorConversacion } = await supabase
+    const { data: conversacionInsertada, error: errorConversacion } = await supabase
       .from('conversaciones')
-      .insert(conversacion);
+      .insert(conversacion)
+      .select('id')
+      .single();
     if (errorConversacion) {
       console.error('Error guardando conversación:', errorConversacion);
       return NextResponse.json({ error: 'Error guardando conversación' }, { status: 500 });
     }
 
-    // 4. Responder a Telegram
+    // 4. Guardar el mensaje en mensajes_conversacion
+    const mensaje = {
+      conversacion_id: conversacionInsertada.id,
+      tipo: 'texto',
+      contenido: mensajeNormalizado.contenido,
+      remitente: mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id,
+      fecha_mensaje: mensajeNormalizado.fecha_mensaje,
+      canal: 'telegram',
+      metadata: mensajeNormalizado.metadata || {},
+      usuario_id: null,
+    };
+    const { error: errorMensaje } = await supabase
+      .from('mensajes_conversacion')
+      .insert(mensaje);
+    if (errorMensaje) {
+      console.error('Error guardando mensaje:', errorMensaje);
+      return NextResponse.json({ error: 'Error guardando mensaje' }, { status: 500 });
+    }
+
+    // 5. Responder a Telegram
     return NextResponse.json({ status: 'ok' });
   } catch (error) {
     console.error('Error en webhook de Telegram:', error);

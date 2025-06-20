@@ -678,3 +678,19 @@
     "is_nullable": "YES"
   }
 ]
+
+-- Vista para obtener los leads junto con el último mensaje de la conversación asociada
+CREATE OR REPLACE VIEW vista_leads_con_mensaje AS
+SELECT
+  l.*,
+  m.contenido AS ultimo_mensaje,
+  m.fecha_mensaje AS fecha_ultimo_mensaje
+FROM leads l
+LEFT JOIN conversaciones c ON c.lead_id = l.id
+LEFT JOIN LATERAL (
+  SELECT contenido, fecha_mensaje
+  FROM mensajes_conversacion
+  WHERE conversacion_id = c.id
+  ORDER BY fecha_mensaje DESC
+  LIMIT 1
+) m ON true;

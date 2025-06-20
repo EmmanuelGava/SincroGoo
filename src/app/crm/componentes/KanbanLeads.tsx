@@ -175,24 +175,26 @@ export default function KanbanLeads() {
   }, [leadsGlobal]);
 
   useEffect(() => {
-    console.log('Intentando suscribirse a realtime (leads)...');
-    const channel = supabase
-      .channel('mensajes_conversacion_leads')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
-        (payload) => {
-          console.log('Evento realtime recibido en leads', payload);
-          refrescarLeads();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Estado de la suscripción realtime (leads):', status);
-      });
-    return () => {
-      console.log('Eliminando canal realtime (leads)...');
-      supabase.removeChannel(channel);
-    };
+    if (supabase) {
+      console.log('Intentando suscribirse a realtime (leads)...');
+      const channel = supabase
+        .channel('mensajes_conversacion_leads')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
+          (payload) => {
+            console.log('Evento realtime recibido en leads', payload);
+            refrescarLeads();
+          }
+        )
+        .subscribe((status) => {
+          console.log('Estado de la suscripción realtime (leads):', status);
+        });
+      return () => {
+        console.log('Eliminando canal realtime (leads)...');
+        supabase?.removeChannel(channel);
+      };
+    }
   }, [refrescarLeads]);
 
   const [open, setOpen] = useState(false);

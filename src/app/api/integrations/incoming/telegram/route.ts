@@ -15,11 +15,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se pudo normalizar el mensaje' }, { status: 400 });
     }
 
+    // Usar siempre el remitente_id numérico para agrupar correctamente
+    const remitenteId = mensajeNormalizado.remitente_id;
+
     // 3. Buscar si ya existe una conversación activa para este remitente y canal
     const { data: conversacionExistente } = await supabase
       .from('conversaciones')
       .select('id')
-      .eq('remitente', mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id)
+      .eq('remitente', remitenteId)
       .eq('servicio_origen', 'telegram')
       .is('lead_id', null)
       .order('fecha_mensaje', { ascending: false })
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
         lead_id: null,
         servicio_origen: 'telegram',
         tipo: 'entrante',
-        remitente: mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id,
+        remitente: remitenteId, // SIEMPRE el id numérico
         fecha_mensaje: mensajeNormalizado.fecha_mensaje,
         metadata: mensajeNormalizado.metadata || {},
       };
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
       conversacion_id: conversacionId,
       tipo: 'texto',
       contenido: mensajeNormalizado.contenido,
-      remitente: mensajeNormalizado.remitente_username || mensajeNormalizado.remitente_id,
+      remitente: remitenteId, // SIEMPRE el id numérico
       fecha_mensaje: mensajeNormalizado.fecha_mensaje,
       canal: 'telegram',
       metadata: mensajeNormalizado.metadata || {},

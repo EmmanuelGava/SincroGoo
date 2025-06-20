@@ -39,16 +39,21 @@ const createAppTheme = (mode: PaletteMode) => {
         dark: '#007ac1',
       },
       background: {
-        default: mode === 'dark' ? '#121212' : '#f5f5f5',
-        paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+        default: mode === 'dark' ? '#0d0d0d' : '#f5f5f5',
+        paper: mode === 'dark' ? '#1a1a1a' : '#ffffff',
       },
       text: {
         primary: mode === 'dark' ? '#ffffff' : '#000000',
         secondary: mode === 'dark' ? '#b0b0b0' : '#666666',
       },
+      action: {
+        hover: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+        selected: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+      },
+      divider: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
     },
     typography: {
-      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+      fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
       h1: {
         fontWeight: 700,
       },
@@ -67,15 +72,28 @@ const createAppTheme = (mode: PaletteMode) => {
       h6: {
         fontWeight: 500,
       },
+      subtitle1: {
+        fontWeight: 500,
+      },
+      subtitle2: {
+        fontWeight: 500,
+        fontSize: '0.875rem',
+      },
+      body1: {
+        fontSize: '0.875rem',
+      },
+      body2: {
+        fontSize: '0.8125rem',
+      },
     },
     shape: {
-      borderRadius: 8,
+      borderRadius: 6,
     },
     components: {
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            backgroundColor: mode === 'dark' ? '#121212' : '#f5f5f5',
+            backgroundColor: mode === 'dark' ? '#0d0d0d' : '#f5f5f5',
             color: mode === 'dark' ? '#ffffff' : '#000000',
             transition: 'background-color 0.3s ease, color 0.3s ease',
           },
@@ -85,17 +103,20 @@ const createAppTheme = (mode: PaletteMode) => {
         styleOverrides: {
           root: {
             backgroundImage: 'none',
-            backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
-            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
-            transition: 'background-color 0.3s ease, border-color 0.3s ease',
+            backgroundColor: mode === 'dark' ? '#1a1a1a' : '#ffffff',
+            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+            transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
           },
+        },
+        defaultProps: {
+          elevation: 0,
         },
       },
       MuiCard: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
-            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+            backgroundColor: mode === 'dark' ? '#1a1a1a' : '#ffffff',
+            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
             transition: 'background-color 0.3s ease, border-color 0.3s ease',
           },
         },
@@ -104,16 +125,29 @@ const createAppTheme = (mode: PaletteMode) => {
         styleOverrides: {
           root: {
             textTransform: 'none',
-            borderRadius: 8,
+            borderRadius: 6,
+            fontSize: '0.875rem',
           },
         },
       },
-      MuiAppBar: {
+      MuiIconButton: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
-            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
-            transition: 'background-color 0.3s ease, border-color 0.3s ease',
+            borderRadius: 6,
+            transition: 'all 0.2s ease',
+          },
+          sizeSmall: {
+            padding: 6,
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: {
+            backgroundColor: mode === 'dark' ? '#2d2d2d' : '#666666',
+            fontSize: '0.75rem',
+            padding: '6px 12px',
+            borderRadius: 4,
           },
         },
       },

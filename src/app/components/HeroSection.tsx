@@ -305,10 +305,6 @@ export default function HeroSection() {
             alignItems: 'center',
             justifyContent: 'center',
             pr: { xs: 0, lg: '40px' },
-            transform: { 
-              xs: 'none',
-              md: 'translateX(-55%)'
-            },
             order: { xs: 1, md: 0 }
           }}
         >

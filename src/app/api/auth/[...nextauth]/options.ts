@@ -18,6 +18,8 @@ declare module 'next-auth' {
       image?: string;
     }
     provider?: string; // Add provider
+    supabaseToken?: string;
+    supabaseRefreshToken?: string;
   }
 }
 
@@ -28,6 +30,8 @@ declare module 'next-auth/jwt' {
     accessTokenExpires?: number;
     error?: string;
     provider?: string;
+    supabaseToken?: string;
+    supabaseRefreshToken?: string;
     // Make sure all fields used in the jwt callback are here
     // For example, if you add user profile info to the token:
     // name?: string;
@@ -87,9 +91,9 @@ export const authOptions: NextAuthOptions = {
         if (data.user) {
           return {
             id: data.user.id,
-            email: data.user.email,
-            // name and image are not returned by signInWithPassword
-            // these can be fetched and added in the jwt or session callbacks if needed
+            email: data.user.email || '',
+            name: data.user.user_metadata?.name || '',
+            image: data.user.user_metadata?.avatar_url || '',
           };
         }
         return null;
@@ -114,69 +118,10 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
-    async signIn({ user, account, profile }) { // Added profile
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-
-      // For Google (OAuth)
-      if (account?.provider === 'google') {
-        console.log('[NextAuth] Iniciando sesión con cuenta Google');
-        if (!user.email) {
-          console.error('[NextAuth] Usuario Google sin email');
-          return false;
-        }
-        try {
-          console.log(`[NextAuth] Sincronizando usuario Google con Supabase: ${user.email}`);
-          const response = await fetch(`${baseUrl}/api/supabase/users/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              auth_id: user.id,
-              email: user.email,
-              nombre: user.name,
-              avatar_url: user.image,
-              provider: 'google',
-            }),
-          });
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`[NextAuth] Usuario Google sincronizado. ID interno: ${data.id}`);
-          } else {
-            const errorData = await response.json();
-            console.warn(`[NextAuth] Error al sincronizar usuario Google: ${errorData.error || 'Error desconocido'}`);
-          }
-        } catch (error) {
-          console.error('[NextAuth] Error en API de sincronización para Google:', error);
-        }
-      }
-      // For Supabase (Credentials)
-      else if (account?.provider === 'credentials') {
-        console.log('[NextAuth] Iniciando sesión con credenciales Supabase');
-        if (!user?.email || !user?.id) {
-           console.error('[NextAuth] Usuario Supabase sin email o id desde authorize');
-           return false;
-        }
-        try {
-          console.log(`[NextAuth] Sincronizando usuario Supabase: ${user.email}`);
-          const response = await fetch(`${baseUrl}/api/supabase/users/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              auth_id: user.id,
-              email: user.email,
-              provider: 'supabase',
-            }),
-          });
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`[NextAuth] Usuario Supabase sincronizado. ID interno: ${data.id}`);
-          } else {
-            const errorData = await response.json();
-            console.warn(`[NextAuth] Error al sincronizar usuario Supabase: ${errorData.error || 'Error desconocido'}`);
-          }
-        } catch (error) {
-          console.error('[NextAuth] Error en API de sincronización para Supabase:', error);
-        }
-      }
+    async signIn({ user, account, profile }) {
+      // El token de Supabase aún no está disponible aquí. 
+      // Se obtiene en el callback 'jwt' que se ejecuta DESPUÉS de 'signIn'.
+      // La sincronización ahora se inicia desde el frontend.
       return true;
     },
     
@@ -185,17 +130,34 @@ export const authOptions: NextAuthOptions = {
       if (account && user) {
         token.sub = user.id;
         token.email = user.email;
-
         if (account.provider === 'google') {
-          console.log('[NextAuth] Configurando token inicial para Google');
           token.accessToken = account.access_token;
           token.refreshToken = account.refresh_token;
           token.accessTokenExpires = account.expires_at ? account.expires_at * 1000 : 0;
           token.provider = 'google';
+          // Obtener JWT de Supabase usando Google OAuth
+          try {
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            // Intercambiar el token de Google por un JWT de Supabase
+            const { data, error } = await supabase.auth.signInWithIdToken({
+              provider: 'google',
+              token: account.id_token as string,
+            });
+            if (error) {
+              console.error('[NextAuth] Error al intercambiar token de Google por JWT de Supabase:', error);
+              token.error = "SupabaseTokenError";
+            } else if (data?.session) {
+              token.supabaseToken = data.session.access_token;
+              token.supabaseRefreshToken = data.session.refresh_token;
+            }
+          } catch (e) {
+            console.error('[NextAuth] Error obteniendo JWT de Supabase para Google:', e);
+            token.error = "SupabaseTokenError";
+          }
         } else if (account.provider === 'credentials') {
-          console.log('[NextAuth] Configurando token inicial para Supabase (Credentials)');
-          // For Supabase credentials, accessToken, refreshToken, accessTokenExpires are not set here
-          // as they are handled by Supabase client-side SDK or cookies.
           token.provider = 'supabase';
         }
       }
@@ -221,6 +183,11 @@ export const authOptions: NextAuthOptions = {
           session.user.id = token.sub as string;
           session.user.email = token.email as string;
         }
+      }
+      
+      if (token.supabaseToken) {
+        session.supabaseToken = token.supabaseToken as string;
+        session.supabaseRefreshToken = token.supabaseRefreshToken as string;
       }
       
       return session;

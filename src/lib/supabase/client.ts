@@ -1,7 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from './types/database';
 import { getServerSession } from 'next-auth/next';
-import { Session } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { cookies } from 'next/headers';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 // Detectar si estamos en el cliente o en el servidor
 const isClient = typeof window !== 'undefined';
@@ -37,32 +39,72 @@ export const supabaseAdmin = isServer
   : null as unknown as SupabaseClient<Database>; // Tipo forzado para compatibilidad
 
 /**
- * Obtiene un cliente de Supabase con el token de acceso de NextAuth
- * @param accessToken Token de acceso opcional (si no se proporciona, se intentará usar la sesión de NextAuth)
- * @returns Cliente de Supabase para operaciones de base de datos
- * 
- * Esta función ya no gestiona la autenticación con Supabase directamente,
- * sino que utiliza las sesiones y tokens de NextAuth.
+ * Obtiene un cliente de Supabase con autenticación del lado del servidor
+ * @param requireAuth Si es true, verifica que exista una sesión válida
+ * @returns Cliente de Supabase y sesión (si requireAuth es true)
  */
-export function getSupabaseClient(accessToken?: string): SupabaseClient<Database> {
-  if (!accessToken) {
-    // En uso de cliente, simplemente devolvemos el cliente anónimo
-    // El acceso a datos estará restringido por RLS en Supabase
-    return supabase;
+export async function getSupabaseClient(requireAuth = false) {
+  if (isClient) {
+    throw new Error('Esta función solo debe ser llamada desde el servidor');
   }
-  
-  // Si se proporciona un token, lo usamos para autenticar las peticiones
-  return createClient<Database>(
+
+  const cookieStore = cookies();
+  const supabase = createServerClient(
     supabaseConfig.url,
     supabaseConfig.anonKey,
     {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      }
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch (error) {
+            // The `set` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: '', ...options });
+          } catch (error) {
+            // The `delete` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
     }
   );
+
+  if (requireAuth) {
+    const session = await getServerSession(authOptions);
+    if (!session?.supabaseToken) {
+      throw new Error('No hay sesión de Supabase válida');
+    }
+
+    // Usar el token de Supabase para autenticar las peticiones
+    const { data: { session: supabaseSession }, error } = await supabase.auth.setSession({
+      access_token: session.supabaseToken,
+      refresh_token: session.supabaseRefreshToken || '',
+    });
+
+    if (error) {
+      console.error('❌ [Supabase Client] Error al establecer la sesión con setSession:', error);
+      throw new Error('Error al establecer la sesión de Supabase');
+    }
+    
+    if (!supabaseSession) {
+      console.error('❌ [Supabase Client] setSession no devolvió una sesión válida.');
+      throw new Error('Error al establecer la sesión de Supabase');
+    }
+
+    return { supabase, session: supabaseSession };
+  }
+
+  return { supabase };
 }
 
 /**
@@ -72,10 +114,18 @@ export function getSupabaseClient(accessToken?: string): SupabaseClient<Database
  */
 export function getSupabaseAdmin(): SupabaseClient<Database> {
   if (isClient) {
-    console.error('⚠️ [Supabase] getSupabaseAdmin() no debe ser llamado desde el cliente');
     throw new Error('getSupabaseAdmin() no debe ser llamado desde el cliente');
   }
-  return supabaseAdmin;
+  return createClient(
+    supabaseConfig.url,
+    supabaseConfig.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
 }
 
 // Crear una única instancia del cliente Supabase

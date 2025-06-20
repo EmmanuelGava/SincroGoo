@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import ProvidersCliente from "@/app/componentes/providers-cliente"
+import { Providers } from "@/app/componentes/providers"
 import EmotionRegistry from "./registry"
 
 const inter = Inter({
@@ -90,9 +90,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <EmotionRegistry>
-          <ProvidersCliente>
+          <Providers>
             {children}
-          </ProvidersCliente>
+          </Providers>
         </EmotionRegistry>
       </body>
     </html>

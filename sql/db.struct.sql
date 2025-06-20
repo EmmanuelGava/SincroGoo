@@ -544,5 +544,137 @@
     "column_name": "auth_id",
     "data_type": "text",
     "is_nullable": "NO"
+  },
+  {
+    "table_name": "estados_lead",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "estados_lead",
+    "column_name": "nombre",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "estados_lead",
+    "column_name": "color",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "estados_lead",
+    "column_name": "orden",
+    "data_type": "integer",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "estados_lead",
+    "column_name": "fecha_creacion",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "estados_lead",
+    "column_name": "fecha_actualizacion",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "nombre",
+    "data_type": "text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "telefono",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "empresa",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "cargo",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "estado_id",
+    "data_type": "uuid",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "probabilidad_cierre",
+    "data_type": "integer",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "tags",
+    "data_type": "text[]",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "valor_potencial",
+    "data_type": "numeric",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "origen",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "notas",
+    "data_type": "text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "ultima_interaccion",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "asignado_a",
+    "data_type": "uuid",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "fecha_creacion",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "fecha_actualizacion",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES"
   }
 ]

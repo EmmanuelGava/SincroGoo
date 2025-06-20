@@ -49,6 +49,7 @@ const pages = [
   { name: 'Presentaciones', href: '/presentaciones', icon: <SlideshowOutlinedIcon fontSize="small" /> },
   { name: 'Hojas', href: '/hojas-de-calculo', icon: <TableChartOutlinedIcon fontSize="small" /> },
   { name: 'Explorador', href: '/explorer', icon: <ExploreOutlinedIcon fontSize="small" /> },
+  { name: 'CRM', href: '/crm', icon: <TableChartOutlinedIcon fontSize="small" /> },
 ];
 
 // Opciones del menú de usuario

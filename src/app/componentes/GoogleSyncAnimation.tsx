@@ -276,12 +276,20 @@ const GoogleSyncAnimation: React.FC = () => {
           .to(icon, {
             xPercent: () => {
               const rect = icon.getBoundingClientRect();
-              const centerRect = centerRef.current!.getBoundingClientRect();
+              if (!centerRef.current) {
+                console.warn("centerRef.current es nulo en xPercent. Devolviendo 0.");
+                return 0;
+              }
+              const centerRect = centerRef.current.getBoundingClientRect();
               return ((centerRect.left + centerRect.width/2 - rect.left) / rect.width) * 100;
             },
             yPercent: () => {
               const rect = icon.getBoundingClientRect();
-              const centerRect = centerRef.current!.getBoundingClientRect();
+              if (!centerRef.current) {
+                console.warn("centerRef.current es nulo en yPercent. Devolviendo 0.");
+                return 0;
+              }
+              const centerRect = centerRef.current.getBoundingClientRect();
               return ((centerRect.top + centerRect.height/2 - rect.top) / rect.height) * 100;
             },
             scale: 0.6,

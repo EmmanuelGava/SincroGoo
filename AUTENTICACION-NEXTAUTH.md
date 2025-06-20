@@ -1,180 +1,124 @@
 # Sistema de Autenticación de SincroGoo
 
-Este documento describe el sistema de autenticación implementado en SincroGoo, utilizando NextAuth.js para la gestión de sesiones y Supabase como base de datos.
+Este documento describe el sistema de autenticación implementado en SincroGoo, utilizando NextAuth.js para la gestión de sesiones y Supabase como proveedor de base de datos y autenticación.
 
 ## Estructura General
 
-La autenticación sigue un enfoque simplificado basado exclusivamente en JWT (JSON Web Tokens) a través de NextAuth:
+La autenticación sigue un flujo robusto y seguro que ocurre completamente en el lado del servidor:
 
-1. **Login**: El usuario inicia sesión usando su cuenta de Google.
-2. **Sesión**: NextAuth crea un token JWT que se guarda como cookie en el navegador.
-3. **Autorización**: Las rutas protegidas verifican la existencia del token mediante middleware.
-4. **Sincronización**: Los datos del usuario se sincronizan con Supabase para persistencia.
+1.  **Login**: El usuario inicia sesión usando su cuenta de Google a través de NextAuth.
+2.  **Callback `signIn`**: Inmediatamente después de una autenticación exitosa con Google, se dispara el callback `signIn` en el servidor.
+3.  **Sincronización en Backend**: Dentro de este callback, se realiza una llamada de servidor a servidor al endpoint `/api/supabase/users/sync`. Este endpoint utiliza el **cliente de administrador de Supabase** para crear o actualizar el perfil del usuario en nuestra tabla `usuarios`, basándose en el `auth_id` de Google.
+4.  **Callback `jwt`**: A continuación, se ejecuta el callback `jwt`. Aquí, se intercambia el `id_token` de Google por un JWT válido de Supabase.
+5.  **Almacenamiento del Token**: Este JWT de Supabase se guarda dentro del token de sesión de NextAuth, que se cifra y se envía al cliente como una cookie segura (`httpOnly`).
+6.  **Autorización en API**: Cuando el cliente realiza una petición a un endpoint protegido (ej. `/api/supabase/leads`), las funciones de la API utilizan `getSupabaseClient(true)`. Esta función extrae el `supabaseToken` de la sesión del usuario para realizar una llamada autenticada a Supabase que respeta las Políticas de Seguridad a Nivel de Fila (RLS).
 
 ## Componentes Clave
 
-### 1. Configuración de NextAuth
+### 1. Callbacks de NextAuth (`options.ts`)
 
-El archivo principal de configuración es `src/app/api/auth/[...nextauth]/options.ts`:
+El archivo `src/app/api/auth/[...nextauth]/options.ts` es el núcleo del sistema.
 
-```typescript
-export const authOptions: NextAuthOptions = {
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-      // Configuración de permisos y acceso
-    })
-  ],
-  session: {
-    strategy: "jwt",        // Importante: Usamos JWT como estrategia
-    maxAge: 30 * 24 * 60 * 60, // 30 días
-  },
-  callbacks: {
-    // Callback al iniciar sesión
-    async signIn({ user, account }) {
-      // Validación básica
-      if (!user.email) return false;
-      return true;
-    },
-    
-    // Callback para persistir datos en el JWT
-    async jwt({ token, account }) {
-      if (account) {
-        token.accessToken = account.access_token;
+-   **`signIn`**: Orquesta la sincronización del usuario. Llama a nuestra API interna para asegurar que cada usuario que inicia sesión tiene un registro correspondiente en la tabla `usuarios`.
+    ```typescript
+    // signIn callback
+    if (account?.provider === 'google') {
+      await fetch(`${baseUrl}/api/supabase/users/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auth_id: user.id,
+          email: user.email,
+          nombre: user.name,
+          // ... otros datos del perfil
+        }),
+      });
+    }
+    ```
+-   **`jwt`**: Se encarga de la autenticación con Supabase. Obtiene un token de sesión de Supabase y lo inyecta en el token de NextAuth.
+    ```typescript
+    // jwt callback
+    if (account?.provider === 'google') {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: account.id_token as string,
+      });
+      if (data?.session?.access_token) {
+        token.supabaseToken = data.session.access_token;
       }
-      return token;
-    },
+    }
+    ```
+
+### 2. API de Sincronización (`/api/supabase/users/sync`)
+
+Este es un endpoint **interno y administrativo**. Su única función es recibir datos de un nuevo inicio de sesión y usar el cliente con privilegios de administrador (`supabaseAdmin`) para crear o actualizar un registro en la tabla `usuarios`. Esto centraliza la lógica y evita exponer operaciones sensibles al cliente.
+
+### 3. Cliente de Supabase (`/lib/supabase/client.ts`)
+
+-   **`getSupabaseAdmin()`**: Devuelve un cliente de Supabase con la `service_role_key`. Se usa exclusivamente en el backend para tareas administrativas que necesitan saltarse las políticas de RLS (como la sincronización de usuarios).
+-   **`getSupabaseClient(requireAuth = true)`**: Se usa en los endpoints de la API que son llamados por el cliente. Obtiene la sesión de NextAuth, extrae el `supabaseToken`, y lo usa para autenticar al usuario en Supabase. Esto asegura que todas las consultas (SELECT, INSERT, UPDATE) respeten las RLS definidas.
+
+## Flujo de Login y Sincronización
+
+1.  El usuario hace clic en "Login con Google".
+2.  NextAuth lo redirige a Google y, tras una autenticación exitosa, el callback `signIn` se ejecuta en el servidor.
+3.  `signIn` llama a `/api/supabase/users/sync` para registrar al usuario en la tabla `usuarios`.
+4.  El callback `jwt` intercambia el token de Google por un token de Supabase y lo añade a la sesión de NextAuth.
+5.  Una cookie cifrada con la sesión de NextAuth (que contiene el token de Supabase) se envía al navegador.
+6.  El usuario ya está autenticado y sincronizado. Cualquier llamada posterior a la API del CRM (ej. para obtener leads) utilizará el `supabaseToken` de la sesión para ejecutar consultas seguras bajo las reglas de RLS.
+
+## Resumen y Ventajas del Flujo Actual
+
+-   **Seguridad Mejorada**: La sincronización de usuarios es una operación de backend a backend. No se depende de un token enviado desde el cliente ni de componentes de UI para tareas críticas.
+-   **Eficiencia**: La sincronización ocurre una sola vez, durante el inicio de sesión, en lugar de en cada carga de página.
+-   **Robustez**: La lógica está centralizada en los callbacks de NextAuth, haciendo el flujo más predecible y fácil de depurar.
+-   **Separación de incumbencias**: `getSupabaseAdmin` se usa para tareas de sistema, mientras que `getSupabaseClient` se usa para operaciones en nombre del usuario, respetando siempre la seguridad de sus datos (RLS).
+
+## Diagrama visual del nuevo flujo
+
+```mermaid
+graph TD
+    subgraph "Navegador del Usuario"
+        A["1. Clic en Login con Google"] --> B["Redirección a Google"]
+    end
+
+    subgraph "Servidor Next.js"
+        B --> C["2. Callback 'signIn' de NextAuth"]
+        C --> D["3. Llamada interna a /api/users/sync"]
+        D --> E["4. Callback 'jwt' de NextAuth"]
+        E --> F["5. Intercambio de token con Supabase"]
+        F --> G["6. Guardar Supabase JWT en cookie de sesión"]
+    end
     
-    // Callback para agregar datos a la sesión del usuario
-    async session({ session, token }) {
-      session.accessToken = token.accessToken as string;
-      if (session.user) {
-        session.user.id = token.sub as string;
-      }
-      return session;
-    },
-  },
-}
-```
+    subgraph "API Interna (/api/users/sync)"
+        D --> H["Usa Admin Client para escribir en tabla 'usuarios'"]
+    end
 
-### 2. Cliente de Supabase
+    subgraph "Supabase"
+        H --> I["DB: Tabla 'usuarios'"]
+        F -- "signInWithIdToken" --> J["Auth: Valida token y emite JWT"]
+    end
 
-El cliente de Supabase se inicializa en `src/lib/supabase.ts`:
-
-```typescript
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export default supabase;
-```
-
-### 3. Declaración de Tipos
-
-Los tipos para NextAuth se definen en `src/types/next-auth.d.ts`:
-
-```typescript
-declare module 'next-auth' {
-  interface Session {
-    user: {
-      id: string
-    } & DefaultSession['user']
-    accessToken?: string
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT extends NextAuthJWT {
-    accessToken?: string
-  }
-}
-```
-
-## Flujo de Autenticación
-
-### 1. Inicio de Sesión
-
-1. El usuario visita la página de inicio de sesión (`/auth/signin`)
-2. Hace clic en el botón para iniciar sesión con Google
-3. NextAuth redirige al usuario a la página de autenticación de Google
-4. Google solicita autorización al usuario
-5. Tras autorizar, Google redirige de vuelta a nuestra aplicación con un código
-6. NextAuth intercambia el código por un token de acceso
-7. Se ejecuta el callback `signIn` para validar los datos
-8. Se crea el JWT con la información del usuario y el token de acceso
-9. El usuario es redirigido al dashboard
-
-### 2. Verificación de Sesión
-
-1. Cuando el usuario accede a una ruta protegida (dashboard, proyectos, etc.)
-2. NextAuth verifica automáticamente la cookie `next-auth.session-token`
-3. Si la cookie existe y es válida, se permite el acceso
-4. En componentes client-side, usamos el hook `useSession()` para verificar la sesión
-
-```typescript
-'use client';
-import { useSession } from 'next-auth/react';
-
-export default function DashboardPage() {
-  const { data: session, status } = useSession();
-  
-  if (status === "loading") {
-    return <p>Cargando...</p>;
-  }
-  
-  if (status === "unauthenticated") {
-    // Redirigir al login o mostrar mensaje
-    return <p>No has iniciado sesión</p>;
-  }
-  
-  // Usuario autenticado, mostrar contenido
-  return <h1>Bienvenido, {session?.user?.name}</h1>;
-}
-```
-
-### 3. Sincronización con Supabase
-
-Después de la autenticación, el endpoint `/api/auth/sync` sincroniza los datos del usuario con Supabase:
-
-```typescript
-export async function GET() {
-  // Obtener sesión de NextAuth
-  const session = await getServerSession(authOptions)
-  
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'No hay sesión' }, { status: 401 })
-  }
-  
-  // Sincronizar con Supabase
-  const usuario = await authService.sincronizarUsuario(session.user)
-  
-  return NextResponse.json({
-    success: true,
-    usuario,
-    message: 'Usuario sincronizado correctamente'
-  })
-}
-```
-
-### 4. Cierre de Sesión
-
-Para cerrar sesión, utilizamos la función `signOut()` de NextAuth:
-
-```typescript
-import { signOut } from 'next-auth/react';
-
-const handleLogout = async () => {
-  await signOut({ redirect: true, callbackUrl: '/' });
-};
+    G --> K["7. Cookie enviada al navegador"]
+    
+    subgraph "Navegador del Usuario (Autenticado)"
+        K --> L["8. Petición a la API del CRM (ej. /api/leads)"]
+    end
+    
+    subgraph "Servidor Next.js (API del CRM)"
+      L --> M["9. API Route usa 'getSupabaseClient'"]
+      M --> N["10. Extrae Supabase JWT de la cookie"]
+      N -- "11. Consulta a Supabase con RLS activado" --> O["DB: Tabla 'leads'"]
+    end
+    
+    style C fill:#e0f7fa,stroke:#00796b,stroke-width:2px
+    style E fill:#e0f7fa,stroke:#00796b,stroke-width:2px
+    style H fill:#ffe0b2,stroke:#f57c00,stroke-width:2px
+    style M fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
 ```
 
 ## Variables de Entorno Requeridas
 
-```
 # Google OAuth
 GOOGLE_CLIENT_ID=tu_id_de_cliente_google
 GOOGLE_CLIENT_SECRET=tu_secreto_de_cliente_google
@@ -186,36 +130,10 @@ NEXTAUTH_SECRET=tu_secreto_para_jwt
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_clave_anonima_de_supabase
-```
-
-## Mejores Prácticas y Solución de Problemas
-
-### Mantener el sistema funcionando correctamente
-
-1. **Simplicidad ante todo**: Mantén el flujo de autenticación simple, usando directamente NextAuth sin complicaciones.
-2. **Separación de responsabilidades**: 
-   - NextAuth maneja la autenticación y sesiones
-   - Supabase se usa solo para almacenamiento de datos
-3. **Evita duplicidad**: No implementes múltiples sistemas de autenticación paralelos
-
-### Solución de problemas comunes
-
-1. **Errores de sesión**:
-   - Verifica que las cookies estén siendo configuradas correctamente
-   - Confirma que `NEXTAUTH_SECRET` sea consistente entre entornos
-   - En desarrollo, usa `next-auth.session-token` sin prefijos
-
-2. **Problemas de autorización**:
-   - Asegúrate de que los scopes de Google sean los correctos
-   - Verifica que los callbacks de NextAuth estén configurados correctamente
-
-3. **Importaciones incorrectas**:
-   - Mantén la ruta de importación consistente: `@/lib/supabase` para el cliente de Supabase
-   - Usa explícitamente `getServerSession(authOptions)` para obtener la sesión
+SUPABASE_SERVICE_ROLE_KEY=tu_clave_de_servicio_para_el_backend
 
 ## Estructura de Archivos
 
-```
 src/
 ├── app/
 │   ├── api/
@@ -223,13 +141,16 @@ src/
 │   │       ├── [...nextauth]/
 │   │       │   ├── options.ts     # Configuración de NextAuth
 │   │       │   └── route.ts       # Handlers de NextAuth
-│   │       └── sync/
-│   │           └── route.ts       # Sincronización con Supabase
+│   │       └── supabase/
+│   │           └── users/
+│   │               └── sync/      # Sincronización automática con Supabase
 │   └── auth/
 │       └── signin/
 │           └── page.tsx           # Página de inicio de sesión
+├── componentes/
+│   └── SyncSupabaseUser.tsx       # Componente global de sincronización
 ├── lib/
 │   └── supabase.ts                # Cliente de Supabase
 └── types/
     └── next-auth.d.ts             # Declaración de tipos para NextAuth
-``` 
+```

@@ -9,33 +9,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Obtener todas las conversaciones sin lead asociada
-    const { data: conversaciones, error: errorConversaciones } = await supabase
-      .from('conversaciones')
-      .select('id, remitente, fecha_mensaje, metadata, servicio_origen')
-      .is('lead_id', null)
-      .order('fecha_mensaje', { ascending: false });
-    if (errorConversaciones) throw errorConversaciones;
-
-    // Para cada conversación, obtener el último mensaje
-    const mensajesPromises = conversaciones.map(async (conv) => {
-      const { data: mensaje, error: errorMensaje } = await supabase
-        .from('mensajes_conversacion')
-        .select('contenido, fecha_mensaje')
-        .eq('conversacion_id', conv.id)
-        .order('fecha_mensaje', { ascending: false })
-        .limit(1)
-        .single();
-      return {
-        id: conv.id,
-        remitente: conv.remitente,
-        contenido: mensaje?.contenido || '',
-        fecha_mensaje: mensaje?.fecha_mensaje || conv.fecha_mensaje,
-        metadata: conv.metadata,
-        servicio_origen: conv.servicio_origen,
-      };
-    });
-    const mensajes = await Promise.all(mensajesPromises);
+    // 1. Obtener el último mensaje de cada remitente y servicio_origen, solo de conversaciones sin lead asociado
+    // Usamos una vista SQL o una subconsulta para obtener el mensaje más reciente por remitente y canal
+    const { data: mensajes, error } = await supabase.rpc('ultimo_mensaje_por_remitente');
+    if (error) throw error;
 
     return NextResponse.json({ mensajes }, { status: 200 });
   } catch (error) {

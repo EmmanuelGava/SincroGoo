@@ -101,8 +101,8 @@ export default function SidebarMensajesEntrantes() {
     return () => {
       console.log('DESMONTANDO SidebarMensajesEntrantes');
       console.log('Eliminando canal realtime...');
-      if (supabase && channel) {
-        supabase.removeChannel(channel);
+      if (channel) {
+        channel.unsubscribe();
       }
     };
   }, []);

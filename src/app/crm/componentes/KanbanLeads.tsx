@@ -192,7 +192,7 @@ export default function KanbanLeads() {
         });
       return () => {
         console.log('Eliminando canal realtime (leads)...');
-        supabase?.removeChannel(channel);
+        channel.unsubscribe();
       };
     }
   }, [refrescarLeads]);

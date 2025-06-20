@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { useSession } from 'next-auth/react';
 import { Lead } from '@/app/tipos/lead';
 
@@ -41,14 +41,14 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const { data: session } = useSession();
 
-  const leadsPorEstado = leads.reduce((acc, lead) => {
+  const leadsPorEstado = useMemo(() => leads.reduce((acc, lead) => {
     const estadoId = lead.estado_id;
     if (!acc[estadoId]) {
       acc[estadoId] = [];
     }
     acc[estadoId].push(lead);
     return acc;
-  }, {} as Record<string, Lead[]>);
+  }, {} as Record<string, Lead[]>), [leads]);
 
   // Obtener usuario_id de Supabase
   useEffect(() => {
@@ -66,7 +66,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   }, [session?.user?.id, usuarioId]);
 
   // Fetch estados y leads
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -83,17 +83,17 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAll();
-  }, []);
+  }, [fetchAll]);
 
-  const refrescarLeads = () => {
+  const refrescarLeads = useCallback(() => {
     fetchAll();
-  };
+  }, [fetchAll]);
 
-  const agregarLead = async (lead: Partial<Lead>) => {
+  const agregarLead = useCallback(async (lead: Partial<Lead>) => {
     setError(null);
     try {
       const res = await fetch("/api/supabase/leads", {
@@ -108,9 +108,9 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       setError(e.message);
       throw e;
     }
-  };
+  }, []);
 
-  const actualizarLead = async (id: string, lead: Partial<Lead>) => {
+  const actualizarLead = useCallback(async (id: string, lead: Partial<Lead>) => {
     setError(null);
     try {
       const res = await fetch("/api/supabase/leads", {
@@ -125,13 +125,13 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       setError(e.message);
       throw e;
     }
-  };
+  }, []);
 
-  const moverLead = async (leadId: string, nuevoEstadoId: string) => {
+  const moverLead = useCallback(async (leadId: string, nuevoEstadoId: string) => {
     await actualizarLead(leadId, { estado_id: nuevoEstadoId });
-  };
+  }, [actualizarLead]);
 
-  const eliminarLead = async (id: string) => {
+  const eliminarLead = useCallback(async (id: string) => {
     setError(null);
     try {
       const res = await fetch(`/api/supabase/leads?id=${id}`, {
@@ -146,9 +146,9 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       setError(e.message);
       throw e;
     }
-  };
+  }, []);
 
-  const agregarEstado = async (estado: Partial<Estado>) => {
+  const agregarEstado = useCallback(async (estado: Partial<Estado>) => {
     setError(null);
     if (!usuarioId) {
         const err = new Error("No se ha podido identificar al usuario.");
@@ -175,9 +175,9 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       setError(e.message);
       throw e;
     }
-  };
+  }, [usuarioId]);
 
-  const actualizarEstado = async (id: string, estado: Partial<Estado>) => {
+  const actualizarEstado = useCallback(async (id: string, estado: Partial<Estado>) => {
     setError(null);
     try {
       const res = await fetch("/api/supabase/estados_lead", {
@@ -192,9 +192,9 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       setError(e.message);
       throw e;
     }
-  };
+  }, []);
 
-  const eliminarEstado = async (id: string) => {
+  const eliminarEstado = useCallback(async (id: string) => {
     setError(null);
     try {
       const res = await fetch(`/api/supabase/estados_lead?id=${id}`, {
@@ -209,29 +209,39 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       setError(e.message);
       throw e;
     }
-  };
+  }, []);
 
-  return (
-    <LeadsKanbanContext.Provider
-      value={{
-        leads,
-        estados,
-        leadsPorEstado,
-        agregarLead,
-        actualizarLead,
-        moverLead,
-        eliminarLead,
-        agregarEstado,
-        actualizarEstado,
-        eliminarEstado,
-        loading,
-        error,
-        refrescarLeads
-      }}
-    >
-      {children}
-    </LeadsKanbanContext.Provider>
-  );
+  const value = useMemo(() => ({
+    leads,
+    estados,
+    leadsPorEstado,
+    agregarLead,
+    actualizarLead,
+    moverLead,
+    eliminarLead,
+    agregarEstado,
+    actualizarEstado,
+    eliminarEstado,
+    loading,
+    error,
+    refrescarLeads,
+  }), [
+    leads,
+    estados,
+    leadsPorEstado,
+    agregarLead,
+    actualizarLead,
+    moverLead,
+    eliminarLead,
+    agregarEstado,
+    actualizarEstado,
+    eliminarEstado,
+    loading,
+    error,
+    refrescarLeads,
+  ]);
+
+  return <LeadsKanbanContext.Provider value={value}>{children}</LeadsKanbanContext.Provider>;
 }
 
 export function useLeadsKanbanContext() {

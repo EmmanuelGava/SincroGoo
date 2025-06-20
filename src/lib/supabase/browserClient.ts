@@ -8,4 +8,9 @@ export const supabase = isBrowser
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
-  : null; 
+  : null;
+
+// Para facilitar la depuración en el navegador, exponemos el cliente a la ventana global
+if (isBrowser && process.env.NODE_ENV === 'development' && window) {
+  (window as any).supabase = supabase;
+} 

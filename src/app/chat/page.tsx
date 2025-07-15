@@ -32,6 +32,7 @@ export default function ChatPage() {
           conversaciones={conversaciones}
           conversacionActiva={conversacionActiva}
           onSelectConversacion={seleccionarConversacion}
+          onRefreshConversaciones={fetchConversaciones}
           loading={loading}
         />
         

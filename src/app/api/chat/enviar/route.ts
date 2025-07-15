@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { conversacionId, contenido, canal, remitente } = await req.json();
+    const { conversacionId, contenido, canal, remitente, archivo } = await req.json();
 
     if (!conversacionId || !contenido || !canal) {
       return NextResponse.json({
@@ -22,13 +22,17 @@ export async function POST(req: NextRequest) {
     // 1. Guardar el mensaje en la base de datos
     const mensaje = {
       conversacion_id: conversacionId,
-      tipo: 'texto',
+      tipo: archivo ? 'archivo' : 'texto',
       contenido: contenido.trim(),
       remitente: remitente,
       fecha_mensaje: new Date().toISOString(),
       canal: canal,
       usuario_id: session.user.id, // Marcar como mensaje propio usando la sesión real
-      metadata: {}
+      metadata: archivo ? {
+        file_url: archivo.url,
+        file_name: archivo.nombre,
+        file_type: archivo.tipo
+      } : {}
     };
 
     const { data: mensajeGuardado, error: errorMensaje } = await supabase
@@ -55,7 +59,12 @@ export async function POST(req: NextRequest) {
       resultadoEnvio = await messagingService.enviarMensaje({
         plataforma: canal as PlataformaMensajeria,
         destinatario: remitente,
-        contenido: contenido.trim()
+        contenido: contenido.trim(),
+        archivo: archivo ? {
+          url: archivo.url,
+          nombre: archivo.nombre,
+          tipo: archivo.tipo
+        } : undefined
       });
 
       if (!resultadoEnvio.exito) {

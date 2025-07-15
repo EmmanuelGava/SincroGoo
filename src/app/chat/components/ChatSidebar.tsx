@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -10,12 +10,16 @@ import {
   ListItemAvatar,
   ListItemText,
   ListItemButton,
-  Chip
+  Chip,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
+import AddIcon from '@mui/icons-material/Add';
+import NewConversationModal from './NewConversationModal';
 
 interface Conversacion {
   id: string;
@@ -31,6 +35,7 @@ interface ChatSidebarProps {
   conversaciones: Conversacion[];
   conversacionActiva: Conversacion | null;
   onSelectConversacion: (conversacion: Conversacion) => void;
+  onRefreshConversaciones: () => void;
   loading: boolean;
 }
 
@@ -52,8 +57,10 @@ export default function ChatSidebar({
   conversaciones, 
   conversacionActiva, 
   onSelectConversacion, 
+  onRefreshConversaciones,
   loading 
 }: ChatSidebarProps) {
+  const [newConversationOpen, setNewConversationOpen] = useState(false);
   
   const getServiceIcon = (servicio: string) => {
     const IconComponent = servicioIcons[servicio] || SmsIcon;
@@ -108,15 +115,31 @@ export default function ChatSidebar({
         borderBottom: '1px solid #232323',
         bgcolor: 'background.default'
       }}>
-        <Typography variant="h6" sx={{ 
-          color: 'primary.main', 
-          fontWeight: 700 
-        }}>
-          Chat Unificado
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="h6" sx={{ 
+            color: 'primary.main', 
+            fontWeight: 700 
+          }}>
+            Chat Unificado
+          </Typography>
+          <Tooltip title="Nueva conversación">
+            <IconButton
+              size="small"
+              onClick={() => setNewConversationOpen(true)}
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: 'primary.dark'
+                }
+              }}
+            >
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
         <Typography variant="body2" sx={{ 
-          color: 'text.secondary',
-          mt: 0.5
+          color: 'text.secondary'
         }}>
           {conversaciones.length} conversaciones activas
         </Typography>
@@ -214,6 +237,17 @@ export default function ChatSidebar({
           </List>
         )}
       </Box>
+
+      {/* Modal para nueva conversación */}
+      <NewConversationModal
+        open={newConversationOpen}
+        onClose={() => setNewConversationOpen(false)}
+        onConversationCreated={(conversacion) => {
+          setNewConversationOpen(false);
+          onRefreshConversaciones(); // Refrescar lista de conversaciones
+          onSelectConversacion(conversacion); // Seleccionar la nueva conversación
+        }}
+      />
     </Box>
   );
 }

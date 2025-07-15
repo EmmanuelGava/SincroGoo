@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -14,6 +14,7 @@ import SmsIcon from '@mui/icons-material/Sms';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import LeadProfileModal from './LeadProfileModal';
 
 interface Conversacion {
   id: string;
@@ -51,6 +52,8 @@ const servicioNames: Record<string, string> = {
 };
 
 export default function ConversationHeader({ conversacion }: ConversationHeaderProps) {
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
+  
   const IconComponent = servicioIcons[conversacion.servicio_origen] || SmsIcon;
   const servicioColor = servicioColors[conversacion.servicio_origen] || '#90caf9';
   const servicioName = servicioNames[conversacion.servicio_origen] || conversacion.servicio_origen;
@@ -150,7 +153,10 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {conversacion.lead_id && (
           <Tooltip title="Ver perfil del lead">
-            <IconButton size="small">
+            <IconButton 
+              size="small"
+              onClick={() => setLeadModalOpen(true)}
+            >
               <BusinessIcon />
             </IconButton>
           </Tooltip>
@@ -162,6 +168,15 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
           </IconButton>
         </Tooltip>
       </Box>
+
+      {/* Modal del perfil del lead */}
+      {conversacion.lead_id && (
+        <LeadProfileModal
+          open={leadModalOpen}
+          onClose={() => setLeadModalOpen(false)}
+          leadId={conversacion.lead_id}
+        />
+      )}
     </Box>
   );
 }

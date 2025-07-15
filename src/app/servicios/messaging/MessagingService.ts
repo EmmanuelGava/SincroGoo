@@ -12,6 +12,11 @@ export interface MensajeEnvio {
   plataforma: PlataformaMensajeria;
   destinatario: string;
   contenido: string;
+  archivo?: {
+    url: string;
+    nombre: string;
+    tipo: string;
+  };
   metadata?: Record<string, any>;
 }
 
@@ -30,13 +35,13 @@ export class MessagingService {
     try {
       switch (params.plataforma) {
         case 'telegram':
-          return await this.enviarTelegram(params.destinatario, params.contenido);
+          return await this.enviarTelegram(params.destinatario, params.contenido, params.archivo);
         
         case 'whatsapp':
-          return await this.enviarWhatsApp(params.destinatario, params.contenido);
+          return await this.enviarWhatsApp(params.destinatario, params.contenido, params.archivo);
         
         case 'email':
-          return await this.enviarEmail(params.destinatario, params.contenido);
+          return await this.enviarEmail(params.destinatario, params.contenido, params.archivo);
         
         case 'sms':
           return await this.enviarSMS(params.destinatario, params.contenido);
@@ -59,7 +64,7 @@ export class MessagingService {
   /**
    * Envía mensaje a Telegram
    */
-  private async enviarTelegram(chatId: string, texto: string): Promise<ResultadoEnvio> {
+  private async enviarTelegram(chatId: string, texto: string, archivo?: { url: string; nombre: string; tipo: string }): Promise<ResultadoEnvio> {
     try {
       const resultado = await telegramService.enviarMensaje({
         chatId,
@@ -89,7 +94,7 @@ export class MessagingService {
   /**
    * Envía mensaje a WhatsApp
    */
-  private async enviarWhatsApp(numero: string, texto: string): Promise<ResultadoEnvio> {
+  private async enviarWhatsApp(numero: string, texto: string, archivo?: { url: string; nombre: string; tipo: string }): Promise<ResultadoEnvio> {
     try {
       // Formatear el número para WhatsApp
       const numeroFormateado = whatsappService.formatearNumero(numero);
@@ -133,9 +138,9 @@ export class MessagingService {
   /**
    * Envía email (placeholder)
    */
-  private async enviarEmail(email: string, texto: string): Promise<ResultadoEnvio> {
+  private async enviarEmail(email: string, texto: string, archivo?: { url: string; nombre: string; tipo: string }): Promise<ResultadoEnvio> {
     // TODO: Implementar envío de email con SendGrid/Mailgun
-    console.log(`[Email] Enviando a ${email}: ${texto}`);
+    console.log(`[Email] Enviando a ${email}: ${texto}`, archivo ? `con archivo: ${archivo.nombre}` : '');
     return {
       exito: false,
       error: 'Email no implementado aún'

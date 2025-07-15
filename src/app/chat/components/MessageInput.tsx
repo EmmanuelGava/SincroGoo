@@ -10,9 +10,15 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
+import FileUpload from './FileUpload';
+import EmojiPickerComponent from './EmojiPicker';
+import AudioRecorder from './AudioRecorder';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string) => void;
+  onSendFile?: (url: string, fileName: string, fileType: string) => void;
+  onSendAudio?: (audioBlob: Blob, duration: number) => void;
+  conversationId?: string;
   disabled?: boolean;
   placeholder?: string;
   enviando?: boolean;
@@ -20,7 +26,10 @@ interface MessageInputProps {
 }
 
 export default function MessageInput({ 
-  onSendMessage, 
+  onSendMessage,
+  onSendFile,
+  onSendAudio,
+  conversationId,
   disabled = false, 
   placeholder = "Escribe un mensaje...",
   enviando = false,
@@ -71,6 +80,30 @@ export default function MessageInput({
     }
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    if (inputRef.current) {
+      const input = inputRef.current.querySelector('textarea') || inputRef.current.querySelector('input');
+      if (input) {
+        const start = input.selectionStart || 0;
+        const end = input.selectionEnd || 0;
+        const newValue = mensaje.slice(0, start) + emoji + mensaje.slice(end);
+        
+        setMensaje(newValue);
+        
+        // Restaurar el foco y posición del cursor
+        setTimeout(() => {
+          input.focus();
+          if (input.setSelectionRange) {
+            input.setSelectionRange(start + emoji.length, start + emoji.length);
+          }
+        }, 0);
+      } else {
+        // Fallback: simplemente añadir al final
+        setMensaje(prev => prev + emoji);
+      }
+    }
+  };
+
   // Auto-focus en el input
   useEffect(() => {
     if (inputRef.current && !disabled) {
@@ -92,18 +125,14 @@ export default function MessageInput({
         alignItems: 'flex-end', 
         gap: 1 
       }}>
-        {/* Botón de adjuntos */}
-        <Tooltip title="Adjuntar archivo">
-          <span>
-            <IconButton 
-              size="small" 
-              disabled={disabled}
-              sx={{ mb: 0.5 }}
-            >
-              <AttachFileIcon />
-            </IconButton>
-          </span>
-        </Tooltip>
+        {/* Componente de subida de archivos */}
+        {conversationId && onSendFile && (
+          <FileUpload
+            onFileUploaded={onSendFile}
+            conversationId={conversationId}
+            disabled={disabled}
+          />
+        )}
 
         {/* Campo de texto */}
         <TextField
@@ -138,18 +167,19 @@ export default function MessageInput({
           }}
         />
 
-        {/* Botón de emojis */}
-        <Tooltip title="Emojis">
-          <span>
-            <IconButton 
-              size="small" 
-              disabled={disabled}
-              sx={{ mb: 0.5 }}
-            >
-              <EmojiEmotionsIcon />
-            </IconButton>
-          </span>
-        </Tooltip>
+        {/* Selector de emojis */}
+        <EmojiPickerComponent
+          onEmojiSelect={handleEmojiSelect}
+          disabled={disabled}
+        />
+
+        {/* Grabador de audio */}
+        {onSendAudio && (
+          <AudioRecorder
+            onAudioRecorded={onSendAudio}
+            disabled={disabled}
+          />
+        )}
 
         {/* Botón de enviar */}
         <Tooltip title="Enviar mensaje">

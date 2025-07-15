@@ -12,6 +12,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import PersonIcon from '@mui/icons-material/Person';
 import MessageStatus from './MessageStatus';
+import FileAttachment from './FileAttachment';
 
 interface Mensaje {
   id: string;
@@ -110,13 +111,28 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
           </Box>
         )}
 
+        {/* Archivo adjunto si existe */}
+        {mensaje.metadata?.file_url && (
+          <Box sx={{ mb: mensaje.contenido ? 1 : 0 }}>
+            <FileAttachment
+              url={mensaje.metadata.file_url}
+              fileName={mensaje.metadata.file_name || 'Archivo'}
+              fileType={mensaje.metadata.file_type || 'unknown'}
+              fileSize={mensaje.metadata.file_size}
+              isOwn={isOwn}
+            />
+          </Box>
+        )}
+
         {/* Contenido del mensaje */}
-        <Typography variant="body2" sx={{ 
-          wordBreak: 'break-word',
-          whiteSpace: 'pre-wrap'
-        }}>
-          {mensaje.contenido}
-        </Typography>
+        {mensaje.contenido && (
+          <Typography variant="body2" sx={{ 
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {mensaje.contenido}
+          </Typography>
+        )}
 
         {/* Timestamp y Estado */}
         <Box sx={{ 

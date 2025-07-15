@@ -130,6 +130,117 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
     }
   };
 
+  const handleSendFile = async (url: string, fileName: string, fileType: string) => {
+    if (!conversacion || enviando) return;
+
+    setEnviando(true);
+    setErrorEnvio(null);
+
+    try {
+      const res = await fetch('/api/chat/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversacionId: conversacion.id,
+          contenido: `📎 ${fileName}`,
+          canal: conversacion.servicio_origen,
+          remitente: conversacion.remitente,
+          archivo: {
+            url,
+            nombre: fileName,
+            tipo: fileType
+          }
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // Verificar si hubo error en el envío externo
+        if (data.envio && !data.envio.exito) {
+          setErrorEnvio(data.envio.error || 'Error enviando archivo');
+        }
+        
+        // Refrescar mensajes y conversaciones
+        fetchMensajes();
+        onRefreshConversaciones();
+      } else {
+        setErrorEnvio(data.error || 'Error enviando archivo');
+      }
+    } catch (error) {
+      console.error('Error enviando archivo:', error);
+      setErrorEnvio(error instanceof Error ? error.message : 'Error de conexión');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const handleSendAudio = async (audioBlob: Blob, duration: number) => {
+    if (!conversacion || enviando) return;
+
+    setEnviando(true);
+    setErrorEnvio(null);
+
+    try {
+      // Primero subir el audio a Supabase Storage
+      const timestamp = Date.now();
+      const fileName = `audio_${timestamp}.webm`;
+      
+      // Crear FormData para la subida
+      const formData = new FormData();
+      formData.append('file', audioBlob, fileName);
+      
+      // Subir usando el FileUploadService (necesitamos adaptarlo para Blob)
+      const { FileUploadService } = await import('@/app/servicios/storage/FileUploadService');
+      
+      // Convertir Blob a File
+      const audioFile = new File([audioBlob], fileName, { type: 'audio/webm' });
+      const uploadResult = await FileUploadService.uploadFile(audioFile, conversacion.id);
+      
+      if (!uploadResult.success || !uploadResult.url) {
+        setErrorEnvio('Error subiendo audio');
+        return;
+      }
+
+      // Enviar mensaje con el audio
+      const res = await fetch('/api/chat/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversacionId: conversacion.id,
+          contenido: `🎤 Audio (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
+          canal: conversacion.servicio_origen,
+          remitente: conversacion.remitente,
+          archivo: {
+            url: uploadResult.url,
+            nombre: fileName,
+            tipo: 'audio'
+          }
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // Verificar si hubo error en el envío externo
+        if (data.envio && !data.envio.exito) {
+          setErrorEnvio(data.envio.error || 'Error enviando audio');
+        }
+        
+        // Refrescar mensajes y conversaciones
+        fetchMensajes();
+        onRefreshConversaciones();
+      } else {
+        setErrorEnvio(data.error || 'Error enviando audio');
+      }
+    } catch (error) {
+      console.error('Error enviando audio:', error);
+      setErrorEnvio(error instanceof Error ? error.message : 'Error de conexión');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   const handleRetryMessage = () => {
     // Para implementar reintento, necesitaríamos guardar el último mensaje fallido
     // Por ahora, simplemente limpiamos el error
@@ -229,6 +340,9 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
       {/* Input para enviar mensajes */}
       <MessageInput 
         onSendMessage={handleSendMessage}
+        onSendFile={handleSendFile}
+        onSendAudio={handleSendAudio}
+        conversationId={conversacion.id}
         disabled={loading || enviando}
         placeholder={`Responder por ${conversacion.servicio_origen}...`}
         enviando={enviando}

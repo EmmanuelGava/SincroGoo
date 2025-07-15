@@ -243,3 +243,39 @@ option.text-box {
     background: rgba(255, 255, 255, 0.3);
   }
 }
+
+/* Animaciones para el chat */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pulse-animation {
+  animation: pulse 1s infinite;
+}
+
+/* Estilos para el grabador de audio */
+.recording-indicator {
+  animation: pulse 1s infinite;
+}
+
+/* Estilos para el picker de emojis */
+.emoji-picker-react {
+  --epr-bg-color: #1e1e1e !important;
+  --epr-category-label-bg-color: #2a2a2a !important;
+  --epr-search-input-bg-color: #2a2a2a !important;
+  --epr-text-color: #ffffff !important;
+  --epr-search-border-color: #404040 !important;
+  --epr-category-navigation-button-color: #ffffff !important;
+  --epr-hover-bg-color: #404040 !important;
+}

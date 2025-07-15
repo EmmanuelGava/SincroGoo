@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 
 // Verificación del webhook (requerido por Meta)
 export async function GET(req: NextRequest) {
@@ -79,6 +79,8 @@ async function procesarMensajesWhatsApp(value: any) {
 
 async function guardarMensajeWhatsApp(mensaje: any) {
     try {
+        const supabase = getSupabaseAdmin();
+        
         // 1. Buscar o crear conversación
         const { data: conversacionExistente } = await supabase
             .from('conversaciones')

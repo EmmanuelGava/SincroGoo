@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizeTelegramMessage, MensajeTelegramNormalizado } from '../handlers/telegram-handler';
-import { supabase } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 
 // Endpoint para recibir webhooks de Telegram
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getSupabaseAdmin();
+    
     // 1. Leer el body del webhook
     const body = await req.json();
     console.log('📩 Webhook recibido de Telegram:', JSON.stringify(body));

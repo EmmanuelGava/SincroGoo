@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { getSupabaseClient } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { messagingService } from '@/app/servicios/messaging';
 import type { PlataformaMensajeria } from '@/app/servicios/messaging/types';
 
 export async function POST(req: NextRequest) {
   try {
-    // Usar cliente de administrador temporalmente para evitar problemas de sesión
-    const supabase = getSupabaseAdmin();
+    const { supabase, session } = await getSupabaseClient(true);
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
 
     const { conversacionId, contenido, canal, remitente } = await req.json();
 
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
       remitente: remitente,
       fecha_mensaje: new Date().toISOString(),
       canal: canal,
-      usuario_id: 'admin', // Marcar como mensaje propio (temporalmente usando 'admin')
+      usuario_id: session.user.id, // Marcar como mensaje propio usando la sesión real
       metadata: {}
     };
 

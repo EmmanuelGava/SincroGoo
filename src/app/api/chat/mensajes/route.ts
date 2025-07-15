@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { getSupabaseClient } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
 export async function GET(req: NextRequest) {
   try {
-    // Usar cliente de administrador temporalmente para evitar problemas de sesión
-    const supabase = getSupabaseAdmin();
+    const { supabase, session } = await getSupabaseClient(true);
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const conversacionId = searchParams.get('conversacionId');

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('usuario_id', session.user.id)
       .order('orden', { ascending: true });
-      
+
     if (error) throw error;
     return NextResponse.json(data);
   } catch (error) {
@@ -33,10 +33,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { nombre, orden, color, usuario_id, is_default, icono } = body;
+    const { nombre, orden, color, is_default, icono } = body;
 
-    if (!nombre || orden === undefined || !usuario_id) {
-      return NextResponse.json({ error: 'Faltan campos obligatorios (nombre, orden, usuario_id)' }, { status: 400 });
+    if (!nombre || orden === undefined) {
+      return NextResponse.json({ error: 'Faltan campos obligatorios (nombre, orden)' }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         nombre,
         orden,
         color,
-        usuario_id,
+        usuario_id: session.user.id, // Usar el ID del usuario autenticado
         is_default,
         icono
       })

@@ -41,6 +41,7 @@ import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 
 // Páginas principales del sistema
 const pages = [
@@ -50,6 +51,7 @@ const pages = [
   { name: 'Hojas', href: '/hojas-de-calculo', icon: <TableChartOutlinedIcon fontSize="small" /> },
   { name: 'Explorador', href: '/explorer', icon: <ExploreOutlinedIcon fontSize="small" /> },
   { name: 'CRM', href: '/crm', icon: <TableChartOutlinedIcon fontSize="small" /> },
+  { name: 'Chat', href: '/chat', icon: <ChatOutlinedIcon fontSize="small" /> },
 ];
 
 // Opciones del menú de usuario

@@ -133,24 +133,30 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
   const handleSendFile = async (url: string, fileName: string, fileType: string) => {
     if (!conversacion || enviando) return;
 
+    console.log('🔧 Enviando archivo:', { url, fileName, fileType, conversacion: conversacion.id });
+
     setEnviando(true);
     setErrorEnvio(null);
 
     try {
+      const payload = {
+        conversacionId: conversacion.id,
+        contenido: `📎 ${fileName}`,
+        canal: conversacion.servicio_origen,
+        remitente: conversacion.remitente,
+        archivo: {
+          url,
+          nombre: fileName,
+          tipo: fileType
+        }
+      };
+
+      console.log('🔧 Payload enviado:', payload);
+
       const res = await fetch('/api/chat/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversacionId: conversacion.id,
-          contenido: `📎 ${fileName}`,
-          canal: conversacion.servicio_origen,
-          remitente: conversacion.remitente,
-          archivo: {
-            url,
-            nombre: fileName,
-            tipo: fileType
-          }
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();

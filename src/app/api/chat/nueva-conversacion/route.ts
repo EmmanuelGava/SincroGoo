@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { plataforma, contacto, nombre, mensaje, leadId } = await req.json();
+    const { plataforma, contacto, nombre, mensaje, leadId, configuracionId } = await req.json();
 
     if (!plataforma || !contacto || !nombre || !mensaje) {
       return NextResponse.json({
@@ -28,33 +28,50 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Verificar si ya existe una conversación con este contacto en esta plataforma
-    const { data: conversacionExistente } = await supabase
+    const { data: conversacionExistente, error: errorBusqueda } = await supabase
       .from('conversaciones')
       .select('id, remitente, servicio_origen, lead_id')
       .eq('remitente', contacto)
       .eq('servicio_origen', plataforma)
-      .single();
+      .maybeSingle(); // Cambiar de .single() a .maybeSingle()
+
+    console.log('Buscando conversación existente para:', { contacto, plataforma });
+    console.log('Resultado búsqueda:', conversacionExistente);
+    console.log('Error búsqueda:', errorBusqueda);
 
     if (conversacionExistente) {
+      console.log('Conversación existente encontrada:', conversacionExistente);
+      // TEMPORAL: Comentar para permitir conversaciones duplicadas durante pruebas
+      /*
       return NextResponse.json({
         error: 'Ya existe una conversación con este contacto en esta plataforma',
-        conversacion: conversacionExistente
+        conversacion: conversacionExistente,
+        debug: {
+          contacto_buscado: contacto,
+          plataforma_buscada: plataforma,
+          conversacion_encontrada: conversacionExistente
+        }
       }, { status: 409 });
+      */
     }
 
     // 2. Crear nueva conversación
     const nuevaConversacion = {
       remitente: contacto,
-      nombre_contacto: nombre,
       servicio_origen: plataforma,
+      tipo: 'saliente', // Requerido por la tabla
       fecha_mensaje: new Date().toISOString(),
       lead_id: leadId || null,
-      estado: 'activa',
+      usuario_id: session.user.id, // Columna requerida
       metadata: {
         iniciada_por_usuario: true,
-        usuario_id: session.user.id
+        nombre_contacto: nombre, // Guardamos el nombre en metadata
+        estado: 'activa'
       }
     };
+
+    console.log('Intentando crear conversación:', nuevaConversacion);
+    console.log('Usuario autenticado:', session.user.id);
 
     const { data: conversacionCreada, error: errorConversacion } = await supabase
       .from('conversaciones')
@@ -64,7 +81,12 @@ export async function POST(req: NextRequest) {
 
     if (errorConversacion) {
       console.error('Error creando conversación:', errorConversacion);
-      throw errorConversacion;
+      console.error('Detalles del error:', JSON.stringify(errorConversacion, null, 2));
+      
+      return NextResponse.json({
+        error: `Error creando conversación: ${errorConversacion.message}`,
+        details: errorConversacion
+      }, { status: 400 });
     }
 
     // 3. Enviar mensaje inicial usando el servicio de mensajería
@@ -73,7 +95,9 @@ export async function POST(req: NextRequest) {
       resultadoEnvio = await messagingService.enviarMensaje({
         plataforma: plataforma as PlataformaMensajeria,
         destinatario: contacto,
-        contenido: mensaje.trim()
+        contenido: mensaje.trim(),
+        usuarioId: session.user.id, // Añadir ID del usuario para usar su configuración
+        configuracionId: configuracionId // Añadir configuración específica seleccionada
       });
 
       if (!resultadoEnvio.exito) {

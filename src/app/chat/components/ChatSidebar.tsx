@@ -12,14 +12,17 @@ import {
   ListItemButton,
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  Button
 } from '@mui/material';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import AddIcon from '@mui/icons-material/Add';
+import SettingsIcon from '@mui/icons-material/Settings';
 import NewConversationModal from './NewConversationModal';
+import MessagingStatusIndicator from './MessagingStatusIndicator';
 
 interface Conversacion {
   id: string;
@@ -138,20 +141,35 @@ export default function ChatSidebar({
             </IconButton>
           </Tooltip>
         </Box>
-        <Typography variant="body2" sx={{ 
-          color: 'text.secondary'
-        }}>
-          {conversaciones.length} conversaciones activas
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ 
+            color: 'text.secondary'
+          }}>
+            {conversaciones.length} conversaciones activas
+          </Typography>
+          <MessagingStatusIndicator />
+        </Box>
       </Box>
 
       {/* Lista de conversaciones */}
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
         {conversaciones.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography sx={{ color: 'text.secondary' }}>
+            <Typography sx={{ color: 'text.secondary', mb: 2 }}>
               No hay conversaciones activas
             </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+              Configura tus plataformas de mensajería para comenzar
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<SettingsIcon />}
+              onClick={() => window.open('/configuracion/mensajeria', '_blank')}
+              sx={{ fontSize: '0.8rem' }}
+            >
+              Configurar Mensajería
+            </Button>
           </Box>
         ) : (
           <List sx={{ p: 0 }}>

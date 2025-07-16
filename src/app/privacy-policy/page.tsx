@@ -13,12 +13,15 @@ export default function PrivacyPolicy() {
         <section className="mb-6">
           <h2 className="text-2xl font-semibold mb-3">1. Información que Recopilamos</h2>
           <p>
-            Recopilamos información que usted nos proporciona directamente cuando utiliza nuestros servicios:
+            SincroGoo recopila información necesaria para proporcionar servicios de mensajería unificada:
           </p>
           <ul className="list-disc pl-6 mb-4">
-            <li>Información de la cuenta (correo electrónico)</li>
-            <li>Información del perfil</li>
-            <li>Datos de uso del servicio</li>
+            <li>Información de la cuenta (nombre, correo electrónico)</li>
+            <li>Mensajes enviados y recibidos a través de nuestras integraciones</li>
+            <li>Metadatos de conversaciones (fechas, estados de entrega)</li>
+            <li>Información de configuración de plataformas de mensajería (WhatsApp, Telegram, Email)</li>
+            <li>Tokens de acceso para plataformas de terceros (almacenados de forma segura)</li>
+            <li>Datos de uso del servicio y análisis</li>
           </ul>
         </section>
 
@@ -60,8 +63,12 @@ export default function PrivacyPolicy() {
           <h2 className="text-2xl font-semibold mb-3">5. Contacto</h2>
           <p>
             Si tiene preguntas sobre esta Política de Privacidad, puede contactarnos a través de:
-            [Tu información de contacto]
           </p>
+          <div className="bg-blue-50 p-4 rounded-lg mt-4">
+            <p><strong>Email:</strong> emmagava10@gmail.com</p>
+            <p><strong>Aplicación:</strong> SincroGoo</p>
+            <p><strong>Sitio web:</strong> sincrogoo.vercel.app</p>
+          </div>
         </section>
       </div>
     </div>

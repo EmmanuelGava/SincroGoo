@@ -96,19 +96,31 @@ export default function NewConversationModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [configuraciones, setConfiguraciones] = useState<any[]>([]);
+  const [configuracionSeleccionada, setConfiguracionSeleccionada] = useState<string>('');
 
-  // Cargar leads cuando se abre el modal
+  // Cargar leads y configuraciones cuando se abre el modal
   useEffect(() => {
     if (open) {
       fetchLeads();
+      fetchConfiguraciones();
       // Reset form
       setSearchTerm('');
       setSelectedLead(null);
       setContactInfo('');
       setMessage('');
       setError(null);
+      setConfiguracionSeleccionada('');
     }
   }, [open]);
+
+  // Cargar configuraciones cuando cambia la plataforma
+  useEffect(() => {
+    if (open) {
+      fetchConfiguraciones();
+      setConfiguracionSeleccionada('');
+    }
+  }, [platform, open]);
 
   // Filtrar leads basado en búsqueda
   useEffect(() => {
@@ -139,6 +151,25 @@ export default function NewConversationModal({
     }
   };
 
+  const fetchConfiguraciones = async () => {
+    try {
+      const res = await fetch(`/api/configuracion/mensajeria?plataforma=${platform}&activa=true`);
+      if (res.ok) {
+        const data = await res.json();
+        const configsPlataforma = data.configuraciones?.filter((c: any) => c.plataforma === platform) || [];
+        setConfiguraciones(configsPlataforma);
+        
+        // Auto-seleccionar la primera configuración si existe
+        if (configsPlataforma.length > 0 && !configuracionSeleccionada) {
+          setConfiguracionSeleccionada(configsPlataforma[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching configuraciones:', error);
+      setConfiguraciones([]);
+    }
+  };
+
   const getContactValue = (lead: Lead) => {
     switch (platform) {
       case 'telegram':
@@ -153,6 +184,17 @@ export default function NewConversationModal({
   };
 
   const validateContactInfo = () => {
+    // Verificar que hay configuración seleccionada
+    if (configuraciones.length > 0 && !configuracionSeleccionada) {
+      setError('Debes seleccionar una configuración');
+      return false;
+    }
+
+    if (configuraciones.length === 0) {
+      setError(`No tienes configuraciones activas para ${platformLabels[platform]}`);
+      return false;
+    }
+
     if (tab === 'leads' && selectedLead) {
       const contactValue = getContactValue(selectedLead);
       if (!contactValue) {
@@ -195,7 +237,8 @@ export default function NewConversationModal({
           contacto: contactValue,
           nombre: contactName,
           mensaje: message.trim(),
-          leadId: tab === 'leads' && selectedLead ? selectedLead.id : undefined
+          leadId: tab === 'leads' && selectedLead ? selectedLead.id : undefined,
+          configuracionId: configuracionSeleccionada // Añadir configuración seleccionada
         })
       });
 
@@ -274,6 +317,72 @@ export default function NewConversationModal({
             })}
           </Box>
         </Box>
+
+        {/* Selector de configuración */}
+        {configuraciones.length > 0 ? (
+          <Box sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle2">
+                Configuración de {platformLabels[platform]}
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => window.open('/configuracion/mensajeria', '_blank')}
+                sx={{ fontSize: '0.75rem' }}
+              >
+                Gestionar
+              </Button>
+            </Box>
+            <FormControl fullWidth>
+              <InputLabel>Seleccionar configuración</InputLabel>
+              <Select
+                value={configuracionSeleccionada}
+                onChange={(e) => setConfiguracionSeleccionada(e.target.value)}
+                label="Seleccionar configuración"
+              >
+                {configuraciones.map((config) => (
+                  <MenuItem key={config.id} value={config.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PlatformIcon sx={{ color: platformColors[platform], fontSize: 20 }} />
+                      <Box>
+                        <Typography variant="body2">{config.nombre_configuracion}</Typography>
+                        {config.descripcion && (
+                          <Typography variant="caption" color="text.secondary">
+                            {config.descripcion}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        ) : (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="body2">
+                <strong>No tienes configuraciones para {platformLabels[platform]}</strong>
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Necesitas conectar tu cuenta de {platformLabels[platform]} para enviar mensajes.
+              </Typography>
+              <Button 
+                variant="contained"
+                size="small"
+                onClick={() => window.open('/configuracion/mensajeria', '_blank')}
+                sx={{
+                  bgcolor: platformColors[platform],
+                  '&:hover': { bgcolor: platformColors[platform] },
+                  alignSelf: 'flex-start'
+                }}
+              >
+                Conectar {platformLabels[platform]}
+              </Button>
+            </Box>
+          </Alert>
+        )}
 
         {/* Tabs para seleccionar entre leads existentes o contacto nuevo */}
         <Tabs value={tab} onChange={(_, newValue) => setTab(newValue)} sx={{ mb: 2 }}>

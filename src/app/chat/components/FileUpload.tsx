@@ -64,6 +64,8 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
         
         clearInterval(progressInterval);
 
+        console.log('Upload result:', result); // Debug log
+
         if (result.success && result.url) {
           // Completar progreso
           setUploadingFiles(prev => 

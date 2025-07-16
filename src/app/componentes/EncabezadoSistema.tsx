@@ -58,6 +58,7 @@ const pages = [
 const userMenuItems = [
   { name: 'Perfil', href: '/perfil', icon: <PersonOutlineOutlinedIcon fontSize="small" /> },
   { name: 'Configuración', href: '/configuracion', icon: <SettingsOutlinedIcon fontSize="small" /> },
+  { name: 'Mensajería', href: '/configuracion/mensajeria', icon: <ChatOutlinedIcon fontSize="small" /> },
 ];
 
 export function EncabezadoSistema() {

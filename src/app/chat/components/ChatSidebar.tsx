@@ -209,16 +209,17 @@ export default function ChatSidebar({
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="subtitle2" sx={{ 
+                        <Box component="span" sx={{ 
                           color: conversacionActiva?.id === conversacion.id ? 'white' : 'text.primary',
                           fontWeight: 600,
                           flex: 1,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          fontSize: '0.875rem'
                         }}>
                           {conversacion.remitente}
-                        </Typography>
+                        </Box>
                         {conversacion.lead_id && (
                           <Chip 
                             label="Lead" 
@@ -230,22 +231,23 @@ export default function ChatSidebar({
                       </Box>
                     }
                     secondary={
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                        <Typography variant="body2" sx={{ 
+                      <Box component="span" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                        <Box component="span" sx={{ 
                           color: conversacionActiva?.id === conversacion.id ? 'rgba(255,255,255,0.7)' : 'text.secondary',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
-                          maxWidth: '180px'
+                          maxWidth: '180px',
+                          fontSize: '0.875rem'
                         }}>
                           {conversacion.ultimo_mensaje || 'Sin mensajes'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ 
+                        </Box>
+                        <Box component="span" sx={{ 
                           color: conversacionActiva?.id === conversacion.id ? 'rgba(255,255,255,0.5)' : 'text.secondary',
                           fontSize: '0.7rem'
                         }}>
                           {formatTime(conversacion.fecha_mensaje)}
-                        </Typography>
+                        </Box>
                       </Box>
                     }
                   />

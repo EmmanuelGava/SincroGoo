@@ -9,10 +9,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 1. Obtener el último mensaje de cada remitente y servicio_origen, solo de conversaciones sin lead asociado
-    // Usamos una vista SQL o una subconsulta para obtener el mensaje más reciente por remitente y canal
-    const { data: mensajes, error } = await supabase.rpc('ultimo_mensaje_por_remitente');
+    // 1. Obtener conversaciones sin lead asociado con su último mensaje
+    const { data: conversaciones, error } = await supabase
+      .from('conversaciones')
+      .select(`
+        id,
+        remitente,
+        servicio_origen,
+        fecha_mensaje,
+        lead_id,
+        mensajes_conversacion!inner(
+          contenido,
+          fecha_mensaje,
+          tipo
+        )
+      `)
+      .is('lead_id', null)
+      .order('fecha_mensaje', { ascending: false });
+
     if (error) throw error;
+
+    // Procesar para obtener solo el último mensaje por conversación
+    const mensajes = conversaciones?.map(conv => ({
+      id: conv.id,
+      remitente: conv.remitente,
+      servicio_origen: conv.servicio_origen,
+      fecha_mensaje: conv.fecha_mensaje,
+      ultimo_mensaje: conv.mensajes_conversacion?.[0]?.contenido || 'Sin mensajes'
+    })) || [];
 
     return NextResponse.json({ mensajes }, { status: 200 });
   } catch (error) {

@@ -10,15 +10,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    // Usar el user ID de la sesión de NextAuth/Supabase
+    const userId = session.user?.id;
+    if (!userId) {
+      return NextResponse.json({ error: 'Usuario no identificado' }, { status: 401 });
+    }
+
     const { data, error } = await supabase
       .from('estados_lead')
       .select('*')
-      .eq('usuario_id', session.user.id)
+      .eq('usuario_id', userId)
       .order('orden', { ascending: true });
 
-    if (error) throw error;
-    return NextResponse.json(data);
+    if (error) {
+      console.error('Error al obtener estados_lead:', error);
+      throw error;
+    }
+    
+    return NextResponse.json(data || []);
   } catch (error) {
+    console.error('Error completo en GET estados_lead:', error);
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });
   }

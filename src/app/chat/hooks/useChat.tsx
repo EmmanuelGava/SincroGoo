@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { supabase } from '@/lib/supabase/browserClient';
 
 interface Conversacion {
@@ -23,6 +24,7 @@ interface Mensaje {
 }
 
 export function useChat() {
+  const { data: session, status } = useSession();
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
   const [conversacionActiva, setConversacionActiva] = useState<Conversacion | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
@@ -30,14 +32,33 @@ export function useChat() {
   const [loadingMensajes, setLoadingMensajes] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Refs para funciones estables en realtime
+  const fetchConversacionesRef = useRef<() => Promise<void>>();
+  const fetchMensajesRef = useRef<(id: string) => Promise<void>>();
+
   // Fetch conversaciones
   const fetchConversaciones = useCallback(async () => {
+    // No hacer peticiones si no hay sesión
+    if (status === 'loading') {
+      return; // Esperar a que cargue la sesión
+    }
+    
+    if (status === 'unauthenticated' || !session) {
+      setError('Debes iniciar sesión para ver las conversaciones');
+      setLoading(false);
+      return;
+    }
+
     try {
       setError(null);
+      
       const res = await fetch('/api/chat/conversaciones');
       const data = await res.json();
       
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+        }
         throw new Error(data.error || 'Error fetching conversaciones');
       }
       
@@ -49,7 +70,12 @@ export function useChat() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session, status]);
+
+  // Actualizar ref cuando cambie la función
+  useEffect(() => {
+    fetchConversacionesRef.current = fetchConversaciones;
+  }, [fetchConversaciones]);
 
   // Fetch mensajes de una conversación específica
   const fetchMensajes = useCallback(async (conversacionId: string) => {
@@ -74,6 +100,11 @@ export function useChat() {
       setLoadingMensajes(false);
     }
   }, []);
+
+  // Actualizar ref cuando cambie la función
+  useEffect(() => {
+    fetchMensajesRef.current = fetchMensajes;
+  }, [fetchMensajes]);
 
   // Enviar mensaje
   const enviarMensaje = useCallback(async (contenido: string) => {
@@ -129,10 +160,9 @@ export function useChat() {
     fetchConversaciones();
   }, [fetchConversaciones]);
 
-  // Suscripción a tiempo real
+  // Suscripción a tiempo real - solo se configura una vez
   useEffect(() => {
-    if (!supabase) {
-      console.warn('Supabase client no disponible para realtime');
+    if (!supabase || status !== 'authenticated') {
       return;
     }
 
@@ -146,13 +176,19 @@ export function useChat() {
         (payload) => {
           console.log('Nuevo mensaje recibido en chat:', payload);
           
-          // Si hay una conversación activa, refrescar sus mensajes
-          if (conversacionActiva) {
-            fetchMensajes(conversacionActiva.id);
+          // Usar refs para evitar dependencias
+          if (fetchConversacionesRef.current) {
+            fetchConversacionesRef.current();
           }
           
-          // Siempre refrescar la lista de conversaciones
-          fetchConversaciones();
+          // Si el mensaje es de la conversación activa, refrescar mensajes
+          const conversacionId = payload.new?.conversacion_id;
+          setConversacionActiva(current => {
+            if (current && current.id === conversacionId && fetchMensajesRef.current) {
+              fetchMensajesRef.current(conversacionId);
+            }
+            return current;
+          });
         }
       )
       .on(
@@ -160,7 +196,9 @@ export function useChat() {
         { event: 'UPDATE', schema: 'public', table: 'conversaciones' },
         (payload) => {
           console.log('Conversación actualizada:', payload);
-          fetchConversaciones();
+          if (fetchConversacionesRef.current) {
+            fetchConversacionesRef.current();
+          }
         }
       )
       .subscribe((status) => {
@@ -171,7 +209,7 @@ export function useChat() {
       console.log('Limpiando suscripción realtime chat...');
       channel.unsubscribe();
     };
-  }, [conversacionActiva, fetchConversaciones, fetchMensajes]);
+  }, [status]); // Solo depende del status de autenticación
 
   return {
     // Estado

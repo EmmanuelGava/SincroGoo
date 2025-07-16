@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent } from "@mui/material";
+import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme } from "@mui/material";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import BusinessIcon from '@mui/icons-material/Business';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -54,17 +56,11 @@ const iconMap: { [key: string]: React.ElementType } = {
 
 const iconList = Object.keys(iconMap);
 
-const colors = {
-  background: '#202020',
-  column: '#202020',
-  card: '#191919',
-  border: '#303030',
-  textPrimary: '#E0E0E0',
-  textSecondary: '#888888',
-  primaryAccent: '#6534ac',
-};
+// Remove hardcoded colors - will use theme colors instead
 
-function TarjetaLead({ lead, index, onEdit, onDelete }: { lead: Lead; index: number, onEdit: (lead: Lead) => void, onDelete: (lead:Lead) => void }) {
+function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; index: number, onEdit: (lead: Lead) => void, onDelete: (lead:Lead) => void, colors: any }) {
+  const theme = useTheme();
+  
   return (
     <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
       {(provided, snapshot) => (
@@ -82,7 +78,7 @@ function TarjetaLead({ lead, index, onEdit, onDelete }: { lead: Lead; index: num
             cursor: 'grab',
             position: 'relative',
             '&:hover': {
-              bgcolor: '#2C2C2C',
+              bgcolor: theme.palette.action.hover,
               '& .actions': { opacity: 1 }
             },
             transition: 'background-color 0.2s'
@@ -145,6 +141,19 @@ function TarjetaLead({ lead, index, onEdit, onDelete }: { lead: Lead; index: num
 }
 
 export default function KanbanLeads() {
+  const theme = useTheme();
+  
+  // Theme-aware colors
+  const colors = {
+    background: theme.palette.background.default,
+    textPrimary: theme.palette.text.primary,
+    textSecondary: theme.palette.text.secondary,
+    card: theme.palette.background.paper,
+    border: theme.palette.divider,
+    column: theme.palette.background.paper,
+    primaryAccent: theme.palette.primary.main,
+  };
+  
   const {
     estados: estadosGlobal,
     leads: leadsGlobal,
@@ -175,27 +184,39 @@ export default function KanbanLeads() {
   }, [leadsGlobal]);
 
   useEffect(() => {
-    if (supabase) {
-      console.log('Intentando suscribirse a realtime (leads)...');
-      const channel = supabase
-        .channel('mensajes_conversacion_leads')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
-          (payload) => {
-            console.log('Evento realtime recibido en leads', payload);
-            refrescarLeads();
-          }
-        )
-        .subscribe((status) => {
-          console.log('Estado de la suscripción realtime (leads):', status);
-        });
-      return () => {
-        console.log('Eliminando canal realtime (leads)...');
-        channel.unsubscribe();
-      };
+    if (!supabase) {
+      return;
     }
-  }, [refrescarLeads]);
+    
+    console.log('Intentando suscribirse a realtime (leads)...');
+    const channel = supabase
+      .channel('mensajes_conversacion_leads')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
+        (payload) => {
+          console.log('Evento realtime recibido en leads', payload);
+          // Usar una función estable para refrescar
+          refrescarLeads();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'leads' },
+        (payload) => {
+          console.log('Lead actualizado:', payload);
+          refrescarLeads();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Estado de la suscripción realtime (leads):', status);
+      });
+      
+    return () => {
+      console.log('Eliminando canal realtime (leads)...');
+      channel.unsubscribe();
+    };
+  }, []); // Sin dependencias para evitar recrear la suscripción
 
   const [open, setOpen] = useState(false);
   const [openEstado, setOpenEstado] = useState(false);
@@ -203,6 +224,20 @@ export default function KanbanLeads() {
   const [confirmDelete, setConfirmDelete] = useState<null | { id: string; nombre: string }>(null);
   const [editLead, setEditLead] = useState<null | Lead>(null);
   const [confirmDeleteLead, setConfirmDeleteLead] = useState<null | Lead>(null);
+  
+  // Estado para columnas colapsadas
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+
+  // Función para alternar el colapso de una columna
+  const toggleColumnCollapse = (estadoId: string) => {
+    const newCollapsed = new Set(collapsedColumns);
+    if (newCollapsed.has(estadoId)) {
+      newCollapsed.delete(estadoId);
+    } else {
+      newCollapsed.add(estadoId);
+    }
+    setCollapsedColumns(newCollapsed);
+  };
 
   const leadsPorEstado: Record<string, Lead[]> = {};
   estados.forEach((estado) => {
@@ -314,48 +349,199 @@ export default function KanbanLeads() {
             <Droppable droppableId="kanban-columns" direction="horizontal" type="COLUMN">
               {(provided) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', gap: 2, height: '100%' }}>
-                  {estados.map((estado, idx) => (
-                    <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id}>
-                      {(provided) => (
-                        <Box ref={provided.innerRef} {...provided.draggableProps} sx={{ minWidth: 280, maxWidth: 280, ...provided.draggableProps.style, height: '100%' }}>
-                          <Box {...provided.dragHandleProps} sx={{ p: 1.5, width: '100%', bgcolor: 'transparent', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                {estado.icono && React.createElement(iconMap[estado.icono] || RadioButtonUncheckedIcon, { sx: { color: estado.color || colors.textSecondary, fontSize: '1rem' } })}
-                                {!estado.icono && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: estado.color || colors.textSecondary }} />}
-                                <Typography variant="body1" sx={{ fontWeight: 500, color: colors.textPrimary }}>{estado.nombre}</Typography>
-                                <Typography component="span" sx={{ color: colors.textSecondary, fontWeight: 400, fontSize: '0.875rem' }}>
-                                  {leadsPorEstado[estado.id]?.length || 0}
-                                </Typography>
-                              </Box>
-                              <Box>
-                                <Tooltip title="Editar columna">
-                                  <IconButton size="small" onClick={() => handleOpenEstado({ ...estado })}>
+                  {estados.map((estado, idx) => {
+                    const isCollapsed = collapsedColumns.has(estado.id);
+                    return (
+                      <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id}>
+                        {(provided) => (
+                          <Box 
+                            ref={provided.innerRef} 
+                            {...provided.draggableProps} 
+                            sx={{ 
+                              minWidth: isCollapsed ? 80 : 280, 
+                              maxWidth: isCollapsed ? 80 : 280, 
+                              ...provided.draggableProps.style, 
+                              height: '100%',
+                              transition: 'all 0.3s ease-in-out'
+                            }}
+                          >
+                            {isCollapsed ? (
+                              // Vista colapsada - altura mínima sin fondo de card
+                              <Box 
+                                sx={{ 
+                                  height: 'fit-content',
+                                  minHeight: '200px', // Altura mínima como en Plane.so
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  bgcolor: 'transparent', // Sin fondo de card
+                                  p: 1,
+                                  position: 'relative',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => toggleColumnCollapse(estado.id)}
+                              >
+                                {/* Botón de expandir sin fondo para consistencia */}
+                                <Tooltip title="Clic para expandir columna" placement="right">
+                                  <IconButton 
+                                    sx={{ 
+                                      width: '100%',
+                                      py: 1,
+                                      mb: 1,
+                                      borderRadius: 1,
+                                      color: colors.textSecondary,
+                                      '&:hover': {
+                                        bgcolor: theme.palette.action.hover,
+                                        color: colors.primaryAccent
+                                      }
+                                    }}
+                                  >
+                                    <UnfoldMoreIcon sx={{ fontSize: '1.2rem' }} />
+                                  </IconButton>
+                                </Tooltip>
+
+                                {/* Icono y contador en la parte superior */}
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+                                  {/* Icono */}
+                                  {estado.icono && React.createElement(iconMap[estado.icono] || RadioButtonUncheckedIcon, { 
+                                    sx: { color: estado.color || colors.textSecondary, fontSize: '1.2rem', mb: 0.5 } 
+                                  })}
+                                  {!estado.icono && <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: estado.color || colors.textSecondary, mb: 0.5 }} />}
+                                  
+                                  {/* Contador */}
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                      color: colors.textPrimary, 
+                                      fontWeight: 700,
+                                      fontSize: '0.8rem',
+                                      border: `1px solid ${colors.border}`,
+                                      px: 0.75,
+                                      py: 0.25,
+                                      borderRadius: '50%',
+                                      minWidth: '20px',
+                                      textAlign: 'center',
+                                      bgcolor: colors.background
+                                    }}
+                                  >
+                                    {leadsPorEstado[estado.id]?.length || 0}
+                                  </Typography>
+                                </Box>
+
+                                {/* Título vertical alineado con los otros elementos */}
+                                <Box sx={{ 
+                                  flexGrow: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  overflow: 'visible', // Permitir que el texto se vea completo
+                                  width: '100%',
+                                  position: 'relative',
+                                  minHeight: `${Math.max(estado.nombre.length * 8, 80)}px` // Altura dinámica para el texto
+                                }}>
+                                  <Box sx={{
+                                    transform: 'rotate(90deg)',
+                                    transformOrigin: 'center center',
+                                    whiteSpace: 'nowrap',
+                                    width: 'max-content',
+                                    position: 'absolute' // Posicionamiento absoluto para evitar restricciones
+                                  }}>
+                                    <Typography 
+                                      variant="body2" 
+                                      sx={{ 
+                                        fontWeight: 600, 
+                                        color: colors.textPrimary,
+                                        letterSpacing: '1px',
+                                        fontSize: '0.8rem',
+                                        textTransform: 'uppercase'
+                                      }}
+                                    >
+                                      {estado.nombre}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+
+                                {/* Espaciador para empujar el botón de editar hacia abajo */}
+                                <Box sx={{ flexGrow: 1 }} />
+
+                                {/* Botón de editar en la parte inferior */}
+                                <Tooltip title="Editar columna" placement="right">
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // Evitar que se expanda al hacer clic en editar
+                                      handleOpenEstado({ ...estado });
+                                    }}
+                                    sx={{
+                                      mt: 1,
+                                      bgcolor: colors.background,
+                                      '&:hover': {
+                                        bgcolor: colors.border
+                                      }
+                                    }}
+                                  >
                                     <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
                                   </IconButton>
                                 </Tooltip>
+
+                                {/* Droppable oculto para permitir drop en columnas colapsadas */}
+                                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0, pointerEvents: 'none' }}>
+                                  <Droppable droppableId={estado.id.toString()} type="LEAD">
+                                    {(provided) => (
+                                      <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ height: '100%' }}>
+                                        {provided.placeholder}
+                                      </Box>
+                                    )}
+                                  </Droppable>
+                                </Box>
                               </Box>
-                            </Box>
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', p: '0 4px', m: '0 -4px' }}>
-                              <Droppable droppableId={estado.id.toString()} type="LEAD">
-                                {(provided) => (
-                                  <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: '1px' }}>
-                                    {leadsPorEstado[estado.id]?.map((lead, idx) => (
-                                      <TarjetaLead key={lead.id} lead={lead} index={idx} onEdit={handleOpenEditLead} onDelete={setConfirmDeleteLead} />
-                                    ))}
-                                    {provided.placeholder}
+                            ) : (
+                              // Vista expandida - normal
+                              <Box {...provided.dragHandleProps} sx={{ p: 1.5, width: '100%', bgcolor: 'transparent', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    {estado.icono && React.createElement(iconMap[estado.icono] || RadioButtonUncheckedIcon, { sx: { color: estado.color || colors.textSecondary, fontSize: '1rem' } })}
+                                    {!estado.icono && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: estado.color || colors.textSecondary }} />}
+                                    <Typography variant="body1" sx={{ fontWeight: 500, color: colors.textPrimary }}>{estado.nombre}</Typography>
+                                    <Typography component="span" sx={{ color: colors.textSecondary, fontWeight: 400, fontSize: '0.875rem' }}>
+                                      {leadsPorEstado[estado.id]?.length || 0}
+                                    </Typography>
                                   </Box>
-                                )}
-                              </Droppable>
-                            </Box>
-                            <Button startIcon={<AddIcon />} sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}>
-                              Nuevo elemento
-                            </Button>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Tooltip title="Colapsar columna">
+                                      <IconButton size="small" onClick={() => toggleColumnCollapse(estado.id)}>
+                                        <UnfoldLessIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Editar columna">
+                                      <IconButton size="small" onClick={() => handleOpenEstado({ ...estado })}>
+                                        <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Box>
+                                </Box>
+                                <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', p: '0 4px', m: '0 -4px' }}>
+                                  <Droppable droppableId={estado.id.toString()} type="LEAD">
+                                    {(provided) => (
+                                      <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: '1px' }}>
+                                        {leadsPorEstado[estado.id]?.map((lead, idx) => (
+                                          <TarjetaLead key={lead.id} lead={lead} index={idx} onEdit={handleOpenEditLead} onDelete={setConfirmDeleteLead} colors={colors} />
+                                        ))}
+                                        {provided.placeholder}
+                                      </Box>
+                                    )}
+                                  </Droppable>
+                                </Box>
+                                <Button startIcon={<AddIcon />} sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}>
+                                  Nuevo elemento
+                                </Button>
+                              </Box>
+                            )}
                           </Box>
-                        </Box>
-                      )}
-                    </Draggable>
-                  ))}
+                        )}
+                      </Draggable>
+                    );
+                  })}
                   <Box sx={{ minWidth: 280, maxWidth: 280 }}>
                     <Button fullWidth onClick={() => handleOpenEstado()} sx={{ color: colors.textSecondary, bgcolor: 'transparent', border: `1px dashed ${colors.border}`, borderRadius: 3, p: 1, textTransform: 'none', '&:hover': { bgcolor: colors.column, borderColor: colors.textSecondary }, height: '48px' }}>
                       <AddIcon sx={{ mr: 1 }} /> Nueva columna
@@ -378,7 +564,18 @@ export default function KanbanLeads() {
         <Dialog open={openEstado} onClose={handleCloseEstado} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
           <DialogTitle>{editEstado?.id ? 'Editar columna' : 'Nueva columna'}</DialogTitle>
           <DialogContent>
-            <TextField autoFocus margin="dense" label="Nombre" name="nombre" fullWidth value={editEstado?.nombre || ''} onChange={handleChangeEstado} />
+            <TextField 
+              autoFocus 
+              margin="dense" 
+              label="Nombre" 
+              name="nombre" 
+              fullWidth 
+              value={editEstado?.nombre || ''} 
+              onChange={handleChangeEstado}
+              inputProps={{ maxLength: 20 }}
+              helperText={`${editEstado?.nombre?.length || 0}/20 caracteres`}
+              error={editEstado?.nombre && editEstado.nombre.length > 20}
+            />
             
             <Typography variant="body2" sx={{ mt: 2, mb: 1, color: colors.textSecondary }}>Color</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>

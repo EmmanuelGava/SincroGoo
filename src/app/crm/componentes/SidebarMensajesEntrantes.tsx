@@ -55,12 +55,11 @@ export default function SidebarMensajesEntrantes() {
     setLoading(false);
   };
 
+  // Efecto para cargar datos iniciales
   useEffect(() => {
-    if (!supabase) {
-      return;
-    }
     console.log('MONTANDO SidebarMensajesEntrantes');
     fetchMensajes();
+    
     // Obtener estados de lead y seleccionar el de orden 1
     async function fetchEstados() {
       try {
@@ -80,15 +79,23 @@ export default function SidebarMensajesEntrantes() {
       }
     }
     fetchEstados();
+  }, []);
+
+  // Efecto separado para realtime subscription
+  useEffect(() => {
+    if (!supabase) {
+      return;
+    }
 
     console.log('Intentando suscribirse a realtime...');
     const channel = supabase
-      .channel('mensajes_conversacion')
+      .channel('mensajes_conversacion_sidebar')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
         (payload) => {
           console.log('Evento realtime recibido', payload);
+          // Solo refrescar si el mensaje no tiene lead asociado
           fetchMensajes();
         }
       )
@@ -105,7 +112,7 @@ export default function SidebarMensajesEntrantes() {
         channel.unsubscribe();
       }
     };
-  }, []);
+  }, []); // Sin dependencias para evitar recrear la suscripción
 
   const handleEliminar = async (id: string) => {
     try {

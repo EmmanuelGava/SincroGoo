@@ -46,12 +46,12 @@ import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 // Páginas principales del sistema
 const pages = [
   { name: 'Dashboard', href: '/dashboard', icon: <DashboardOutlinedIcon fontSize="small" /> },
+  { name: 'Chat', href: '/chat', icon: <ChatOutlinedIcon fontSize="small" /> },
+  { name: 'CRM', href: '/crm', icon: <PersonOutlineOutlinedIcon fontSize="small" /> },
   { name: 'Proyectos', href: '/proyectos', icon: <FolderOutlinedIcon fontSize="small" /> },
   { name: 'Presentaciones', href: '/presentaciones', icon: <SlideshowOutlinedIcon fontSize="small" /> },
   { name: 'Hojas', href: '/hojas-de-calculo', icon: <TableChartOutlinedIcon fontSize="small" /> },
   { name: 'Explorador', href: '/explorer', icon: <ExploreOutlinedIcon fontSize="small" /> },
-  { name: 'CRM', href: '/crm', icon: <TableChartOutlinedIcon fontSize="small" /> },
-  { name: 'Chat', href: '/chat', icon: <ChatOutlinedIcon fontSize="small" /> },
 ];
 
 // Opciones del menú de usuario

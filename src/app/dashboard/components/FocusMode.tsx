@@ -31,7 +31,7 @@ import {
   Settings as SettingsIcon,
   TrendingUp as ProductivityIcon
 } from '@mui/icons-material';
-import { useFocusMode } from '../../../hooks/useDashboardPreferences';
+import { useFocusMode } from '../../../hooks/useFocusMode';
 
 // =====================================================
 // Interfaces

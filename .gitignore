@@ -26,8 +26,12 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local env files
-.env*.local
 .env
+.env.local
+.env.development
+.env.production
+.env.test
+.env*.local
 
 # vercel
 .vercel
@@ -43,3 +47,26 @@ next-env.d.ts
 # Documentación interna
 guia*
 *guia*
+
+# Archivos de documentación temporal/personal
+ARCHIVOS-PARA-MIGRACION.md
+AUTENTICACION-NEXTAUTH.md
+DIAGNOSTICO-REALTIME.md
+ESTRUCTURA-PROYECTO.md
+PLAN-INTEGRACIONES-MENSAJERIA.md
+PROXIMOS-PASOS-CHAT.md
+PROXIMOS-PASOS-MARTES.md
+
+# Archivos temporales
+notepad
+Notepad*
+*.tmp
+
+# Documentación interna de Supabase
+src/lib/supabase/
+
+# Archivos SQL
+*.sql
+sql/
+estructura.sql
+scripts/

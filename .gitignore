@@ -63,7 +63,9 @@ Notepad*
 *.tmp
 
 # Documentación interna de Supabase
-src/lib/supabase/
+src/lib/supabase/*.md
+src/lib/supabase/docs/
+src/lib/supabase/scripts/
 
 # Archivos SQL
 *.sql

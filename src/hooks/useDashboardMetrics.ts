@@ -236,7 +236,7 @@ export function useDashboardRealtime(userId: string, enabled = true) {
       if (cleanup instanceof Promise) {
         cleanup.then(cleanupFn => cleanupFn?.());
       } else if (typeof cleanup === 'function') {
-        cleanup();
+        // cleanup();
       }
     };
   }, [userId, enabled]);

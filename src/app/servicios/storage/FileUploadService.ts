@@ -61,6 +61,10 @@ export class FileUploadService {
         return { success: false, error: validation.error };
       }
 
+      if (!supabase) {
+        return { success: false, error: 'Supabase client not initialized' };
+      }
+
       // Generar nombre único
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2);
@@ -68,7 +72,7 @@ export class FileUploadService {
       const fileName = `${conversationId}/${timestamp}_${randomId}.${extension}`;
 
       // Subir archivo
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from(this.BUCKET_NAME)
         .upload(fileName, file, {
           cacheControl: '3600',
@@ -102,6 +106,11 @@ export class FileUploadService {
 
   static async deleteFile(path: string): Promise<boolean> {
     try {
+      if (!supabase) {
+        console.error('Supabase client not initialized');
+        return false;
+      }
+
       const { error } = await supabase.storage
         .from(this.BUCKET_NAME)
         .remove([path]);

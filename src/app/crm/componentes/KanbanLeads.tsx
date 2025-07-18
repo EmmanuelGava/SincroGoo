@@ -574,7 +574,7 @@ export default function KanbanLeads() {
               onChange={handleChangeEstado}
               inputProps={{ maxLength: 20 }}
               helperText={`${editEstado?.nombre?.length || 0}/20 caracteres`}
-              error={editEstado?.nombre && editEstado.nombre.length > 20}
+              error={!!(editEstado?.nombre && editEstado.nombre.length > 20)}
             />
             
             <Typography variant="body2" sx={{ mt: 2, mb: 1, color: colors.textSecondary }}>Color</Typography>

@@ -21,7 +21,7 @@ export async function GET(
     }
 
     // Obtener interacciones del lead desde diferentes fuentes
-    const interacciones = [];
+    const interacciones: any[] = [];
 
     // 1. Obtener mensajes de conversaciones relacionadas con este lead
     const { data: mensajes, error: mensajesError } = await supabase

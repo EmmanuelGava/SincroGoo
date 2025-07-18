@@ -170,7 +170,7 @@ export function useDashboardRealtime(
           }
         });
 
-        if (subscription === 'SUBSCRIBED') {
+        if (subscription.state === 'joined') {
           channelsRef.current.push(channel);
         }
       }
@@ -454,7 +454,7 @@ export function useRealtimeSubscription(
 
       const realtimeChannel = supabase
         .channel(channel)
-        .on(event, '*', (payload) => {
+        .on('postgres_changes' as any, { event: event as any, schema: '*' }, (payload: any) => {
           if (onUpdate) {
             onUpdate(payload);
           }

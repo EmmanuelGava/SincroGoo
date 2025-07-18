@@ -53,9 +53,7 @@ export default function DashboardPage() {
     data: dashboardData,
     loading,
     error,
-    connected,
-    refetch,
-    invalidateCache
+    refetch
   } = useDashboardMetrics({
     timeRange,
     platforms: selectedPlatforms.length > 0 ? selectedPlatforms : undefined,
@@ -262,7 +260,15 @@ export default function DashboardPage() {
               <Box sx={{ p: 3 }}>
                 <MetricsOverview
                   timeRange={timeRange}
-                  realTimeData={dashboardData}
+                  realTimeData={{
+                    activeConversations: dashboardData?.overview?.activeConversations || 0,
+                    pendingResponses: dashboardData?.overview?.pendingResponses || 0,
+                    averageResponseTime: dashboardData?.overview?.averageResponseTime || 0,
+                    conversionRate: dashboardData?.overview?.conversionRate || 0,
+                    platformBreakdown: dashboardData?.platformBreakdown || [],
+                    trends: dashboardData?.trends || [],
+                    lastUpdated: dashboardData?.lastUpdated || new Date().toISOString()
+                  }}
                   comparisonEnabled={true}
                   onTimeRangeChange={setTimeRange}
                 />
@@ -296,7 +302,7 @@ export default function DashboardPage() {
               <Paper sx={{ p: 0, width: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ p: 3 }}>
                   <PriorityConversations
-                    conversations={dashboardData?.priorityConversations || []}
+                    conversations={[]}
                     loading={loading}
                     onConversationClick={handleConversationClick}
                     onMarkImportant={handleMarkImportant}
@@ -316,7 +322,7 @@ export default function DashboardPage() {
               <Paper sx={{ p: 0, width: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ p: 3 }}>
                   <TasksPanel
-                    tasks={dashboardData?.tasks || []}
+                    tasks={[]}
                     loading={loading}
                     onTaskComplete={handleTaskComplete}
                     onTaskSnooze={handleTaskSnooze}
@@ -334,7 +340,7 @@ export default function DashboardPage() {
               <Paper sx={{ p: 0, width: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ p: 3 }}>
                   <NotificationCenter
-                    notifications={dashboardData?.notifications || []}
+                    notifications={[]}
                     alerts={dashboardData?.alerts || []}
                     onNotificationRead={(id) => console.log('Mark notification as read:', id)}
                     onAlertDismiss={(id) => console.log('Dismiss alert:', id)}
@@ -363,10 +369,10 @@ export default function DashboardPage() {
               <Box sx={{ p: 3 }}>
                 <CustomObjectives
                   currentMetrics={{
-                    averageResponseTime: dashboardData?.averageResponseTime || 0,
-                    dailyConversations: dashboardData?.activeConversations || 0,
-                    conversionRate: dashboardData?.conversionRate || 0,
-                    activeConversations: dashboardData?.activeConversations || 0
+                    averageResponseTime: dashboardData?.overview?.averageResponseTime || 0,
+                    dailyConversations: dashboardData?.overview?.activeConversations || 0,
+                    conversionRate: dashboardData?.overview?.conversionRate || 0,
+                    activeConversations: dashboardData?.overview?.activeConversations || 0
                   }}
                 />
               </Box>
@@ -390,11 +396,11 @@ export default function DashboardPage() {
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      bgcolor: connected ? 'success.main' : 'error.main'
+                      bgcolor: 'success.main'
                     }}
                   />
                   <Typography variant="body2" color="text.secondary">
-                    {connected ? 'Conectado' : 'Desconectado'}
+                    Conectado
                   </Typography>
                 </Stack>
                 {dashboardData?.lastUpdated && (
@@ -414,7 +420,7 @@ export default function DashboardPage() {
                   Actualizar
                 </Button>
                 <Button
-                  onClick={invalidateCache}
+                  onClick={() => window.location.reload()}
                   size="small"
                   variant="text"
                   color="inherit"

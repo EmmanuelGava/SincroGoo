@@ -48,16 +48,16 @@ export class MessagingService {
       switch (params.plataforma) {
         case 'telegram':
           return await this.enviarTelegram(params.destinatario, params.contenido, params.archivo, configuracion);
-        
+
         case 'whatsapp':
           return await this.enviarWhatsApp(params.destinatario, params.contenido, params.archivo, configuracion);
-        
+
         case 'email':
-          return await this.enviarEmail(params.destinatario, params.contenido, params.archivo, configuracion);
-        
+          return await this.enviarEmail(params.destinatario, params.contenido, params.archivo);
+
         case 'sms':
           return await this.enviarSMS(params.destinatario, params.contenido);
-        
+
         default:
           return {
             exito: false,
@@ -78,10 +78,10 @@ export class MessagingService {
    */
   private async obtenerConfiguracionUsuario(usuarioId: string, plataforma: PlataformaMensajeria, configuracionId?: string) {
     try {
-      const url = configuracionId 
+      const url = configuracionId
         ? `/api/configuracion/mensajeria/${configuracionId}`
         : `/api/configuracion/mensajeria?plataforma=${plataforma}&activa=true`;
-      
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${usuarioId}` // Simplificado para el ejemplo
@@ -137,7 +137,7 @@ export class MessagingService {
     try {
       // Formatear el número para WhatsApp
       const numeroFormateado = whatsappService.formatearNumero(numero);
-      
+
       if (!whatsappService.validarNumero(numeroFormateado)) {
         return {
           exito: false,
@@ -205,18 +205,18 @@ export class MessagingService {
     switch (plataforma) {
       case 'telegram':
         return await telegramService.verificarBot();
-      
+
       case 'whatsapp':
         return await whatsappService.verificarConfiguracion();
-      
+
       case 'email':
         // TODO: Verificar configuración de email
         return false;
-      
+
       case 'sms':
         // TODO: Verificar configuración de SMS
         return false;
-      
+
       default:
         return false;
     }

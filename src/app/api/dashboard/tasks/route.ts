@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
 
     // Validar tipo de tarea
     const validTaskTypes: TaskType[] = ['follow_up', 'first_response', 'scheduled_contact', 'lead_qualification', 'proposal_followup', 'meeting_reminder', 'custom'];
-    if (!validTaskTypes.includes(task_type)) {
+    if (!validTaskTypes.includes(task_type as TaskType)) {
       return NextResponse.json(
         { error: 'Invalid task type', message: `Tipo de tarea no válido: ${task_type}` },
         { status: 400 }
@@ -287,7 +287,7 @@ export async function POST(request: NextRequest) {
       usuario_id: session.user.id,
       title: title.trim(),
       description: description?.trim(),
-      task_type,
+      task_type: task_type as TaskType,
       lead_id,
       conversation_id,
       due_date,

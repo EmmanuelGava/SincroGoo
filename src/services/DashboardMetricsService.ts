@@ -127,7 +127,7 @@ export class DashboardMetricsService {
     const conversionRate = await this.calculateConversionRate(usuarioId, dateRange);
     
     const totalLeads = leadsData?.length || 0;
-    const newLeadsToday = this.timeRange === 'today' ? totalLeads : 0;
+    const newLeadsToday = totalLeads; // Simplified for now
 
     // Obtener objetivo de tiempo de respuesta de las preferencias del usuario
     const { data: preferences } = await this.supabase

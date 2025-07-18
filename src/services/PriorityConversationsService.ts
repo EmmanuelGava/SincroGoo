@@ -158,7 +158,7 @@ export class PriorityConversationsService {
     const timeSinceLastResponse = this.calculateTimeSinceLastResponse(messages);
 
     // Calcular mensajes no leídos (simplificado)
-    const unreadCount = messages.filter(msg => 
+    const unreadCount = messages.filter((msg: any) => 
       msg.tipo === 'entrante' && 
       new Date(msg.fecha_mensaje) > new Date(Date.now() - 24 * 60 * 60 * 1000)
     ).length;

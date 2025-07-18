@@ -101,7 +101,7 @@ export function FocusMode({ onFocusModeChange }: FocusModeProps) {
 
   const handleToggleFocusMode = () => {
     toggleFocusMode();
-    
+
     if (!focusMode) {
       // Activar modo concentración
       startFocusSession();
@@ -158,7 +158,7 @@ export function FocusMode({ onFocusModeChange }: FocusModeProps) {
 
     setCurrentSession(null);
     setElapsedTime(0);
-    
+
     if (focusMode) {
       toggleFocusMode();
     }
@@ -225,8 +225,8 @@ export function FocusMode({ onFocusModeChange }: FocusModeProps) {
                   Modo Concentración
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {focusMode 
-                    ? 'Activo - Notificaciones pausadas' 
+                  {focusMode
+                    ? 'Activo - Notificaciones pausadas'
                     : 'Inactivo - Todas las notificaciones habilitadas'
                   }
                 </Typography>
@@ -258,7 +258,7 @@ export function FocusMode({ onFocusModeChange }: FocusModeProps) {
             <Typography variant="h6" fontWeight="600" gutterBottom>
               Configuración de Sesión
             </Typography>
-            
+
             <Stack spacing={3}>
               <Box>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -341,7 +341,7 @@ export function FocusMode({ onFocusModeChange }: FocusModeProps) {
                     {Math.round(getProgressPercentage())}% completado
                   </Typography>
                 </Stack>
-                
+
                 <LinearProgress
                   variant="determinate"
                   value={getProgressPercentage()}
@@ -360,7 +360,7 @@ export function FocusMode({ onFocusModeChange }: FocusModeProps) {
                     Tareas completadas
                   </Typography>
                 </Box>
-                
+
                 <Box textAlign="center">
                   <Typography variant="h6" fontWeight="bold" color="warning.main">
                     {currentSession?.blockedNotifications || 0}
@@ -369,7 +369,7 @@ export function FocusMode({ onFocusModeChange }: FocusModeProps) {
                     Notificaciones bloqueadas
                   </Typography>
                 </Box>
-                
+
                 <Box textAlign="center">
                   <Typography variant="h6" fontWeight="bold" color="success.main">
                     {formatTime(elapsedTime)}

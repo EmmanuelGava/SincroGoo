@@ -76,9 +76,10 @@ export function PriorityConversations({
     // Ordenar
     return filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'priority':
+        case 'priority': {
           const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
           return priorityOrder[b.priority] - priorityOrder[a.priority];
+        }
         case 'time':
           return b.timeSinceLastResponse - a.timeSinceLastResponse;
         case 'value':

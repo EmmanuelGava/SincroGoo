@@ -423,37 +423,42 @@ export class DashboardMetricsService {
           start: today.toISOString(),
           end: now.toISOString()
         };
-      case 'yesterday':
+      case 'yesterday': {
         const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
         return {
           start: yesterday.toISOString(),
           end: today.toISOString()
         };
-      case 'last_7_days':
+      }
+      case 'last_7_days': {
         const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
         return {
           start: sevenDaysAgo.toISOString(),
           end: now.toISOString()
         };
-      case 'last_30_days':
+      }
+      case 'last_30_days': {
         const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
         return {
           start: thirtyDaysAgo.toISOString(),
           end: now.toISOString()
         };
-      case 'this_month':
+      }
+      case 'this_month': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         return {
           start: startOfMonth.toISOString(),
           end: now.toISOString()
         };
-      case 'last_month':
+      }
+      case 'last_month': {
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
         return {
           start: startOfLastMonth.toISOString(),
           end: endOfLastMonth.toISOString()
         };
+      }
       default:
         return {
           start: today.toISOString(),
@@ -530,10 +535,11 @@ export class DashboardMetricsService {
         case 'day':
           key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
           break;
-        case 'week':
+        case 'week': {
           const weekStart = new Date(date.setDate(date.getDate() - date.getDay()));
           key = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
           break;
+        }
       }
 
       grouped[key] = (grouped[key] || 0) + 1;

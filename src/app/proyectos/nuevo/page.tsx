@@ -25,12 +25,18 @@ import FormLabel from '@mui/material/FormLabel'
 import Skeleton from '@mui/material/Skeleton'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
+import Chip from '@mui/material/Chip'
+import Stack from '@mui/material/Stack'
 
 // Icons
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
 import PresentationIcon from '@mui/icons-material/Slideshow'
 import SpreadsheetIcon from '@mui/icons-material/TableChart'
+import LinkIcon from '@mui/icons-material/Link'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import ExploreIcon from '@mui/icons-material/Explore'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 
@@ -56,7 +62,14 @@ export default function NuevoProyecto() {
   const [hojaCalculoId, setHojaCalculoId] = useState("")
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pasoActual, setPasoActual] = useState<"datos" | "documentos">("datos")
+  const [pasoActual, setPasoActual] = useState<"modo" | "datos" | "documentos">("modo")
+  
+  // Modo de creación: enlace = conectar docs existentes | plantilla = crear plantilla desde Sheet
+  const [modoProyecto, setModoProyecto] = useState<"enlace" | "plantilla" | null>(null)
+  
+  // Modo B: columnas detectadas del Sheet (primera fila)
+  const [columnasDetectadas, setColumnasDetectadas] = useState<string[]>([])
+  const [cargandoColumnas, setCargandoColumnas] = useState(false)
   
   // Tipo de proyecto: ambos docs, solo hoja (generar presentación), solo presentación (generar hoja)
   const [tipoProyecto, setTipoProyecto] = useState<"ambos" | "solo_hoja" | "solo_presentacion">("ambos")
@@ -144,10 +157,35 @@ export default function NuevoProyecto() {
   // Cargar documentos de Google cuando el usuario está autenticado
   useEffect(() => {
     if (status === "authenticated" && metodoSeleccion === "seleccionar") {
-      if (tipoProyecto === "ambos" || tipoProyecto === "solo_presentacion") cargarPresentaciones()
-      if (tipoProyecto === "ambos" || tipoProyecto === "solo_hoja") cargarHojas()
+      if (modoProyecto === "plantilla" || tipoProyecto === "ambos" || tipoProyecto === "solo_hoja") cargarHojas()
+      if (modoProyecto === "enlace" && (tipoProyecto === "ambos" || tipoProyecto === "solo_presentacion")) cargarPresentaciones()
     }
-  }, [status, metodoSeleccion, tipoProyecto])
+  }, [status, metodoSeleccion, tipoProyecto, modoProyecto])
+
+  // Modo B: al seleccionar hoja, cargar columnas (primera fila)
+  useEffect(() => {
+    if (modoProyecto !== "plantilla" || !hojaSeleccionada) {
+      setColumnasDetectadas([])
+      return
+    }
+    const cargarColumnas = async () => {
+      setCargandoColumnas(true)
+      setColumnasDetectadas([])
+      try {
+        const res = await fetch(`/api/google/sheets?action=getData&spreadsheetId=${hojaSeleccionada}`)
+        if (!res.ok) throw new Error("Error al leer columnas")
+        const data = await res.json()
+        const encabezados = data?.datos?.encabezados || []
+        setColumnasDetectadas(encabezados.filter((h: string) => h && String(h).trim()))
+      } catch (err) {
+        console.error("Error al cargar columnas:", err)
+        toast.error("No se pudieron leer las columnas del Sheet")
+      } finally {
+        setCargandoColumnas(false)
+      }
+    }
+    cargarColumnas()
+  }, [modoProyecto, hojaSeleccionada])
 
   // Verificar estado de autenticación
   if (status === "loading") {
@@ -185,6 +223,66 @@ export default function NuevoProyecto() {
     if (validarDatos()) {
       setError(null)
       setPasoActual("documentos")
+    }
+  }
+
+  const handleCrearPlantilla = async () => {
+    if (modoProyecto !== "plantilla" || !hojaSeleccionada || !titulo.trim()) return
+    try {
+      setCargando(true)
+      setError(null)
+      const auth_id = session?.user?.id
+      const email = session?.user?.email
+      const nombre = session?.user?.name
+      if (!auth_id) throw new Error("Sesión inválida. Por favor, inicia sesión de nuevo.")
+      const verifyRes = await fetch(
+        `/api/supabase/users/verify?auth_id=${encodeURIComponent(auth_id)}&email=${encodeURIComponent(email || '')}&nombre=${encodeURIComponent(nombre || '')}`
+      )
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json()
+        throw new Error(err.error || "Error al verificar usuario")
+      }
+      const { user } = await verifyRes.json()
+      const usuario_id = user?.id
+      if (!usuario_id) throw new Error("No se pudo obtener el ID del usuario")
+
+      toast.info("Creando presentación vacía en tu Drive...")
+      const createRes = await fetch("/api/google/slides/create-empty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo: titulo.trim() || "Plantilla SincroGoo" })
+      })
+      const createData = await createRes.json()
+      if (!createData.exito || !createData.datos?.presentationId) {
+        throw new Error(createData.error || "No se pudo crear la presentación")
+      }
+      const idPresentacion = createData.datos.presentationId
+
+      const response = await fetch("/api/supabase/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: titulo.trim(),
+          descripcion: descripcion.trim() || null,
+          usuario_id,
+          presentacion_id: idPresentacion,
+          hoja_calculo_id: hojaSeleccionada,
+          modo: "plantilla"
+        })
+      })
+      if (!response.ok) {
+        const errData = await response.json()
+        throw new Error(errData.error || "Error al crear el proyecto")
+      }
+      const proyecto = await response.json()
+      toast.success("Proyecto creado. Redirigiendo al editor...")
+      router.push(`/editor-proyectos/${proyecto.id}?idPresentacion=${idPresentacion}&idHojaCalculo=${hojaSeleccionada}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al crear el proyecto"
+      toast.error(msg)
+      setError(msg)
+    } finally {
+      setCargando(false)
     }
   }
 
@@ -381,12 +479,188 @@ export default function NuevoProyecto() {
 
         <Card>
           <CardContent>
-            <Tabs value={pasoActual} onChange={(_, value) => setPasoActual(value)}>
-              <Tab value="datos" label="Información Básica" />
-              <Tab value="documentos" label="Documentos" disabled={!titulo.trim()} />
-            </Tabs>
+            {pasoActual === "modo" && (
+              <Box sx={{ mt: 2, mb: 4 }}>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                  Crear proyecto
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" useFlexGap spacing={2} sx={{ mb: 4 }}>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => {
+                      setModoProyecto("enlace")
+                      setTipoProyecto("ambos")
+                      setPasoActual("datos")
+                    }}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <LinkIcon sx={{ fontSize: 40, color: "primary.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Conectar ambos</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Presentación + hoja de cálculo existentes que ya tengas
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => {
+                      setModoProyecto("enlace")
+                      setTipoProyecto("solo_hoja")
+                      setGenerarPresentacionDesdeHoja(true)
+                      setPasoActual("datos")
+                    }}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <SpreadsheetIcon sx={{ fontSize: 40, color: "info.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Sheet → Slides</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Solo hoja de cálculo. Generamos la presentación automáticamente desde los datos
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      opacity: 0.85,
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover", opacity: 1 }
+                    }}
+                    onClick={() => {
+                      setModoProyecto("enlace")
+                      setTipoProyecto("solo_presentacion")
+                      setPasoActual("datos")
+                    }}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <PresentationIcon sx={{ fontSize: 40, color: "secondary.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Slides → Sheet</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Solo presentación. Generamos la hoja de cálculo (próximamente)
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => {
+                      setModoProyecto("plantilla")
+                      setPasoActual("documentos")
+                      setMetodoSeleccion("seleccionar")
+                    }}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <AutoAwesomeIcon sx={{ fontSize: 40, color: "secondary.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Plantilla desde Sheet</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Sheet + presentación vacía. Diseñas plantilla con placeholders {"{{Columna}}"}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Stack>
 
-            {pasoActual === "datos" && (
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                  Herramientas
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" useFlexGap spacing={2}>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/excel-to-sheets")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <CloudUploadIcon sx={{ fontSize: 40, color: "success.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Excel → Sheets</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Sube un archivo Excel y conviértelo a Google Sheets
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/excel-to-slides")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <PresentationIcon sx={{ fontSize: 40, color: "primary.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Excel → Slides</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Excel o CSV a presentación de Google Slides automáticamente
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/explorer")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <ExploreIcon sx={{ fontSize: 40, color: "info.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Explorador</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Busca establecimientos en el mapa y exporta a Google Sheets
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Stack>
+              </Box>
+            )}
+
+            {modoProyecto === "enlace" && (
+              <Tabs value={pasoActual} onChange={(_, value) => setPasoActual(value)}>
+                <Tab value="datos" label="Información Básica" />
+                <Tab value="documentos" label="Documentos" disabled={!titulo.trim()} />
+              </Tabs>
+            )}
+
+            {pasoActual === "datos" && modoProyecto === "enlace" && (
               <Box sx={{ mt: 4 }}>
                 <TextField
                   label="Título del Proyecto"
@@ -410,7 +684,93 @@ export default function NuevoProyecto() {
               </Box>
             )}
 
-            {pasoActual === "documentos" && (
+            {pasoActual === "documentos" && modoProyecto === "plantilla" && (
+              <Box sx={{ mt: 4 }}>
+                <Typography variant="h6" sx={{ mb: 3 }}>Crear plantilla desde Sheet</Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                      <SpreadsheetIcon />
+                      <Typography variant="subtitle1">Selecciona una hoja de cálculo</Typography>
+                      <IconButton onClick={cargarHojas} disabled={cargandoHojas} size="small">
+                        <RefreshIcon />
+                      </IconButton>
+                    </Box>
+                    <TextField
+                      placeholder="Buscar hojas..."
+                      value={busquedaHoja}
+                      onChange={(e) => setBusquedaHoja(e.target.value)}
+                      fullWidth
+                      sx={{ mb: 2 }}
+                      size="small"
+                      InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                    />
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
+                      {cargandoHojas ? (
+                        Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} variant="rectangular" height={70} />)
+                      ) : (
+                        hojasFiltradas.map(doc => (
+                          <Card
+                            key={doc.id}
+                            sx={{
+                              cursor: "pointer",
+                              border: hojaSeleccionada === doc.id ? 2 : 1,
+                              borderColor: hojaSeleccionada === doc.id ? "primary.main" : "divider",
+                              display: "flex", alignItems: "center", gap: 1.5, p: 2,
+                              "&:hover": { bgcolor: "action.hover" }
+                            }}
+                            onClick={() => setHojaSeleccionada(doc.id)}
+                          >
+                            {doc.iconLink && <Box component="img" src={doc.iconLink} alt="" sx={{ width: 24, height: 24 }} />}
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography noWrap variant="body2" fontWeight={500}>{doc.name}</Typography>
+                            </Box>
+                          </Card>
+                        ))
+                      )}
+                    </Box>
+                  </Box>
+                  {hojaSeleccionada && (
+                    <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                        Columnas detectadas (puedes usarlas como placeholders con {"{{NombreColumna}}"}):
+                      </Typography>
+                      {cargandoColumnas ? (
+                        <Skeleton variant="text" width="60%" />
+                      ) : columnasDetectadas.length > 0 ? (
+                        <Stack direction="row" flexWrap="wrap" gap={1}>
+                          {columnasDetectadas.map(col => (
+                            <Chip key={col} label={col} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">Sin columnas en la primera fila</Typography>
+                      )}
+                    </Box>
+                  )}
+                  <TextField
+                    label="Nombre del proyecto"
+                    value={titulo}
+                    onChange={(e) => setTitulo(e.target.value)}
+                    fullWidth
+                    required
+                    error={!!error}
+                    helperText={error}
+                    placeholder="Ej: Fichas de clientes"
+                  />
+                  <TextField
+                    label="Descripción (opcional)"
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    fullWidth
+                    multiline
+                    rows={2}
+                  />
+                </Box>
+              </Box>
+            )}
+
+            {pasoActual === "documentos" && modoProyecto === "enlace" && (
               <Box sx={{ mt: 4 }}>
                 <FormControl component="fieldset" sx={{ mb: 4 }}>
                   <FormLabel component="legend">Tipo de proyecto</FormLabel>
@@ -675,22 +1035,30 @@ export default function NuevoProyecto() {
           </CardContent>
 
           <CardActions sx={{ justifyContent: "flex-end", p: 2 }}>
-            {pasoActual === "datos" ? (
-              <Button
-                variant="contained"
-                onClick={avanzarPaso}
-                disabled={!titulo.trim()}
-              >
+            {pasoActual === "modo" && null}
+            {pasoActual === "datos" && modoProyecto === "enlace" && (
+              <Button variant="contained" onClick={avanzarPaso} disabled={!titulo.trim()}>
                 Siguiente
               </Button>
-            ) : (
+            )}
+            {pasoActual === "documentos" && modoProyecto === "plantilla" && (
               <>
-                <Button
-                  onClick={() => setPasoActual("datos")}
-                  sx={{ mr: 1 }}
-                >
+                <Button onClick={() => { setPasoActual("modo"); setModoProyecto(null); setHojaSeleccionada(""); setColumnasDetectadas([]); }} sx={{ mr: 1 }}>
                   Anterior
                 </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleCrearPlantilla}
+                  disabled={cargando || !hojaSeleccionada || !titulo.trim()}
+                  startIcon={cargando ? <CircularProgress size={20} /> : <AddIcon />}
+                >
+                  Crear Proyecto
+                </Button>
+              </>
+            )}
+            {pasoActual === "documentos" && modoProyecto === "enlace" && (
+              <>
+                <Button onClick={() => setPasoActual("datos")} sx={{ mr: 1 }}>Anterior</Button>
                 <Button
                   variant="contained"
                   onClick={handleGuardar}

@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       usuario_id: data.usuario_id,
       presentacion_id: data.presentacion_id,
       hoja_calculo_id: data.hoja_calculo_id,
+      modo: data.modo,
       metadata: data.metadata
     });
     

@@ -12,6 +12,7 @@ export interface Project {
   usuario_id: string;
   presentacion_id?: string;  // slides_id en la versión antigua
   hoja_calculo_id?: string;  // sheets_id en la versión antigua
+  modo?: 'enlace' | 'plantilla';  // enlace = conectar docs | plantilla = crear desde Sheet
   created_at: string;
   updated_at?: string;
   metadata?: Record<string, any>;
@@ -26,6 +27,7 @@ export interface ProjectCreateParams {
   usuario_id: string;
   presentacion_id?: string;
   hoja_calculo_id?: string;
+  modo?: 'enlace' | 'plantilla';
   metadata?: Record<string, any>;
 }
 
@@ -37,6 +39,7 @@ export interface ProjectUpdateParams {
   descripcion?: string;
   presentacion_id?: string;
   hoja_calculo_id?: string;
+  modo?: 'enlace' | 'plantilla';
   metadata?: Record<string, any>;
   last_sync?: string;
 }

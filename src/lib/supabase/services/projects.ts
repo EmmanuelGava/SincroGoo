@@ -260,7 +260,7 @@ export class ProjectsService {
       const supabase = getSupabaseAdmin();
       
       // Preparar datos para inserción
-      const projectData = {
+      const projectData: Record<string, unknown> = {
         nombre: params.nombre,
         descripcion: params.descripcion || null,
         usuario_id: params.usuario_id,
@@ -272,6 +272,9 @@ export class ProjectsService {
         hojastitulo: params.metadata?.hojastitulo || null,
         presentaciontitulo: params.metadata?.presentaciontitulo || null
       };
+      if (params.modo !== undefined) {
+        projectData.modo = params.modo;
+      }
       
       // Insertar proyecto
       const { data, error } = await supabase
@@ -317,6 +320,7 @@ export class ProjectsService {
       if (params.descripcion !== undefined) updateData.descripcion = params.descripcion;
       if (params.presentacion_id !== undefined) updateData.slides_id = params.presentacion_id;
       if (params.hoja_calculo_id !== undefined) updateData.sheets_id = params.hoja_calculo_id;
+      if (params.modo !== undefined) updateData.modo = params.modo;
       
       // Extraer metadatos específicos
       if (params.metadata?.hojastitulo !== undefined) {

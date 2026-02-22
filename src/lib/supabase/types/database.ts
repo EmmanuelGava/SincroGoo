@@ -243,6 +243,7 @@ export interface Database {
           hojastitulo: string | null;
           presentaciontitulo: string | null;
           usuario_id: string;
+          modo?: string | null;
         };
         Insert: {
           id?: string;
@@ -255,6 +256,7 @@ export interface Database {
           hojastitulo?: string | null;
           presentaciontitulo?: string | null;
           usuario_id: string;
+          modo?: string | null;
         };
         Update: {
           id?: string;
@@ -267,6 +269,7 @@ export interface Database {
           hojastitulo?: string | null;
           presentaciontitulo?: string | null;
           usuario_id?: string;
+          modo?: string | null;
         };
       };
 

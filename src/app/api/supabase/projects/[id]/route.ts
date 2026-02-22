@@ -75,6 +75,7 @@ export async function PUT(
       descripcion: data.descripcion,
       presentacion_id: data.presentacion_id,
       hoja_calculo_id: data.hoja_calculo_id,
+      modo: data.modo,
       metadata: data.metadata
     });
     

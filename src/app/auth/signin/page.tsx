@@ -173,7 +173,7 @@ export default function SignIn() {
         
         <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
           Al iniciar sesión aceptas nuestros{' '}
-          <a href="/terminos" className="text-blue-500 hover:underline">
+          <a href="/terms-of-service" className="text-blue-500 hover:underline">
             Términos y Condiciones
           </a>
         </div>

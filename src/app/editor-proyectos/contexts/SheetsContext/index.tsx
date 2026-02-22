@@ -17,10 +17,13 @@ interface SheetsContextType {
   columnas: ColumnaHoja[]
   filaSeleccionada: FilaSeleccionada | null
   idHojaCalculo: string
+  tituloHoja: string
   
   // Acciones
   setFilaSeleccionada: (fila: FilaSeleccionada | null) => void
   sincronizarHojas: () => Promise<void>
+  actualizarFila: (filaId: string, nuevosValores: ValorCelda[]) => void
+  guardarFila: (filaId: string, nuevosValores: ValorCelda[]) => Promise<boolean>
 }
 
 const SheetsContext = createContext<SheetsContextType | null>(null)
@@ -34,8 +37,9 @@ export function SheetsProvider({ children, idHojaCalculo }: SheetsProviderProps)
   const [filas, setFilas] = useState<FilaHoja[]>([])
   const [columnas, setColumnas] = useState<ColumnaHoja[]>([])
   const [filaSeleccionada, setFilaSeleccionada] = useState<FilaSeleccionada | null>(null)
+  const [tituloHoja, setTituloHoja] = useState<string>('')
   
-  const { cargarHojaCalculo } = useGoogleServices()
+  const { cargarHojaCalculo, actualizarRangoHoja } = useGoogleServices()
   const { setCargando } = useUI()
 
   const cargarDatos = async () => {
@@ -94,6 +98,7 @@ export function SheetsProvider({ children, idHojaCalculo }: SheetsProviderProps)
           
           setFilas(filasFormateadas);
           setColumnas(columnasFormateadas);
+          if (resultado.datos.titulo) setTituloHoja(resultado.datos.titulo);
         } else {
           console.warn('⚠️ [SheetsContext] No se encontraron encabezados o filas en los datos');
           toast.error('No se pudieron cargar los datos de la hoja');
@@ -125,13 +130,41 @@ export function SheetsProvider({ children, idHojaCalculo }: SheetsProviderProps)
     await cargarDatos();
   }
 
+  const actualizarFila = (filaId: string, nuevosValores: ValorCelda[]) => {
+    setFilas(prev =>
+      prev.map(f =>
+        f.id === filaId ? { ...f, valores: nuevosValores, ultimaActualizacion: new Date() } : f
+      )
+    )
+  }
+
+  const columnaALetra = (n: number): string => {
+    if (n < 26) return String.fromCharCode(65 + n)
+    return columnaALetra(Math.floor(n / 26) - 1) + String.fromCharCode(65 + (n % 26))
+  }
+
+  const guardarFila = async (filaId: string, nuevosValores: ValorCelda[]): Promise<boolean> => {
+    const fila = filas.find(f => f.id === filaId)
+    if (!fila || !idHojaCalculo) return false
+    const rowSheets = (fila.numeroFila ?? 0) + 1
+    const lastCol = columnaALetra(columnas.length - 1)
+    const range = `A${rowSheets}:${lastCol}${rowSheets}`
+    const valores = [nuevosValores.map(v => v.valor ?? '')]
+    const ok = await actualizarRangoHoja(idHojaCalculo, range, valores)
+    if (ok) actualizarFila(filaId, nuevosValores)
+    return ok
+  }
+
   const value: SheetsContextType = {
     filas,
     columnas,
     filaSeleccionada,
     idHojaCalculo,
+    tituloHoja,
     setFilaSeleccionada,
-    sincronizarHojas
+    sincronizarHojas,
+    actualizarFila,
+    guardarFila
   }
 
   return (

@@ -176,6 +176,72 @@ export class ExcelToSlidesService extends BaseConversionService {
     }
   }
 
+  /**
+   * Genera una presentación desde datos en formato array (desde Google Sheets u otra fuente).
+   * Crea diapositivas con el título de cada lote de datos.
+   */
+  async generarPresentacionDesdeDatos(titulo: string, datos: any[][]): Promise<string | null> {
+    try {
+      if (!datos || datos.length === 0) {
+        this.logError('No hay datos para generar la presentación');
+        return null;
+      }
+
+      const resultado = await this.servicioSlides.crearPresentacion({ titulo });
+      if (!resultado.exito || !resultado.datos) {
+        return null;
+      }
+
+      const presentationId = resultado.datos.presentationId;
+      const lotes = this.dividirDatosEnLotes(datos, {
+        filasPorDiapositiva: ExcelToSlidesService.LIMITE_FILAS_POR_DIAPOSITIVA,
+        incluirEncabezados: true
+      });
+
+      for (let i = 0; i < lotes.length; i++) {
+        const lote = lotes[i];
+        const tituloSlide = lote.length > 1 && lote[0]?.length > 0
+          ? String(lote[1]?.[0] ?? lote[0]?.[0] ?? `Datos - Parte ${i + 1}`)
+          : `Datos - Parte ${i + 1}`;
+        const slideId = `slide_${i}`;
+        const titleShapeId = `title_${i}`;
+        await this.servicioSlides.insertarDiapositiva(
+          presentationId,
+          i,
+          'EN_BLANCO',
+          slideId
+        );
+        // Crear caja de texto y agregar contenido en un solo batch
+        const batchRequests: slides_v1.Schema$Request[] = [
+          {
+            createShape: {
+              objectId: titleShapeId,
+              shapeType: 'TEXT_BOX',
+              elementProperties: {
+                pageObjectId: slideId,
+                size: { width: { magnitude: 400, unit: 'PT' }, height: { magnitude: 80, unit: 'PT' } },
+                transform: { scaleX: 1, scaleY: 1, translateX: 50, translateY: 100, unit: 'PT' }
+              }
+            }
+          },
+          {
+            insertText: {
+              objectId: titleShapeId,
+              text: tituloSlide,
+              insertionIndex: 0
+            }
+          }
+        ];
+        await this.servicioSlides.actualizarPresentacion(presentationId, batchRequests);
+      }
+
+      return presentationId;
+    } catch (error) {
+      this.logError('Error en generarPresentacionDesdeDatos:', error);
+      return null;
+    }
+  }
+
   protected async procesarArchivo(file: File, opciones: OpcionesConversion): Promise<ResultadoAPI<ResultadoConversion>> {
     try {
       // 1. Verificar archivo

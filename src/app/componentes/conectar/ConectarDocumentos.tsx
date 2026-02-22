@@ -183,7 +183,7 @@ export function ConectarDocumentos() {
       
       // Esperar un momento antes de redirigir
       await new Promise(resolve => setTimeout(resolve, 1000))
-      router.push("/presentaciones")
+      router.push("/proyectos")
     } catch (error) {
       console.error("Error al conectar documentos:", error)
       const message = error instanceof Error ? error.message : "Error al conectar los documentos"

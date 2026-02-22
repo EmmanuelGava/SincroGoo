@@ -198,6 +198,45 @@ export function useGoogleServices() {
     }
   }, [session?.accessToken, toast, verificarSesion]);
 
+  const actualizarRangoHoja = useCallback(async (
+    spreadsheetId: string,
+    range: string,
+    valores: string[][]
+  ): Promise<boolean> => {
+    setCargando(true);
+    setError(null);
+
+    try {
+      const sesionValida = verificarSesion();
+      if (sesionValida === null) return false;
+      if (!sesionValida) return false;
+
+      const response = await fetch('/api/google/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId, range, valores })
+      });
+
+      const resultado = await response.json();
+      if (!response.ok || !resultado.exito) {
+        throw new Error(resultado.error || 'Error al actualizar la hoja');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ [useGoogleServices] Error al actualizar hoja:', error);
+      toast({
+        title: "Error al actualizar la hoja",
+        description: error instanceof Error ? error.message : "Error desconocido",
+        variant: "destructive"
+      });
+      setError('Error al actualizar la hoja');
+      return false;
+    } finally {
+      setCargando(false);
+    }
+  }, [session?.accessToken, toast, verificarSesion]);
+
   const actualizarElementosDiapositiva = useCallback(async (
     presentationId: string,
     slideId: string,
@@ -260,6 +299,7 @@ export function useGoogleServices() {
     cargarHojaCalculo,
     cargarDiapositivas,
     cargarElementosDiapositiva,
+    actualizarRangoHoja,
     actualizarElementosDiapositiva
   };
 } 

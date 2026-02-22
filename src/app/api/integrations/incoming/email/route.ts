@@ -1,17 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { normalizeEmailMessage } from '../handlers/email-handler';
+import { handleIncomingMessage } from '@/lib/chat/handleIncomingMessage';
 
-// Endpoint para recibir webhooks de Email
-export async function POST(req: NextRequest) {
-  // 1. Leer el body del webhook
-  // const body = await req.json();
+/**
+ * Endpoint para mensajes entrantes de Email
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    console.log('📧 Mensaje recibido de Email:', {
+      from: body.from,
+      subject: body.subject?.substring(0, 100) + '...'
+    });
 
-  // 2. Normalizar el mensaje usando el handler
-  // const mensajeNormalizado = normalizeEmailMessage(body);
+    // Procesar mensaje de Email
+    if (body.from && body.text) {
+      await handleIncomingMessage({
+        platform: 'email',
+        message: body.text,
+        contact: {
+          id: body.from,
+          email: body.from,
+          name: body.from_name || body.from.split('@')[0]
+        },
+        timestamp: body.date ? new Date(body.date) : new Date(),
+        messageType: 'text',
+        metadata: {
+          subject: body.subject,
+          to: body.to,
+          cc: body.cc,
+          bcc: body.bcc,
+          message_id: body.message_id,
+          source: 'email-smtp'
+        }
+      });
 
-  // 3. Buscar o crear el lead correspondiente (por implementar)
-  // 4. Guardar la conversación en la base de datos (por implementar)
+      return NextResponse.json({
+        success: true,
+        message: 'Mensaje de Email procesado correctamente'
+      });
+    }
 
-  // 5. Responder al servicio de email
-  return NextResponse.json({ status: 'ok' });
+    return NextResponse.json({
+      success: true,
+      message: 'Email procesado (sin contenido de texto)'
+    });
+
+  } catch (error) {
+    console.error('❌ Error procesando mensaje de Email:', error);
+    return NextResponse.json(
+      { error: 'Error procesando mensaje' },
+      { status: 500 }
+    );
+  }
 } 

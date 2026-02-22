@@ -36,21 +36,31 @@ export async function GET(request: NextRequest) {
 
     if (action === 'getData') {
       console.log('📊 [API Sheets] Obteniendo datos de hoja:', spreadsheetId);
-      const resultado = await sheetsService.obtenerDatosHoja(spreadsheetId);
+      const [resultadoDatos, resultadoMeta] = await Promise.all([
+        sheetsService.obtenerDatosHoja(spreadsheetId),
+        sheetsService.obtenerHojaCalculo(spreadsheetId)
+      ]);
       console.log('✅ [API Sheets] Resultado:', {
-        exito: resultado.exito,
-        hayError: !!resultado.error,
-        hayDatos: !!resultado.datos
+        exito: resultadoDatos.exito,
+        hayError: !!resultadoDatos.error,
+        hayDatos: !!resultadoDatos.datos
       });
 
-      if (!resultado.exito) {
+      if (!resultadoDatos.exito) {
         return NextResponse.json(
-          { exito: false, error: resultado.error },
-          { status: resultado.codigo || 500 }
+          { exito: false, error: resultadoDatos.error },
+          { status: resultadoDatos.codigo || 500 }
         );
       }
 
-      return NextResponse.json(resultado);
+      const titulo = resultadoMeta.exito && resultadoMeta.datos ? resultadoMeta.datos.titulo : undefined;
+      return NextResponse.json({
+        ...resultadoDatos,
+        datos: {
+          ...resultadoDatos.datos,
+          ...(titulo && { titulo })
+        }
+      });
     }
 
     console.error('❌ [API Sheets] Acción no soportada:', action);

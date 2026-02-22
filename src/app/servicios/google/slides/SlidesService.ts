@@ -54,7 +54,38 @@ export class SlidesService extends BaseGoogleService {
     return google;
   }
 
-  async obtenerPresentacion(presentationId: string): Promise<ResultadoAPI<Presentacion>> {
+  /**
+   * Obtiene solo la URL de miniatura de la primera diapositiva (para listados).
+   * Solo 1 llamada a getThumbnail en lugar de N. Evita rate limit.
+   */
+  async obtenerPrimeraMiniatura(presentationId: string): Promise<ResultadoAPI<string>> {
+    try {
+      const slides = this.apiClient.slides('v1');
+      const response = await slides.presentations.get({
+        presentationId,
+        auth: this.oauth2Client
+      });
+      const rawSlides = response.data.slides || [];
+      const firstSlideId = rawSlides[0]?.objectId;
+      if (!firstSlideId) {
+        return { exito: true, datos: '' };
+      }
+      const thumbRes = await slides.presentations.pages.getThumbnail({
+        presentationId,
+        pageObjectId: firstSlideId,
+        auth: this.oauth2Client
+      });
+      return {
+        exito: true,
+        datos: thumbRes.data.contentUrl || ''
+      };
+    } catch (error) {
+      this.logError('Error en obtenerPrimeraMiniatura:', error);
+      return handleError(error);
+    }
+  }
+
+  async obtenerPresentacion(presentationId: string, incluirThumbnails: boolean = true): Promise<ResultadoAPI<Presentacion>> {
     this.logInfo('Obteniendo presentación:', presentationId);
     
     try {
@@ -67,24 +98,26 @@ export class SlidesService extends BaseGoogleService {
       const rawSlides = response.data.slides || [];
       this.logInfo('Diapositivas encontradas:', rawSlides.length);
       
-      // Obtener miniaturas para todas las diapositivas
-      const thumbnailPromises = rawSlides.map(async (slide) => {
-        const slideId = slide.objectId || '';
-        try {
-          const thumbnailResponse = await slides.presentations.pages.getThumbnail({
-            presentationId,
-            pageObjectId: slideId,
-            auth: this.oauth2Client
-          });
-          return { slideId, url: thumbnailResponse.data.contentUrl };
-        } catch (error) {
-          this.logError(`Error al obtener miniatura para diapositiva ${slideId}:`, error);
-          return { slideId, url: null };
-        }
-      });
+      let thumbnailMap = new Map<string, string>();
+      if (incluirThumbnails && rawSlides.length > 0) {
+        const thumbnailPromises = rawSlides.map(async (slide) => {
+          const slideId = slide.objectId || '';
+          try {
+            const thumbnailResponse = await slides.presentations.pages.getThumbnail({
+              presentationId,
+              pageObjectId: slideId,
+              auth: this.oauth2Client
+            });
+            return { slideId, url: thumbnailResponse.data.contentUrl };
+          } catch (error) {
+            this.logError(`Error al obtener miniatura para diapositiva ${slideId}:`, error);
+            return { slideId, url: null };
+          }
+        });
 
-      const thumbnails = await Promise.all(thumbnailPromises);
-      const thumbnailMap = new Map(thumbnails.map(t => [t.slideId, t.url]));
+        const thumbnails = await Promise.all(thumbnailPromises);
+        thumbnailMap = new Map(thumbnails.map(t => [t.slideId, t.url || '']));
+      }
       
       const diapositivas: Diapositiva[] = rawSlides.map((slide, index) => {
         const slideId = slide.objectId || '';
@@ -281,9 +314,9 @@ export class SlidesService extends BaseGoogleService {
     }
   }
 
-  async insertarDiapositiva(presentacionId: string, indice: number, layout: TipoLayout): Promise<ResultadoAPI<void>> {
+  async insertarDiapositiva(presentacionId: string, indice: number, layout: TipoLayout, objectId?: string): Promise<ResultadoAPI<void>> {
     try {
-      const request = crearRequestInsertarDiapositiva(indice, layout, presentacionId);
+      const request = crearRequestInsertarDiapositiva(indice, layout, presentacionId, objectId);
       return await this.actualizarPresentacion(presentacionId, [request]);
     } catch (error) {
       return handleError(error);
@@ -308,13 +341,16 @@ export class SlidesService extends BaseGoogleService {
 
     try {
       const slides = this.apiClient.slides('v1');
-      
-      // Crear los requests para cada elemento usando las funciones auxiliares
-      const requests = elementos.flatMap(elemento => {
-        const requestsElemento = crearRequestsActualizarElemento(diapositivaId, elemento.id, elemento);
-        this.logInfo(`📝 [SlidesService] Requests para elemento ${elemento.id}:`, requestsElemento);
-        return requestsElemento;
-      });
+
+      const ejecutarBatch = (omitirDeleteText = false) => {
+        return elementos.flatMap(elemento => {
+          const requestsElemento = crearRequestsActualizarElemento(diapositivaId, elemento.id, elemento, { omitirDeleteText });
+          this.logInfo(`📝 [SlidesService] Requests para elemento ${elemento.id}:`, requestsElemento);
+          return requestsElemento;
+        });
+      };
+
+      let requests = ejecutarBatch();
 
       this.logInfo('📤 [SlidesService] Enviando requests a Google Slides:', {
         presentacionId,
@@ -322,13 +358,28 @@ export class SlidesService extends BaseGoogleService {
         requests
       });
 
-      const response = await slides.presentations.batchUpdate({
-        presentationId: presentacionId,
-        requestBody: {
-          requests
-        },
-        auth: this.oauth2Client
-      });
+      let response;
+      try {
+        response = await slides.presentations.batchUpdate({
+          presentationId: presentacionId,
+          requestBody: { requests },
+          auth: this.oauth2Client
+        });
+      } catch (batchError: any) {
+        // deleteText falla cuando el cuadro de texto está vacío (startIndex 0 = endIndex 0)
+        const mensaje = batchError?.message || batchError?.errors?.[0]?.message || '';
+        if (requests.length > 0 && /startIndex.*must be less than.*endIndex/i.test(mensaje)) {
+          this.logInfo('🔄 [SlidesService] Cuadro vacío detectado, reintentando sin deleteText');
+          requests = ejecutarBatch(true);
+          response = await slides.presentations.batchUpdate({
+            presentationId: presentacionId,
+            requestBody: { requests },
+            auth: this.oauth2Client
+          });
+        } else {
+          throw batchError;
+        }
+      }
 
       this.logSuccess('✅ [SlidesService] Actualización completada:', {
         status: response.status,

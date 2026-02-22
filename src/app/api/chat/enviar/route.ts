@@ -1,131 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase/client';
-import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
-import { messagingService } from '@/app/servicios/messaging';
-import type { PlataformaMensajeria } from '@/app/servicios/messaging/types';
+import { sendMessage } from '@/lib/chat/sendMessage';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 
+/**
+ * Endpoint de redirección temporal para compatibilidad
+ * Redirige las llamadas del endpoint viejo al nuevo sistema unificado
+ */
 export async function POST(req: NextRequest) {
   try {
-    // Verificar autenticación con NextAuth
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Usar cliente admin para operaciones del servidor
-    const supabase = getSupabaseAdmin();
-
     const { conversacionId, contenido, canal, remitente, archivo } = await req.json();
 
-    if (!conversacionId || !contenido || !canal) {
-      return NextResponse.json({
-        error: 'conversacionId, contenido y canal son requeridos'
-      }, { status: 400 });
-    }
+    console.log('🔄 Redirigiendo llamada del endpoint viejo al nuevo sistema:', {
+      conversacionId,
+      canal,
+      remitente,
+      tieneArchivo: !!archivo
+    });
 
-    // 1. Guardar el mensaje en la base de datos
-    const mensaje = {
-      conversacion_id: conversacionId,
-      tipo: archivo ? 'archivo' : 'texto',
-      contenido: contenido.trim(),
-      remitente: remitente,
-      fecha_mensaje: new Date().toISOString(),
-      canal: canal,
-      usuario_id: session.user.id, // Marcar como mensaje propio usando la sesión real
-      metadata: archivo ? {
-        file_url: archivo.url,
-        file_name: archivo.nombre,
-        file_type: archivo.tipo
-      } : {}
-    };
+    // Convertir formato viejo al nuevo formato unificado
+    const messageType = archivo ? (archivo.tipo === 'audio' ? 'audio' : 'file') : 'text';
+    const message = archivo ? `${archivo.tipo === 'audio' ? '🎤' : '📎'} ${archivo.nombre}` : contenido;
 
-    const { data: mensajeGuardado, error: errorMensaje } = await supabase
-      .from('mensajes_conversacion')
-      .insert(mensaje)
-      .select()
-      .single();
-
-    if (errorMensaje) throw errorMensaje;
-
-    // 2. Actualizar la fecha del último mensaje en la conversación
-    const { error: errorConversacion } = await supabase
-      .from('conversaciones')
-      .update({ fecha_mensaje: mensaje.fecha_mensaje })
-      .eq('id', conversacionId);
-
-    if (errorConversacion) {
-      console.warn('Error actualizando conversación:', errorConversacion);
-    }
-
-    // 3. Enviar mensaje a la plataforma externa usando el servicio
-    let resultadoEnvio = null;
-    try {
-      resultadoEnvio = await messagingService.enviarMensaje({
-        plataforma: canal as PlataformaMensajeria,
-        destinatario: remitente,
-        contenido: contenido.trim(),
-        archivo: archivo ? {
-          url: archivo.url,
-          nombre: archivo.nombre,
-          tipo: archivo.tipo
-        } : undefined
-      });
-
-      if (!resultadoEnvio.exito) {
-        console.error('Error enviando mensaje externo:', resultadoEnvio.error);
-        // Actualizar el mensaje con estado de error
-        await supabase
-          .from('mensajes_conversacion')
-          .update({
-            metadata: {
-              ...mensaje.metadata,
-              estado_envio: 'error',
-              error_envio: resultadoEnvio.error
-            }
-          })
-          .eq('id', mensajeGuardado.id);
-      } else {
-        // Actualizar el mensaje con estado de éxito
-        await supabase
-          .from('mensajes_conversacion')
-          .update({
-            metadata: {
-              ...mensaje.metadata,
-              estado_envio: 'enviado',
-              resultado_envio: resultadoEnvio.metadata
-            }
-          })
-          .eq('id', mensajeGuardado.id);
-      }
-    } catch (error) {
-      console.error('Error enviando mensaje externo:', error);
-      // Actualizar el mensaje con estado de error
-      await supabase
-        .from('mensajes_conversacion')
-        .update({
-          metadata: {
-            ...mensaje.metadata,
-            estado_envio: 'error',
-            error_envio: error instanceof Error ? error.message : 'Error desconocido'
-          }
+    // Usar la nueva arquitectura unificada
+    const result = await sendMessage({
+      platform: canal,
+      to: remitente,
+      message,
+      messageType,
+      filePath: archivo?.url,
+      userId: session.user.id,
+      metadata: {
+        conversacion_id: conversacionId,
+        original_canal: canal,
+        migrated_from_old_endpoint: true,
+        ...(archivo && {
+          file_name: archivo.nombre,
+          file_type: archivo.tipo,
+          file_url: archivo.url
         })
-        .eq('id', mensajeGuardado.id);
-    }
+      }
+    });
 
-    return NextResponse.json({
-      success: true,
-      mensaje: mensajeGuardado,
-      envio: resultadoEnvio
-    }, { status: 200 });
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        message: 'Mensaje enviado exitosamente (migrado al nuevo sistema)',
+        platformDetails: result.platformDetails
+      });
+    } else {
+      return NextResponse.json({
+        error: 'Error enviando mensaje',
+        platformDetails: result.platformDetails
+      }, { status: 500 });
+    }
 
   } catch (error) {
-    console.error('Error enviando mensaje:', error);
-    const { error: errorMessage, status } = formatErrorResponse(error);
-    return NextResponse.json({
-      error: errorMessage
-    }, { status });
+    console.error('❌ Error en endpoint de redirección:', error);
+    return NextResponse.json(
+      { error: 'Error interno del servidor' },
+      { status: 500 }
+    );
   }
 }
 

@@ -288,7 +288,7 @@ export const Footer = () => {
             }}
           >
             <Link 
-              href="/terminos"
+              href="/terms-of-service"
               style={{ textDecoration: 'none' }}
             >
               <Typography 
@@ -306,7 +306,7 @@ export const Footer = () => {
             </Link>
             
             <Link 
-              href="/privacidad"
+              href="/privacy-policy"
               style={{ textDecoration: 'none' }}
             >
               <Typography 
@@ -324,7 +324,7 @@ export const Footer = () => {
             </Link>
             
             <Link 
-              href="/cookies"
+              href="/privacy-policy"
               style={{ textDecoration: 'none' }}
             >
               <Typography 

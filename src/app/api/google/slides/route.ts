@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
             elementos: diapositiva.elementos || [],
             indice: diapositiva.indice,
             urlImagen: diapositiva.urlImagen
-          }))
+          })),
+          ...(resultado.datos.nombre && { titulo: resultado.datos.nombre })
         }
       };
 

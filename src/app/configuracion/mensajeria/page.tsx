@@ -34,11 +34,12 @@ import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailIcon from '@mui/icons-material/Email';
 import WhatsAppConnect from './components/WhatsAppConnect';
+import WhatsAppBusinessConnect from './components/WhatsAppBusinessConnect';
 import TelegramConnect from './components/TelegramConnect';
 
 interface ConfiguracionMensajeria {
   id: string;
-  plataforma: 'telegram' | 'whatsapp' | 'email';
+  plataforma: 'telegram' | 'whatsapp-lite' | 'whatsapp-business' | 'whatsapp' | 'email';
   activa: boolean;
   configuracion: any;
   nombre_configuracion: string;
@@ -46,24 +47,61 @@ interface ConfiguracionMensajeria {
   fecha_creacion: string;
 }
 
-type Plataforma = 'telegram' | 'whatsapp' | 'email';
+type Plataforma = 'telegram' | 'whatsapp-lite' | 'whatsapp-business' | 'whatsapp' | 'email';
 
 const platformIcons = {
   telegram: TelegramIcon,
-  whatsapp: WhatsAppIcon,
+  'whatsapp-lite': WhatsAppIcon,
+  'whatsapp-business': WhatsAppIcon,
+  'whatsapp': WhatsAppIcon,
   email: EmailIcon
 };
 
 const platformColors = {
   telegram: '#229ED9',
-  whatsapp: '#25D366',
+  'whatsapp-lite': '#25D366',
+  'whatsapp-business': '#128C7E',
+  'whatsapp': '#25D366',
   email: '#D44638'
 };
 
 const platformLabels = {
   telegram: 'Telegram',
-  whatsapp: 'WhatsApp',
+  'whatsapp-lite': 'WhatsApp Lite (Personal)',
+  'whatsapp-business': 'WhatsApp Business API',
+  'whatsapp': 'WhatsApp',
   email: 'Email'
+};
+
+// Función para mapear plataformas de BD a frontend
+const mapPlatform = (platform: string, configuracion?: any): Plataforma => {
+  if (platform === 'whatsapp') {
+    // Determinar el tipo específico basado en la configuración
+    const tipoConexion = configuracion?.tipo_conexion || configuracion?.plataforma_original;
+    if (tipoConexion === 'business' || tipoConexion === 'whatsapp-business') {
+      return 'whatsapp-business';
+    }
+    return 'whatsapp-lite'; // Por defecto, mapear a lite
+  }
+  return platform as Plataforma;
+};
+
+// Función para obtener el icono de una plataforma
+const getPlatformIcon = (platform: string, configuracion?: any) => {
+  const mappedPlatform = mapPlatform(platform, configuracion);
+  return platformIcons[mappedPlatform] || WhatsAppIcon; // Fallback a WhatsAppIcon
+};
+
+// Función para obtener el color de una plataforma
+const getPlatformColor = (platform: string, configuracion?: any) => {
+  const mappedPlatform = mapPlatform(platform, configuracion);
+  return platformColors[mappedPlatform] || '#25D366'; // Fallback a color WhatsApp
+};
+
+// Función para obtener el label de una plataforma
+const getPlatformLabel = (platform: string, configuracion?: any) => {
+  const mappedPlatform = mapPlatform(platform, configuracion);
+  return platformLabels[mappedPlatform] || 'WhatsApp';
 };
 
 export default function ConfiguracionMensajeriaPage() {
@@ -99,7 +137,7 @@ export default function ConfiguracionMensajeriaPage() {
   const handleOpenModal = (config?: ConfiguracionMensajeria) => {
     if (config) {
       setEditingConfig(config);
-      setPlataforma(config.plataforma);
+      setPlataforma(mapPlatform(config.plataforma, config.configuracion));
       setNombreConfig(config.nombre_configuracion);
       setDescripcion(config.descripcion || '');
       setActiva(config.activa);
@@ -181,33 +219,286 @@ export default function ConfiguracionMensajeriaPage() {
     }
   };
 
+  // Debounce para evitar llamadas múltiples
+  const [isProcessingConnection, setIsProcessingConnection] = useState(false);
+
   const handlePlatformConnected = async (plataforma: Plataforma, config: any) => {
+    console.log('🔄 handlePlatformConnected llamado:', { plataforma, config });
+    
+    // Evitar procesamiento múltiple con debounce más agresivo
+    if (isProcessingConnection) {
+      console.log('⚠️ Ya se está procesando una conexión, saltando...');
+      return;
+    }
+    
+    setIsProcessingConnection(true);
+    
     try {
-      const nombreConfig = `${platformLabels[plataforma]} - ${new Date().toLocaleDateString()}`;
-      
-      const res = await fetch('/api/configuracion/mensajeria', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plataforma,
-          nombre_configuracion: nombreConfig,
-          descripcion: `Configuración automática de ${platformLabels[plataforma]}`,
-          activa: true,
-          configuracion: config
-        })
+      // Buscar si ya existe una configuración activa para esta plataforma
+      // Considerar tanto la plataforma exacta como el mapeo (whatsapp-lite -> whatsapp)
+      const configuracionesWhatsApp = configuraciones.filter(c => {
+        if (!c.activa) return false;
+        
+        // Para WhatsApp, buscar todas las configuraciones de whatsapp
+        if ((plataforma === 'whatsapp-lite' || plataforma === 'whatsapp-business') && c.plataforma === 'whatsapp') {
+          return true;
+        }
+        
+        // Comparación directa para otras plataformas
+        return c.plataforma === plataforma;
       });
 
-      if (res.ok) {
-        await fetchConfiguraciones();
-        // Mostrar mensaje de éxito
-        alert(`¡${platformLabels[plataforma]} conectado exitosamente!`);
+      console.log('🔍 Configuraciones WhatsApp encontradas:', configuracionesWhatsApp.length);
+      configuracionesWhatsApp.forEach(c => {
+        console.log(`   - ${c.nombre_configuracion} (${c.id})`);
+        console.log(`     Tipo: ${c.configuracion?.tipo_conexion || c.configuracion?.plataforma_original}`);
+        console.log(`     Teléfono: ${c.configuracion?.phone_number || 'Sin número'}`);
+        console.log(`     Auto: ${c.configuracion?.auto_created || false}`);
+      });
+
+      // Buscar la configuración más apropiada para actualizar
+      let configuracionExistente = null;
+      
+      // PRIORIDAD 1: Buscar por número de teléfono exacto
+      const phoneNumber = config.phone_number;
+      if (phoneNumber) {
+        const existingWithSamePhone = configuracionesWhatsApp.find(c => 
+          c.configuracion?.phone_number === phoneNumber
+        );
+        
+        if (existingWithSamePhone) {
+          console.log('📱 Configuración encontrada por número de teléfono exacto');
+          configuracionExistente = existingWithSamePhone;
+        }
+      }
+      
+      // PRIORIDAD 2: Si no hay por número, buscar por tipo de conexión
+      if (!configuracionExistente && configuracionesWhatsApp.length > 0) {
+        configuracionExistente = configuracionesWhatsApp.find(c => {
+          const tipoConexion = c.configuracion?.tipo_conexion || c.configuracion?.plataforma_original;
+          return (plataforma === 'whatsapp-lite' && (tipoConexion === 'lite' || tipoConexion === 'whatsapp-lite')) ||
+                 (plataforma === 'whatsapp-business' && (tipoConexion === 'business' || tipoConexion === 'whatsapp-business'));
+        });
+        
+        if (configuracionExistente) {
+          console.log('📱 Configuración encontrada por tipo de conexión');
+        }
+      }
+
+      // PRIORIDAD 3: Si no hay por tipo, tomar la que tenga phone_number
+      if (!configuracionExistente && configuracionesWhatsApp.length > 0) {
+        configuracionExistente = configuracionesWhatsApp.find(c => c.configuracion?.phone_number);
+        if (configuracionExistente) {
+          console.log('📱 Configuración encontrada por tener phone_number');
+        }
+      }
+
+      // PRIORIDAD 4: Si aún no hay, tomar la más reciente
+      if (!configuracionExistente && configuracionesWhatsApp.length > 0) {
+        configuracionExistente = configuracionesWhatsApp.sort((a, b) => 
+          new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+        )[0];
+        console.log('📱 Configuración encontrada por ser la más reciente');
+      }
+      
+      if (configuracionesWhatsApp.length > 0) {
+        // Si hay múltiples, priorizar:
+        // 1. La que tenga el mismo tipo de conexión
+        // 2. La que tenga phone_number
+        // 3. La más reciente
+        configuracionExistente = configuracionesWhatsApp.find(c => {
+          const tipoConexion = c.configuracion?.tipo_conexion || c.configuracion?.plataforma_original;
+          return (plataforma === 'whatsapp-lite' && (tipoConexion === 'lite' || tipoConexion === 'whatsapp-lite')) ||
+                 (plataforma === 'whatsapp-business' && (tipoConexion === 'business' || tipoConexion === 'whatsapp-business'));
+        });
+
+        // Si no encontramos por tipo, tomar la que tenga phone_number
+        if (!configuracionExistente) {
+          configuracionExistente = configuracionesWhatsApp.find(c => c.configuracion?.phone_number);
+        }
+
+        // Si aún no hay, tomar la más reciente
+        if (!configuracionExistente) {
+          configuracionExistente = configuracionesWhatsApp.sort((a, b) => 
+            new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+          )[0];
+        }
+      }
+      
+      console.log('🔍 Configuración existente encontrada:', configuracionExistente);
+
+      if (configuracionExistente) {
+        // Actualizar la configuración existente
+        console.log('📝 Actualizando configuración existente...');
+        const res = await fetch(`/api/configuracion/mensajeria/${configuracionExistente.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            configuracion: {
+              ...configuracionExistente.configuracion,
+              ...config,
+              ultima_conexion: new Date().toISOString(),
+              estado_conexion: 'connected'
+            },
+            activa: true,
+            fecha_actualizacion: new Date().toISOString()
+          })
+        });
+
+        if (res.ok) {
+          console.log('✅ Configuración actualizada exitosamente');
+          
+          // Limpiar duplicados si hay múltiples configuraciones WhatsApp
+          if (configuracionesWhatsApp.length > 1) {
+            console.log('🧹 Limpiando configuraciones duplicadas...');
+            const configsToDelete = configuracionesWhatsApp.filter(c => c.id !== configuracionExistente!.id);
+            
+            for (const configToDelete of configsToDelete) {
+              console.log(`🗑️ Eliminando duplicado: ${configToDelete.nombre_configuracion}`);
+              try {
+                await fetch(`/api/configuracion/mensajeria/${configToDelete.id}`, {
+                  method: 'DELETE'
+                });
+                console.log(`✅ Duplicado eliminado: ${configToDelete.id}`);
+              } catch (error) {
+                console.error(`❌ Error eliminando duplicado ${configToDelete.id}:`, error);
+              }
+            }
+          }
+          
+          await fetchConfiguraciones();
+          alert(`¡${platformLabels[plataforma]} reconectado exitosamente!`);
+        } else {
+          const data = await res.json();
+          console.error('❌ Error actualizando configuración:', data);
+          alert(`Error reconectando ${platformLabels[plataforma]}: ${data.error}`);
+        }
       } else {
-        const data = await res.json();
-        alert(`Error conectando ${platformLabels[plataforma]}: ${data.error}`);
+        // Verificar si hay configuraciones inactivas que podamos reactivar
+        const configuracionInactiva = configuraciones.find(c => {
+          if (c.activa) return false;
+          
+          if ((plataforma === 'whatsapp-lite' || plataforma === 'whatsapp-business') && c.plataforma === 'whatsapp') {
+            return true;
+          }
+          
+          return c.plataforma === plataforma;
+        });
+
+        if (configuracionInactiva) {
+          console.log('🔄 Reactivando configuración existente...');
+          const res = await fetch(`/api/configuracion/mensajeria/${configuracionInactiva.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              configuracion: {
+                ...configuracionInactiva.configuracion,
+                ...config,
+                ultima_conexion: new Date().toISOString(),
+                estado_conexion: 'connected',
+                reactivated: true
+              },
+              activa: true,
+              fecha_actualizacion: new Date().toISOString()
+            })
+          });
+
+          if (res.ok) {
+            console.log('✅ Configuración reactivada exitosamente');
+            await fetchConfiguraciones();
+            alert(`¡${platformLabels[plataforma]} reconectado exitosamente!`);
+          } else {
+            const data = await res.json();
+            console.error('❌ Error reactivando configuración:', data);
+            alert(`Error reconectando ${platformLabels[plataforma]}: ${data.error}`);
+          }
+        } else {
+          // Verificar si hay configuraciones inactivas que podamos reactivar
+          const configuracionInactiva = configuraciones.find(c => {
+            if (c.activa) return false;
+            
+            if ((plataforma === 'whatsapp-lite' || plataforma === 'whatsapp-business') && c.plataforma === 'whatsapp') {
+              return true;
+            }
+            
+            return c.plataforma === plataforma;
+          });
+
+          if (configuracionInactiva) {
+            console.log('🔄 Reactivando configuración existente...');
+            const res = await fetch(`/api/configuracion/mensajeria/${configuracionInactiva.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                configuracion: {
+                  ...configuracionInactiva.configuracion,
+                  ...config,
+                  ultima_conexion: new Date().toISOString(),
+                  estado_conexion: 'connected',
+                  reactivated: true
+                },
+                activa: true,
+                fecha_actualizacion: new Date().toISOString()
+              })
+            });
+
+            if (res.ok) {
+              console.log('✅ Configuración reactivada exitosamente');
+              await fetchConfiguraciones();
+              alert(`¡${platformLabels[plataforma]} reconectado exitosamente!`);
+            } else {
+              const data = await res.json();
+              console.error('❌ Error reactivando configuración:', data);
+              alert(`Error reconectando ${platformLabels[plataforma]}: ${data.error}`);
+            }
+          } else {
+            // Crear nueva configuración solo si no existe ninguna
+            console.log('🆕 Creando nueva configuración...');
+            const nombreConfig = `${platformLabels[plataforma]} - ${new Date().toLocaleDateString()}`;
+            
+            const nuevaConfiguracion = {
+              plataforma,
+              nombre_configuracion: nombreConfig,
+              descripcion: `Configuración automática de ${platformLabels[plataforma]}`,
+              activa: true,
+              configuracion: {
+                ...config,
+                fecha_creacion: new Date().toISOString(),
+                estado_conexion: 'connected',
+                auto_created: true // Marcar como creada automáticamente
+              }
+            };
+
+            console.log('📤 Enviando nueva configuración:', nuevaConfiguracion);
+            
+            const res = await fetch('/api/configuracion/mensajeria', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(nuevaConfiguracion)
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              console.log('✅ Nueva configuración creada exitosamente:', data);
+              await fetchConfiguraciones();
+              alert(`¡${platformLabels[plataforma]} conectado exitosamente!`);
+            } else {
+              const data = await res.json();
+              console.error('❌ Error creando configuración:', data);
+              alert(`Error conectando ${platformLabels[plataforma]}: ${data.error || 'Error desconocido'}`);
+            }
+          }
+        }
       }
     } catch (error) {
-      console.error('Error saving platform configuration:', error);
-      alert(`Error conectando ${platformLabels[plataforma]}`);
+      console.error('❌ Error en handlePlatformConnected:', error);
+      alert(`Error conectando ${platformLabels[plataforma]}: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      // Liberar el lock después de un delay más largo para evitar múltiples llamadas
+      setTimeout(() => {
+        setIsProcessingConnection(false);
+        console.log('🔓 Lock de procesamiento liberado');
+      }, 3000); // 3 segundos para evitar duplicaciones
     }
   };
 
@@ -233,7 +524,7 @@ export default function ConfiguracionMensajeriaPage() {
           </Box>
         );
 
-      case 'whatsapp':
+      case 'whatsapp-business':
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
@@ -338,7 +629,7 @@ export default function ConfiguracionMensajeriaPage() {
     }
   };
 
-  const PlatformIcon = platformIcons[plataforma];
+  const PlatformIcon = getPlatformIcon(plataforma);
 
   return (
     <>
@@ -348,13 +639,36 @@ export default function ConfiguracionMensajeriaPage() {
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
             Configuración de Mensajería
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenModal()}
-          >
-            Nueva Configuración
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/configuracion/mensajeria/clean-duplicates', {
+                    method: 'POST'
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    alert(`Limpieza completada: ${data.eliminadas} eliminadas, ${data.desactivadas} desactivadas`);
+                    await fetchConfiguraciones();
+                  } else {
+                    alert('Error en la limpieza: ' + data.error);
+                  }
+                } catch (error) {
+                  alert('Error ejecutando limpieza');
+                }
+              }}
+            >
+              Limpiar Duplicados
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenModal()}
+            >
+              Nueva Configuración
+            </Button>
+          </Box>
         </Box>
 
         <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
@@ -371,8 +685,11 @@ export default function ConfiguracionMensajeriaPage() {
             <TelegramConnect 
               onConnected={(config) => handlePlatformConnected('telegram', config)}
             />
-            <WhatsAppConnect 
-              onConnected={(config) => handlePlatformConnected('whatsapp', config)}
+            <WhatsAppConnect
+              onConnected={(config) => handlePlatformConnected('whatsapp-lite', config)}
+            />
+            <WhatsAppBusinessConnect
+              onConnected={(config) => handlePlatformConnected('whatsapp-business', config)}
             />
           </Box>
         </Box>
@@ -386,14 +703,14 @@ export default function ConfiguracionMensajeriaPage() {
         ) : (
           <List>
             {configuraciones.map((config) => {
-              const Icon = platformIcons[config.plataforma];
+              const Icon = getPlatformIcon(config.plataforma, config.configuracion);
               return (
                 <Card key={config.id} sx={{ mb: 2 }}>
                   <ListItem>
                     <ListItemText
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Icon sx={{ color: platformColors[config.plataforma] }} />
+                          <Icon sx={{ color: getPlatformColor(config.plataforma, config.configuracion) }} />
                           <Typography variant="h6">
                             {config.nombre_configuracion}
                           </Typography>
@@ -406,17 +723,17 @@ export default function ConfiguracionMensajeriaPage() {
                       }
                       secondary={
                         <Box sx={{ mt: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            {platformLabels[config.plataforma]}
-                          </Typography>
+                          <Box component="span" sx={{ display: 'block' }}>
+                            {getPlatformLabel(config.plataforma, config.configuracion)}
+                          </Box>
                           {config.descripcion && (
-                            <Typography variant="body2" color="text.secondary">
+                            <Box component="span" sx={{ display: 'block' }}>
                               {config.descripcion}
-                            </Typography>
+                            </Box>
                           )}
-                          <Typography variant="caption" color="text.secondary">
+                          <Box component="span" sx={{ display: 'block', fontSize: '0.75rem' }}>
                             Creada: {new Date(config.fecha_creacion).toLocaleDateString()}
-                          </Typography>
+                          </Box>
                         </Box>
                       }
                     />
@@ -455,10 +772,16 @@ export default function ConfiguracionMensajeriaPage() {
                       Telegram
                     </Box>
                   </MenuItem>
-                  <MenuItem value="whatsapp">
+                  <MenuItem value="whatsapp-lite">
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <WhatsAppIcon sx={{ color: platformColors.whatsapp }} />
-                      WhatsApp
+                      <WhatsAppIcon sx={{ color: platformColors['whatsapp-lite'] }} />
+                      WhatsApp Lite (Personal)
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="whatsapp-business">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <WhatsAppIcon sx={{ color: platformColors['whatsapp-business'] }} />
+                      WhatsApp Business API
                     </Box>
                   </MenuItem>
                   <MenuItem value="email">
@@ -511,9 +834,9 @@ export default function ConfiguracionMensajeriaPage() {
               disabled={loading}
               startIcon={<PlatformIcon />}
               sx={{
-                bgcolor: platformColors[plataforma],
+                bgcolor: getPlatformColor(plataforma),
                 '&:hover': {
-                  bgcolor: platformColors[plataforma]
+                  bgcolor: getPlatformColor(plataforma)
                 }
               }}
             >

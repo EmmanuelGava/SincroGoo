@@ -114,22 +114,30 @@ export function useChat() {
 
     try {
       setError(null);
-      const res = await fetch('/api/chat/enviar', {
+      
+      // Usar la nueva arquitectura unificada
+      const res = await fetch('/api/chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversacionId: conversacionActiva.id,
-          contenido: contenido.trim(),
-          canal: conversacionActiva.servicio_origen,
-          remitente: conversacionActiva.remitente
+          platform: conversacionActiva.servicio_origen,
+          to: conversacionActiva.remitente,
+          message: contenido.trim(),
+          messageType: 'text',
+          metadata: {
+            conversacion_id: conversacionActiva.id,
+            original_canal: conversacionActiva.servicio_origen
+          }
         })
       });
 
       const data = await res.json();
       
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         throw new Error(data.error || 'Error enviando mensaje');
       }
+
+      console.log('✅ Mensaje enviado via nueva arquitectura:', data);
 
       // Refrescar mensajes y conversaciones
       await fetchMensajes(conversacionActiva.id);

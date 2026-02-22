@@ -292,54 +292,6 @@ export function EncabezadoSitio() {
                     <ListItemText>Proyectos</ListItemText>
                   </MenuItem>
                   
-                  <MenuItem 
-                    onClick={() => {
-                      handleCloseMobileMenu()
-                      router.push("/src/presentaciones")
-                    }}
-                    selected={pathname === "/src/presentaciones"}
-                    sx={{ 
-                      borderRadius: 1,
-                      mx: 0.5,
-                      my: 0.3,
-                      '&.Mui-selected': {
-                        bgcolor: mode === 'dark' 
-                          ? alpha(theme.palette.primary.main, 0.15)
-                          : alpha(theme.palette.primary.main, 0.08),
-                        color: 'primary.main',
-                      }
-                    }}
-                  >
-                    <ListItemIcon>
-                      <SlideshowOutlinedIcon fontSize="small" color={pathname === "/src/presentaciones" ? "primary" : "inherit"} />
-                    </ListItemIcon>
-                    <ListItemText>Presentaciones</ListItemText>
-                  </MenuItem>
-                  
-                  <MenuItem 
-                    onClick={() => {
-                      handleCloseMobileMenu()
-                      router.push("/src/hojas-de-calculo")
-                    }}
-                    selected={pathname === "/src/hojas-de-calculo"}
-                    sx={{ 
-                      borderRadius: 1,
-                      mx: 0.5,
-                      my: 0.3,
-                      '&.Mui-selected': {
-                        bgcolor: mode === 'dark' 
-                          ? alpha(theme.palette.primary.main, 0.15)
-                          : alpha(theme.palette.primary.main, 0.08),
-                        color: 'primary.main',
-                      }
-                    }}
-                  >
-                    <ListItemIcon>
-                      <TableChartOutlinedIcon fontSize="small" color={pathname === "/src/hojas-de-calculo" ? "primary" : "inherit"} />
-                    </ListItemIcon>
-                    <ListItemText>Hojas</ListItemText>
-                  </MenuItem>
-
                   <Divider sx={{ my: 1 }} />
 
                   <MenuItem 
@@ -376,23 +328,6 @@ export function EncabezadoSitio() {
                       </NavButton>
                     </Box>
                     
-                    <Box component={Link} href="/src/presentaciones" sx={{ textDecoration: 'none' }}>
-                      <NavButton 
-                        className={pathname === "/src/presentaciones" ? "active" : ""}
-                        startIcon={<SlideshowOutlinedIcon />}
-                      >
-                        Presentaciones
-                      </NavButton>
-                    </Box>
-                    
-                    <Box component={Link} href="/src/hojas-de-calculo" sx={{ textDecoration: 'none' }}>
-                      <NavButton 
-                        className={pathname === "/src/hojas-de-calculo" ? "active" : ""}
-                        startIcon={<TableChartOutlinedIcon />}
-                      >
-                        Hojas
-                      </NavButton>
-                    </Box>
                   </Box>
                 )}
               </Box>
@@ -489,7 +424,7 @@ export function EncabezadoSitio() {
                     
                     <MenuItem onClick={() => {
                       handleCloseUserMenu()
-                      router.push("/src/perfil")
+                      router.push("/dashboard")
                     }}
                     sx={{ 
                       borderRadius: 1,
@@ -504,7 +439,7 @@ export function EncabezadoSitio() {
                     
                     <MenuItem onClick={() => {
                       handleCloseUserMenu()
-                      router.push("/src/configuracion")
+                      router.push("/configuracion")
                     }}
                     sx={{ 
                       borderRadius: 1,

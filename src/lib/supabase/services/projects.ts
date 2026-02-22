@@ -1,4 +1,4 @@
-import { supabase, getSupabaseClient } from '../client';
+import { supabase, getSupabaseClient, getSupabaseAdmin } from '../client';
 import { handleError, formatErrorResponse } from '../utils/error-handler';
 import type { 
   Project, 
@@ -257,14 +257,13 @@ export class ProjectsService {
    */
   async createProject(params: ProjectCreateParams): Promise<string | null> {
     try {
-      const { supabase } = await getSupabaseClient();
+      const supabase = getSupabaseAdmin();
       
       // Preparar datos para inserción
       const projectData = {
         nombre: params.nombre,
         descripcion: params.descripcion || null,
         usuario_id: params.usuario_id,
-        userid: params.usuario_id, // Para compatibilidad
         slides_id: params.presentacion_id || null,
         sheets_id: params.hoja_calculo_id || null,
         fecha_creacion: new Date().toISOString(),
@@ -288,7 +287,9 @@ export class ProjectsService {
       return data?.id || null;
     } catch (error) {
       handleError(this.CONTEXT, this.formatError('createProject', error));
-      return null;
+      // Preservar mensaje de PostgrestError u otros errores
+      const msg = (error as { message?: string })?.message ?? String(error);
+      throw new Error(msg);
     }
   }
 

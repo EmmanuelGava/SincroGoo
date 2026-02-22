@@ -215,7 +215,7 @@ export default function HeroSection() {
             >
               <Button
                 variant="contained"
-                href="/src/proyectos"
+                href="/proyectos"
                 sx={{
                   padding: '12px 24px',
                   fontSize: '1.125rem',
@@ -235,7 +235,7 @@ export default function HeroSection() {
               </Button>
               <Button
                 variant="outlined"
-                href="/demo"
+                href="/proyectos"
                 sx={{
                   padding: '12px 24px',
                   fontSize: '1.125rem',

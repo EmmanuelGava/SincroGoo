@@ -125,45 +125,74 @@ export class SheetsService extends BaseGoogleService {
 
   async obtenerDatosHoja(spreadsheetId: string): Promise<ResultadoAPI<DatosHoja>> {
     this.logInfo('Obteniendo datos de hoja:', spreadsheetId);
-    
-    return this.executeWithRateLimit('obtenerDatosHoja', async () => {
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'A1:Z1000', // Rango amplio para obtener todos los datos
-        auth: this.oauth2Client
-      });
 
-      const valores = response.data.values || [];
-      if (valores.length === 0) {
-        return {
-          encabezados: [],
-          filas: [],
-          rango: response.data.range || ''
-        };
+    const procesarValores = (valores: any[][], rango: string) => {
+      if (!valores.length) {
+        return { encabezados: [] as string[], filas: [] as any[], rango };
       }
-
-      // Los encabezados son la primera fila
       const encabezados = valores[0].map((titulo: string) => titulo || '');
-
-      // Las filas son el resto de los datos
       const filas = valores.slice(1).map((fila: any[], index: number) => ({
         indice: index + 1,
-        valores: fila.map((valor, colIndex) => ({
-          valor: valor,
+        valores: fila.map((valor) => ({
+          valor,
           tipo: this.determinarTipoCelda(valor)
         }))
       }));
+      return { encabezados, filas, rango };
+    };
 
-      this.logInfo('Datos procesados:', {
-        numFilas: filas.length,
-        numEncabezados: encabezados.length
+    return this.executeWithRateLimit('obtenerDatosHoja', async () => {
+      // 1. Intentar con la primera hoja (rango sin nombre usa la primera por defecto)
+      let response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: 'A1:Z1000',
+        auth: this.oauth2Client
       });
 
-      return {
-        encabezados,
-        filas,
-        rango: response.data.range || ''
-      };
+      let valores = response.data.values || [];
+
+      // 2. Si la primera hoja está vacía, buscar en el resto de hojas
+      if (valores.length === 0) {
+        const metaResponse = await this.sheets.spreadsheets.get({
+          spreadsheetId,
+          includeGridData: false,
+          auth: this.oauth2Client
+        });
+
+        const hojas = metaResponse.data.sheets || [];
+        for (const sheet of hojas) {
+          const titulo = sheet.properties?.title;
+          if (!titulo) continue;
+
+          const rangoHoja = `'${titulo.replace(/'/g, "''")}'!A1:Z1000`;
+          try {
+            const resp = await this.sheets.spreadsheets.values.get({
+              spreadsheetId,
+              range: rangoHoja,
+              auth: this.oauth2Client
+            });
+            const v = resp.data.values || [];
+            if (v.length > 0) {
+              this.logInfo('Datos encontrados en hoja:', titulo);
+              valores = v;
+              response = resp;
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      const rango = response.data.range || '';
+      const resultado = procesarValores(valores, rango);
+
+      this.logInfo('Datos procesados:', {
+        numFilas: resultado.filas.length,
+        numEncabezados: resultado.encabezados.length
+      });
+
+      return resultado;
     });
   }
 

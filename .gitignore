@@ -72,3 +72,10 @@ src/lib/supabase/scripts/
 sql/
 estructura.sql
 scripts/
+# Archivos temporales de WhatsApp (solo desarrollo)
+temp_auth_sessions/
+*.session
+auth_info_baileys/
+creds.json
+auth_info.json
+session.json

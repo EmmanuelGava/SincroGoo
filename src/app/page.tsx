@@ -561,7 +561,7 @@ export default function HomePage() {
                 <Button 
                   variant="contained" 
                   size="large" 
-                  href="/src/proyectos"
+                  href="/proyectos"
                   startIcon={<PlayArrowOutlinedIcon />}
                   sx={{ 
                     py: 1.5, 
@@ -589,7 +589,7 @@ export default function HomePage() {
                 <Button 
                   variant="outlined" 
                   size="large" 
-                  href="/precios"
+                  href="/#pricing"
                   startIcon={<VisibilityOutlinedIcon />}
                   sx={{ 
                     py: 1.5, 

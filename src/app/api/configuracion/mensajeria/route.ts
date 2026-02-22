@@ -1,41 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 
 // GET - Obtener configuraciones del usuario
 export async function GET(req: NextRequest) {
   try {
-    const { supabase, session } = await getSupabaseClient(true);
-    if (!session) {
+    // Verificar autenticación con NextAuth (excepto en modo desarrollo)
+    const DEV_MODE_NO_AUTH = process.env.DEV_MODE_NO_AUTH === 'true';
+    const session = await getServerSession(authOptions);
+    
+    if (!DEV_MODE_NO_AUTH && !session) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const plataforma = searchParams.get('plataforma');
-    const activa = searchParams.get('activa');
+    // Obtener el UUID de Supabase del usuario
+    let userId = session?.user?.id || 'dev-user-id';
+    
+    // Si es un ID de Google (numérico), necesitamos obtener el UUID de Supabase
+    if (userId && /^\d+$/.test(userId)) {
+      console.log('🔄 [Config API] ID de Google detectado, obteniendo UUID de Supabase...');
+      try {
+        const supabase = getSupabaseAdmin();
+        const { data: userData, error: userError } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('auth_id', userId)
+          .single();
+        
+        if (userError) {
+          console.error('❌ [Config API] Error obteniendo UUID de Supabase:', userError);
+          return NextResponse.json({
+            error: 'Error obteniendo información del usuario'
+          }, { status: 500 });
+        }
+        
+        if (userData) {
+          userId = userData.id;
+          console.log('✅ [Config API] UUID de Supabase obtenido:', userId);
+        }
+      } catch (error) {
+        console.error('❌ [Config API] Error en consulta de usuario:', error);
+        return NextResponse.json({
+          error: 'Error obteniendo información del usuario'
+        }, { status: 500 });
+      }
+    }
+    
+    console.log('✅ [Config API] Usuario autenticado:', session?.user?.email || 'dev-mode', userId);
 
-    let query = supabase
+    // Usar cliente admin para operaciones del servidor
+    const supabase = getSupabaseAdmin();
+
+    // Obtener configuraciones reales de la base de datos
+    const { data: configuraciones, error } = await supabase
       .from('configuracion_mensajeria_usuario')
       .select('*')
-      .eq('usuario_id', session.user.id);
-
-    // Filtrar por plataforma si se especifica
-    if (plataforma) {
-      query = query.eq('plataforma', plataforma);
-    }
-
-    // Filtrar por estado activo si se especifica
-    if (activa === 'true') {
-      query = query.eq('activa', true);
-    }
-
-    const { data: configuraciones, error } = await query
+      .eq('usuario_id', userId)
       .order('fecha_creacion', { ascending: false });
 
     if (error) {
-      console.error('Error fetching configuraciones:', error);
-      throw error;
+      console.error('❌ [Config API] Error obteniendo configuraciones:', error);
+      return NextResponse.json({
+        error: 'Error obteniendo configuraciones'
+      }, { status: 500 });
     }
+
+    console.log('✅ [Config API] Configuraciones obtenidas:', configuraciones?.length || 0);
 
     return NextResponse.json({
       success: true,
@@ -52,10 +84,51 @@ export async function GET(req: NextRequest) {
 // POST - Crear nueva configuración
 export async function POST(req: NextRequest) {
   try {
-    const { supabase, session } = await getSupabaseClient(true);
-    if (!session) {
+    // Verificar autenticación con NextAuth (excepto en modo desarrollo)
+    const DEV_MODE_NO_AUTH = process.env.DEV_MODE_NO_AUTH === 'true';
+    const session = await getServerSession(authOptions);
+    
+    if (!DEV_MODE_NO_AUTH && !session) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
+
+    // Obtener el UUID de Supabase del usuario
+    let userId = session?.user?.id || 'dev-user-id';
+    
+    // Si es un ID de Google (numérico), necesitamos obtener el UUID de Supabase
+    if (userId && /^\d+$/.test(userId)) {
+      console.log('🔄 [Config API] ID de Google detectado, obteniendo UUID de Supabase...');
+      try {
+        const supabase = getSupabaseAdmin();
+        const { data: userData, error: userError } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('auth_id', userId)
+          .single();
+        
+        if (userError) {
+          console.error('❌ [Config API] Error obteniendo UUID de Supabase:', userError);
+          return NextResponse.json({
+            error: 'Error obteniendo información del usuario'
+          }, { status: 500 });
+        }
+        
+        if (userData) {
+          userId = userData.id;
+          console.log('✅ [Config API] UUID de Supabase obtenido:', userId);
+        }
+      } catch (error) {
+        console.error('❌ [Config API] Error en consulta de usuario:', error);
+        return NextResponse.json({
+          error: 'Error obteniendo información del usuario'
+        }, { status: 500 });
+      }
+    }
+    
+    console.log('✅ [Config API] Usuario autenticado:', session?.user?.email || 'dev-mode', userId);
+
+    // Usar cliente admin para operaciones del servidor
+    const supabase = getSupabaseAdmin();
 
     const { 
       plataforma, 
@@ -71,11 +144,18 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validar plataforma
+    // Validar y mapear plataforma
+    let plataformaNormalizada = plataforma;
+    
+    // Mapear plataformas específicas a las válidas
+    if (plataforma === 'whatsapp-lite' || plataforma === 'whatsapp-business') {
+      plataformaNormalizada = 'whatsapp';
+    }
+    
     const plataformasValidas = ['telegram', 'whatsapp', 'email'];
-    if (!plataformasValidas.includes(plataforma)) {
+    if (!plataformasValidas.includes(plataformaNormalizada)) {
       return NextResponse.json({
-        error: 'Plataforma no válida'
+        error: `Plataforma no válida: ${plataforma}. Plataformas válidas: ${plataformasValidas.join(', ')}`
       }, { status: 400 });
     }
 
@@ -83,8 +163,8 @@ export async function POST(req: NextRequest) {
     const { data: existente } = await supabase
       .from('configuracion_mensajeria_usuario')
       .select('id')
-      .eq('usuario_id', session.user.id)
-      .eq('plataforma', plataforma)
+      .eq('usuario_id', userId)
+      .eq('plataforma', plataformaNormalizada)
       .eq('nombre_configuracion', nombre_configuracion)
       .single();
 
@@ -95,12 +175,16 @@ export async function POST(req: NextRequest) {
     }
 
     const nuevaConfiguracion = {
-      usuario_id: session.user.id,
-      plataforma,
+      usuario_id: userId,
+      plataforma: plataformaNormalizada,
       nombre_configuracion,
       descripcion: descripcion || null,
       activa: activa !== false, // Default true
-      configuracion,
+      configuracion: {
+        ...configuracion,
+        tipo_conexion: plataforma, // Guardar el tipo original (lite/business)
+        plataforma_original: plataforma
+      },
       fecha_creacion: new Date().toISOString(),
       fecha_actualizacion: new Date().toISOString()
     };

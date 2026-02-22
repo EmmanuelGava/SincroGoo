@@ -12,8 +12,10 @@ interface UIContextType {
   cambiosPendientes: boolean
   mostrarVistaPrevia: boolean
   
-  // IDs
+  // IDs y títulos
   idProyecto: string
+  tituloHoja: string
+  tituloPresentacion: string
   
   // Setters
   setCargando: (cargando: boolean) => void
@@ -28,11 +30,15 @@ const UIContext = createContext<UIContextType | null>(null)
 interface UIProviderProps {
   children: React.ReactNode
   initialIdProyecto: string
+  tituloHoja?: string
+  tituloPresentacion?: string
 }
 
 export function UIProvider({
   children,
-  initialIdProyecto
+  initialIdProyecto,
+  tituloHoja = 'Hoja de cálculo',
+  tituloPresentacion = 'Presentación'
 }: UIProviderProps) {
   // Estados básicos
   const [cargando, setCargando] = useState(false)
@@ -43,7 +49,7 @@ export function UIProvider({
   const [cambiosPendientes, setCambiosPendientes] = useState(false)
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false)
   
-  // IDs
+  // IDs y títulos
   const [idProyecto] = useState(initialIdProyecto)
 
   const value: UIContextType = {
@@ -56,8 +62,10 @@ export function UIProvider({
     cambiosPendientes,
     mostrarVistaPrevia,
     
-    // IDs
+    // IDs y títulos
     idProyecto,
+    tituloHoja,
+    tituloPresentacion,
     
     // Setters
     setCargando,

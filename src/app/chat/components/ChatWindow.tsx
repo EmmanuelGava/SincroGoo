@@ -97,30 +97,37 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
     setErrorEnvio(null);
 
     try {
-      const res = await fetch('/api/chat/enviar', {
+      // Usar la nueva arquitectura unificada
+      const res = await fetch('/api/chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversacionId: conversacion.id,
-          contenido,
-          canal: conversacion.servicio_origen,
-          remitente: conversacion.remitente
+          platform: conversacion.servicio_origen, // whatsapp, telegram, email
+          to: conversacion.remitente,
+          message: contenido,
+          messageType: 'text',
+          metadata: {
+            conversacion_id: conversacion.id,
+            original_canal: conversacion.servicio_origen
+          }
         })
       });
 
       const data = await res.json();
+      console.log('📤 Respuesta del servidor:', { status: res.status, data });
 
-      if (res.ok) {
-        // Verificar si hubo error en el envío externo
-        if (data.envio && !data.envio.exito) {
-          setErrorEnvio(data.envio.error || 'Error enviando mensaje');
-        }
+      if (res.ok && data.success) {
+        // Mensaje enviado exitosamente
+        console.log('✅ Mensaje enviado via nueva arquitectura:', data);
         
         // Refrescar mensajes y conversaciones
         fetchMensajes();
         onRefreshConversaciones();
       } else {
-        setErrorEnvio(data.error || 'Error enviando mensaje');
+        // Manejar errores específicos
+        const errorMessage = data.error || 'Error enviando mensaje';
+        console.log('❌ Error en envío:', errorMessage);
+        setErrorEnvio(errorMessage);
       }
     } catch (error) {
       console.error('Error enviando mensaje:', error);
@@ -139,33 +146,30 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
     setErrorEnvio(null);
 
     try {
-      const payload = {
-        conversacionId: conversacion.id,
-        contenido: `📎 ${fileName}`,
-        canal: conversacion.servicio_origen,
-        remitente: conversacion.remitente,
-        archivo: {
-          url,
-          nombre: fileName,
-          tipo: fileType
-        }
-      };
-
-      console.log('🔧 Payload enviado:', payload);
-
-      const res = await fetch('/api/chat/enviar', {
+      // Usar la nueva arquitectura unificada para archivos
+      const res = await fetch('/api/chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          platform: conversacion.servicio_origen,
+          to: conversacion.remitente,
+          message: `📎 ${fileName}`,
+          messageType: 'file',
+          filePath: url,
+          metadata: {
+            conversacion_id: conversacion.id,
+            original_canal: conversacion.servicio_origen,
+            file_name: fileName,
+            file_type: fileType,
+            file_url: url
+          }
+        })
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        // Verificar si hubo error en el envío externo
-        if (data.envio && !data.envio.exito) {
-          setErrorEnvio(data.envio.error || 'Error enviando archivo');
-        }
+      if (res.ok && data.success) {
+        console.log('✅ Archivo enviado via nueva arquitectura:', data);
         
         // Refrescar mensajes y conversaciones
         fetchMensajes();
@@ -208,30 +212,31 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
         return;
       }
 
-      // Enviar mensaje con el audio
-      const res = await fetch('/api/chat/enviar', {
+      // Enviar mensaje con el audio usando la nueva arquitectura
+      const res = await fetch('/api/chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversacionId: conversacion.id,
-          contenido: `🎤 Audio (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
-          canal: conversacion.servicio_origen,
-          remitente: conversacion.remitente,
-          archivo: {
-            url: uploadResult.url,
-            nombre: fileName,
-            tipo: 'audio'
+          platform: conversacion.servicio_origen,
+          to: conversacion.remitente,
+          message: `🎤 Audio (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
+          messageType: 'audio',
+          filePath: uploadResult.url,
+          metadata: {
+            conversacion_id: conversacion.id,
+            original_canal: conversacion.servicio_origen,
+            file_name: fileName,
+            file_type: 'audio',
+            file_url: uploadResult.url,
+            duration: duration
           }
         })
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        // Verificar si hubo error en el envío externo
-        if (data.envio && !data.envio.exito) {
-          setErrorEnvio(data.envio.error || 'Error enviando audio');
-        }
+      if (res.ok && data.success) {
+        console.log('✅ Audio enviado via nueva arquitectura:', data);
         
         // Refrescar mensajes y conversaciones
         fetchMensajes();

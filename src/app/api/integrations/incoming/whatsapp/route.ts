@@ -1,146 +1,150 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { handleIncomingMessage } from '@/lib/chat/handleIncomingMessage';
 
-// Verificación del webhook (requerido por Meta)
-export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const mode = searchParams.get('hub.mode');
-    const token = searchParams.get('hub.verify_token');
-    const challenge = searchParams.get('hub.challenge');
-
-    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-        console.log('✅ Webhook de WhatsApp verificado correctamente');
-        return new Response(challenge, { status: 200 });
+/**
+ * Endpoint unificado para mensajes entrantes de WhatsApp
+ * Maneja tanto WhatsApp Lite como WhatsApp Business
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Determinar el tipo de mensaje basado en la estructura
+    const messageType = determineMessageType(body);
+    
+    if (messageType === 'business') {
+      return await handleBusinessMessage(body);
+    } else if (messageType === 'lite') {
+      return await handleLiteMessage(body);
     } else {
-        console.error('❌ Error verificando webhook de WhatsApp');
-        return new Response('Forbidden', { status: 403 });
+      return NextResponse.json({ error: 'Formato de mensaje no reconocido' }, { status: 400 });
     }
+
+  } catch (error) {
+    console.error('❌ Error procesando mensaje de WhatsApp:', error);
+    return NextResponse.json(
+      { error: 'Error procesando mensaje' },
+      { status: 500 }
+    );
+  }
 }
 
-// Recepción de mensajes de WhatsApp
-export async function POST(req: NextRequest) {
+// Verificación del webhook para WhatsApp Business (requerido por Meta)
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('✅ Webhook de WhatsApp Business verificado correctamente');
+    return new Response(challenge, { status: 200 });
+  } else {
+    console.error('❌ Error verificando webhook de WhatsApp Business');
+    return new Response('Forbidden', { status: 403 });
+  }
+}
+
+function determineMessageType(body: any): 'business' | 'lite' | 'unknown' {
+  // WhatsApp Business tiene estructura específica de Meta
+  if (body.object === 'whatsapp_business_account' && body.entry) {
+    return 'business';
+  }
+  
+  // WhatsApp Lite tiene estructura más simple
+  if (body.from && body.message && !body.object) {
+    return 'lite';
+  }
+  
+  return 'unknown';
+}
+
+async function handleBusinessMessage(body: any) {
+  console.log('📩 Webhook recibido de WhatsApp Business:', JSON.stringify(body, null, 2));
+
+  // Verificar que es una notificación de WhatsApp Business
+  if (body.object !== 'whatsapp_business_account') {
+    return NextResponse.json({ status: 'ignored' });
+  }
+
+  // Procesar cada entrada
+  for (const entry of body.entry || []) {
+    for (const change of entry.changes || []) {
+      if (change.field === 'messages') {
+        await procesarMensajesWhatsAppBusiness(change.value);
+      }
+    }
+  }
+
+  return NextResponse.json({ status: 'ok' });
+}
+
+async function handleLiteMessage(body: any) {
+  console.log('📨 Mensaje recibido de WhatsApp Lite:', {
+    from: body.from,
+    message: body.message?.substring(0, 100) + '...',
+    type: body.type,
+    platform: body.platform
+  });
+
+  // Usar la función central para procesar el mensaje
+  await handleIncomingMessage({
+    platform: 'whatsapp',
+    message: body.message,
+    contact: {
+      id: body.from,
+      phone: body.from,
+      name: body.contact_name
+    },
+    timestamp: body.timestamp ? new Date(body.timestamp) : new Date(),
+    messageType: body.type || 'text',
+    metadata: {
+      source: 'whatsapp-lite',
+      tipo_conexion: 'lite',
+      platform: body.platform || 'whatsapp-lite-baileys'
+    }
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: 'Mensaje de WhatsApp Lite procesado correctamente'
+  });
+}
+
+async function procesarMensajesWhatsAppBusiness(value: any) {
+  const { messages, contacts } = value;
+
+  if (!messages || messages.length === 0) {
+    return;
+  }
+
+  for (const message of messages) {
     try {
-        const body = await req.json();
-        console.log('📩 Webhook recibido de WhatsApp:', JSON.stringify(body, null, 2));
-
-        // Verificar que es una notificación de WhatsApp
-        if (body.object !== 'whatsapp_business_account') {
-            return NextResponse.json({ status: 'ignored' });
-        }
-
-        // Procesar cada entrada
-        for (const entry of body.entry || []) {
-            for (const change of entry.changes || []) {
-                if (change.field === 'messages') {
-                    await procesarMensajesWhatsApp(change.value);
-                }
-            }
-        }
-
-        return NextResponse.json({ status: 'ok' });
-    } catch (error) {
-        console.error('Error procesando webhook de WhatsApp:', error);
-        return NextResponse.json({ error: 'Error procesando webhook' }, { status: 500 });
-    }
-}
-
-async function procesarMensajesWhatsApp(value: any) {
-    const { messages, contacts } = value;
-
-    if (!messages || messages.length === 0) {
-        return;
-    }
-
-    for (const message of messages) {
-        try {
-            // Solo procesar mensajes entrantes (no los que enviamos nosotros)
-            if (message.type === 'text' && message.from) {
-                const mensajeNormalizado = {
-                    remitente: message.from,
-                    contenido: message.text?.body || '',
-                    fecha_mensaje: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-                    servicio_origen: 'whatsapp',
-                    metadata: {
-                        message_id: message.id,
-                        contact_name: contacts?.find((c: any) => c.wa_id === message.from)?.profile?.name,
-                        message_type: message.type
-                    }
-                };
-
-                await guardarMensajeWhatsApp(mensajeNormalizado);
-            }
-        } catch (error) {
-            console.error('Error procesando mensaje individual de WhatsApp:', error);
-        }
-    }
-}
-
-async function guardarMensajeWhatsApp(mensaje: any) {
-    try {
-        const supabase = getSupabaseAdmin();
+      // Solo procesar mensajes entrantes (no los que enviamos nosotros)
+      if (message.type === 'text' && message.from) {
+        const contact = contacts?.find((c: any) => c.wa_id === message.from);
         
-        // 1. Buscar o crear conversación
-        const { data: conversacionExistente } = await supabase
-            .from('conversaciones')
-            .select('id, lead_id')
-            .eq('remitente', mensaje.remitente)
-            .eq('servicio_origen', 'whatsapp')
-            .order('fecha_mensaje', { ascending: false })
-            .limit(1)
-            .single();
-
-        let conversacionId;
-        if (conversacionExistente) {
-            conversacionId = conversacionExistente.id;
-            // Actualizar fecha del último mensaje
-            await supabase
-                .from('conversaciones')
-                .update({ fecha_mensaje: mensaje.fecha_mensaje })
-                .eq('id', conversacionId);
-        } else {
-            // Crear nueva conversación
-            const { data: nuevaConversacion, error: errorConversacion } = await supabase
-                .from('conversaciones')
-                .insert({
-                    lead_id: null,
-                    servicio_origen: 'whatsapp',
-                    tipo: 'entrante',
-                    remitente: mensaje.remitente,
-                    fecha_mensaje: mensaje.fecha_mensaje,
-                    metadata: mensaje.metadata
-                })
-                .select('id')
-                .single();
-
-            if (errorConversacion) {
-                throw errorConversacion;
-            }
-            conversacionId = nuevaConversacion.id;
-        }
-
-        // 2. Guardar el mensaje
-        const { error: errorMensaje } = await supabase
-            .from('mensajes_conversacion')
-            .insert({
-                conversacion_id: conversacionId,
-                tipo: 'texto',
-                contenido: mensaje.contenido,
-                remitente: mensaje.remitente,
-                fecha_mensaje: mensaje.fecha_mensaje,
-                canal: 'whatsapp',
-                metadata: mensaje.metadata,
-                usuario_id: null
-            });
-
-        if (errorMensaje) {
-            throw errorMensaje;
-        }
-
-        console.log('✅ Mensaje de WhatsApp guardado correctamente');
+        await handleIncomingMessage({
+          platform: 'whatsapp',
+          message: message.text?.body || '',
+          contact: {
+            id: message.from,
+            phone: message.from,
+            name: contact?.profile?.name
+          },
+          timestamp: new Date(parseInt(message.timestamp) * 1000),
+          messageType: 'text',
+          metadata: {
+            message_id: message.id,
+            source: 'whatsapp-business',
+            tipo_conexion: 'business'
+          }
+        });
+      }
     } catch (error) {
-        console.error('Error guardando mensaje de WhatsApp:', error);
-        throw error;
+      console.error('Error procesando mensaje individual de WhatsApp Business:', error);
     }
-}
+  }
+} 

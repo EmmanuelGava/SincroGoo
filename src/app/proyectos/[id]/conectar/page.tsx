@@ -169,7 +169,7 @@ export default function ConectarDocumentos() {
         // Si tiene ambos documentos, ir al editor
         const idPresentacionLimpio = extraerIdDesdeUrl(presentacionId)
         const idHojaLimpio = extraerIdDesdeUrl(hojaCalculoId)
-        router.push(`/src/editor?proyectoId=${id}&presentacionId=${idPresentacionLimpio}&hojaCalculoId=${idHojaLimpio}`)
+        router.push(`/editor-proyectos/${id}?idPresentacion=${idPresentacionLimpio}&idHojaCalculo=${idHojaLimpio}`)
       } else {
         // Si solo tiene uno de los documentos, volver a proyectos
         router.push("/proyectos")

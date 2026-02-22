@@ -99,7 +99,7 @@ export default function ListaProyectos({ proyectos, cargando, busqueda }: ListaP
       if (accion === 'eliminar') {
         await eliminarProyecto(proyectoSeleccionado.id || '')
       } else if (accion === 'editar') {
-        router.push(`/proyectos/editar/${proyectoSeleccionado.id || ''}`)
+        router.push(`/proyectos/${proyectoSeleccionado.id || ''}`)
       }
     } catch (error) {
       console.error(`Error al ${accion} proyecto:`, error)
@@ -119,7 +119,9 @@ export default function ListaProyectos({ proyectos, cargando, busqueda }: ListaP
 
     const params = new URLSearchParams({
       ...(proyecto.slides_id && { idPresentacion: proyecto.slides_id }),
-      ...(proyecto.sheets_id && { idHojaCalculo: proyecto.sheets_id })
+      ...(proyecto.sheets_id && { idHojaCalculo: proyecto.sheets_id }),
+      ...(proyecto.presentaciontitulo && { tituloPresentacion: proyecto.presentaciontitulo }),
+      ...(proyecto.hojastitulo && { tituloHoja: proyecto.hojastitulo })
     })
 
     router.push(`/editor-proyectos/${proyecto.id}${params.toString() ? `?${params.toString()}` : ''}`)

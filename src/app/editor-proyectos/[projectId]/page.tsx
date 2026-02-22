@@ -52,36 +52,93 @@ function EditorContent() {
   )
 }
 
+interface ProyectoFetch {
+  id: string
+  hoja_calculo_id?: string
+  presentacion_id?: string
+  metadata?: { hojastitulo?: string; presentaciontitulo?: string }
+}
+
 export default function EditorPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const [idProyecto, setIdProyecto] = useState<string>('')
   const [idHojaCalculo, setIdHojaCalculo] = useState<string>('')
   const [idPresentacion, setIdPresentacion] = useState<string>('')
+  const [tituloHoja, setTituloHoja] = useState<string>('')
+  const [tituloPresentacion, setTituloPresentacion] = useState<string>('')
+  const [cargandoProyecto, setCargandoProyecto] = useState(true)
+  const [errorProyecto, setErrorProyecto] = useState<string | null>(null)
+
+  const projectId = params.projectId 
+    ? (Array.isArray(params.projectId) ? params.projectId[0] : params.projectId)
+    : ''
 
   useEffect(() => {
-    if (params.projectId) {
-      const projectId = Array.isArray(params.projectId) ? params.projectId[0] : params.projectId
-      setIdProyecto(projectId)
+    if (!projectId) {
+      setCargandoProyecto(false)
+      return
     }
 
-    const sheetId = searchParams.get('idHojaCalculo')
-    if (sheetId) {
-      setIdHojaCalculo(sheetId)
+    const cargarProyecto = async () => {
+      setCargandoProyecto(true)
+      setErrorProyecto(null)
+      try {
+        const res = await fetch(`/api/supabase/projects/${projectId}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Error al cargar el proyecto')
+        const proyecto = data.project as ProyectoFetch
+        if (proyecto) {
+          setIdProyecto(proyecto.id)
+          setIdHojaCalculo(proyecto.hoja_calculo_id || searchParams.get('idHojaCalculo') || '')
+          setIdPresentacion(proyecto.presentacion_id || searchParams.get('idPresentacion') || '')
+          if (proyecto.metadata?.hojastitulo) setTituloHoja(proyecto.metadata.hojastitulo)
+          else if (searchParams.get('tituloHoja')) setTituloHoja(searchParams.get('tituloHoja')!)
+          if (proyecto.metadata?.presentaciontitulo) setTituloPresentacion(proyecto.metadata.presentaciontitulo)
+          else if (searchParams.get('tituloPresentacion')) setTituloPresentacion(searchParams.get('tituloPresentacion')!)
+        }
+      } catch (err) {
+        console.error('Error al cargar proyecto:', err)
+        setErrorProyecto(err instanceof Error ? err.message : 'Error al cargar el proyecto')
+        setIdProyecto(projectId)
+        setIdHojaCalculo(searchParams.get('idHojaCalculo') || '')
+        setIdPresentacion(searchParams.get('idPresentacion') || '')
+        setTituloHoja(searchParams.get('tituloHoja') || '')
+        setTituloPresentacion(searchParams.get('tituloPresentacion') || '')
+      } finally {
+        setCargandoProyecto(false)
+      }
     }
 
-    const presentationId = searchParams.get('idPresentacion')
-    if (presentationId) {
-      setIdPresentacion(presentationId)
-    }
-  }, [params.projectId, searchParams])
+    cargarProyecto()
+  }, [projectId, searchParams])
+
+  if (cargandoProyecto) {
+    return <div className="flex items-center justify-center h-screen">Cargando proyecto...</div>
+  }
+
+  if (errorProyecto) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen gap-4">
+        <p className="text-destructive">{errorProyecto}</p>
+      </div>
+    )
+  }
 
   if (!idProyecto || !idHojaCalculo || !idPresentacion) {
-    return <div className="flex items-center justify-center h-screen">Cargando...</div>
+    return (
+      <div className="flex flex-col justify-center items-center h-screen gap-4">
+        <p>No se encontró la hoja de cálculo o la presentación asociada al proyecto.</p>
+      </div>
+    )
   }
 
   return (
-    <UIProvider initialIdProyecto={idProyecto}>
+    <UIProvider 
+      initialIdProyecto={idProyecto} 
+      tituloHoja={tituloHoja || undefined} 
+      tituloPresentacion={tituloPresentacion || undefined}
+    >
       <NotificacionProvider>
         <SheetsProvider idHojaCalculo={idHojaCalculo}>
           <SlidesProvider idProyecto={idProyecto} idPresentacion={idPresentacion}>

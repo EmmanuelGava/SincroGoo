@@ -43,20 +43,17 @@ import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 
-// Páginas principales del sistema
+// Páginas principales del sistema (sin links rotos)
 const pages = [
   { name: 'Dashboard', href: '/dashboard', icon: <DashboardOutlinedIcon fontSize="small" /> },
   { name: 'Chat', href: '/chat', icon: <ChatOutlinedIcon fontSize="small" /> },
   { name: 'CRM', href: '/crm', icon: <PersonOutlineOutlinedIcon fontSize="small" /> },
   { name: 'Proyectos', href: '/proyectos', icon: <FolderOutlinedIcon fontSize="small" /> },
-  { name: 'Presentaciones', href: '/presentaciones', icon: <SlideshowOutlinedIcon fontSize="small" /> },
-  { name: 'Hojas', href: '/hojas-de-calculo', icon: <TableChartOutlinedIcon fontSize="small" /> },
   { name: 'Explorador', href: '/explorer', icon: <ExploreOutlinedIcon fontSize="small" /> },
 ];
 
 // Opciones del menú de usuario
 const userMenuItems = [
-  { name: 'Perfil', href: '/perfil', icon: <PersonOutlineOutlinedIcon fontSize="small" /> },
   { name: 'Configuración', href: '/configuracion', icon: <SettingsOutlinedIcon fontSize="small" /> },
   { name: 'Mensajería', href: '/configuracion/mensajeria', icon: <ChatOutlinedIcon fontSize="small" /> },
 ];

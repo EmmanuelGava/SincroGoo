@@ -1,100 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { normalizeTelegramMessage, MensajeTelegramNormalizado } from '../handlers/telegram-handler';
-import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { handleIncomingMessage } from '@/lib/chat/handleIncomingMessage';
 
-// Endpoint para recibir webhooks de Telegram
-export async function POST(req: NextRequest) {
+/**
+ * Endpoint para mensajes entrantes de Telegram
+ */
+export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
+    const body = await request.json();
     
-    // 1. Leer el body del webhook
-    const body = await req.json();
-    console.log('📩 Webhook recibido de Telegram:', JSON.stringify(body));
+    console.log('📨 Mensaje recibido de Telegram:', {
+      update_id: body.update_id,
+      message: body.message?.text?.substring(0, 100) + '...'
+    });
 
-    // 2. Normalizar el mensaje usando el handler
-    const mensajeNormalizado: MensajeTelegramNormalizado | null = normalizeTelegramMessage(body);
-    if (!mensajeNormalizado) {
-      return NextResponse.json({ error: 'No se pudo normalizar el mensaje' }, { status: 400 });
+    // Procesar mensaje de Telegram
+    if (body.message && body.message.text) {
+      await handleIncomingMessage({
+        platform: 'telegram',
+        message: body.message.text,
+        contact: {
+          id: body.message.from.id.toString(),
+          name: `${body.message.from.first_name} ${body.message.from.last_name || ''}`.trim(),
+          phone: body.message.from.username || undefined
+        },
+        timestamp: new Date(body.message.date * 1000),
+        messageType: 'text',
+        metadata: {
+          update_id: body.update_id,
+          message_id: body.message.message_id,
+          chat_id: body.message.chat.id,
+          chat_type: body.message.chat.type,
+          source: 'telegram-bot-api'
+        }
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Mensaje de Telegram procesado correctamente'
+      });
     }
 
-    // Usar siempre el remitente_id numérico para agrupar correctamente
-    const remitenteId = mensajeNormalizado.remitente_id;
+    return NextResponse.json({
+      success: true,
+      message: 'Update de Telegram procesado (no es un mensaje de texto)'
+    });
 
-    // 3. Buscar primero una conversación asociada a un lead (lead_id no null)
-    let { data: conversacionExistente } = await supabase
-      .from('conversaciones')
-      .select('id, lead_id')
-      .eq('remitente', remitenteId)
-      .eq('servicio_origen', 'telegram')
-      .not('lead_id', 'is', null)
-      .order('fecha_mensaje', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Si no existe, buscar una conversación activa sin lead asociado
-    if (!conversacionExistente) {
-      const res = await supabase
-        .from('conversaciones')
-        .select('id, lead_id')
-        .eq('remitente', remitenteId)
-        .eq('servicio_origen', 'telegram')
-        .is('lead_id', null)
-        .order('fecha_mensaje', { ascending: false })
-        .limit(1)
-        .single();
-      conversacionExistente = res.data;
-    }
-
-    let conversacionId;
-    if (conversacionExistente) {
-      conversacionId = conversacionExistente.id;
-      // Actualizar la fecha_mensaje de la conversación
-      await supabase.from('conversaciones').update({ fecha_mensaje: mensajeNormalizado.fecha_mensaje }).eq('id', conversacionId);
-    } else {
-      // Crear nueva conversación
-      const conversacion = {
-        lead_id: null,
-        servicio_origen: 'telegram',
-        tipo: 'entrante',
-        remitente: remitenteId, // SIEMPRE el id numérico
-        fecha_mensaje: mensajeNormalizado.fecha_mensaje,
-        metadata: mensajeNormalizado.metadata || {},
-      };
-      const { data: conversacionInsertada, error: errorConversacion } = await supabase
-        .from('conversaciones')
-        .insert(conversacion)
-        .select('id')
-        .single();
-      if (errorConversacion) {
-        console.error('Error guardando conversación:', errorConversacion);
-        return NextResponse.json({ error: 'Error guardando conversación' }, { status: 500 });
-      }
-      conversacionId = conversacionInsertada.id;
-    }
-
-    // 4. Guardar el mensaje en mensajes_conversacion
-    const mensaje = {
-      conversacion_id: conversacionId,
-      tipo: 'texto',
-      contenido: mensajeNormalizado.contenido,
-      remitente: remitenteId, // SIEMPRE el id numérico
-      fecha_mensaje: mensajeNormalizado.fecha_mensaje,
-      canal: 'telegram',
-      metadata: mensajeNormalizado.metadata || {},
-      usuario_id: null,
-    };
-    const { error: errorMensaje } = await supabase
-      .from('mensajes_conversacion')
-      .insert(mensaje);
-    if (errorMensaje) {
-      console.error('Error guardando mensaje:', errorMensaje);
-      return NextResponse.json({ error: 'Error guardando mensaje' }, { status: 500 });
-    }
-
-    // 5. Responder a Telegram
-    return NextResponse.json({ status: 'ok' });
   } catch (error) {
-    console.error('Error en webhook de Telegram:', error);
-    return NextResponse.json({ error: 'Error procesando el webhook' }, { status: 500 });
+    console.error('❌ Error procesando mensaje de Telegram:', error);
+    return NextResponse.json(
+      { error: 'Error procesando mensaje' },
+      { status: 500 }
+    );
   }
 } 

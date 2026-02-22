@@ -5,6 +5,7 @@
 
 import { telegramService } from './telegram/TelegramService';
 import { whatsappService } from './whatsapp/WhatsAppService';
+import { whatsappLiteService } from '@/app/servicios/messaging/whatsapp/WhatsAppLiteService';
 
 export type PlataformaMensajeria = 'telegram' | 'whatsapp' | 'email' | 'sms';
 
@@ -135,6 +136,103 @@ export class MessagingService {
    */
   private async enviarWhatsApp(numero: string, texto: string, archivo?: { url: string; nombre: string; tipo: string }, configuracion?: any): Promise<ResultadoEnvio> {
     try {
+      // Verificar si hay configuración específica para determinar el tipo de conexión
+      const tipoConexion = configuracion?.tipo_conexion || 'business';
+      
+      if (tipoConexion === 'lite') {
+        // Usar WhatsApp Lite
+        return await this.enviarWhatsAppLite(numero, texto, archivo, configuracion);
+      } else {
+        // Usar WhatsApp Business API
+        return await this.enviarWhatsAppBusiness(numero, texto, archivo, configuracion);
+      }
+    } catch (error) {
+      return {
+        exito: false,
+        error: error instanceof Error ? error.message : 'Error enviando a WhatsApp'
+      };
+    }
+  }
+
+  /**
+   * Envía mensaje usando WhatsApp Lite (WhatsApp Web)
+   */
+  private async enviarWhatsAppLite(numero: string, texto: string, archivo?: { url: string; nombre: string; tipo: string }, configuracion?: any): Promise<ResultadoEnvio> {
+    try {
+      // Verificar si WhatsApp Lite está conectado
+      const status = whatsappLiteService.getConnectionStatus();
+      if (!status.connected) {
+        return {
+          exito: false,
+          error: 'WhatsApp Lite no está conectado. Por favor, escanea el código QR primero.'
+        };
+      }
+
+      // Determinar tipo de mensaje
+      let tipo: 'text' | 'image' | 'audio' | 'video' | 'document' = 'text';
+      let filePath: string | undefined;
+
+      if (archivo) {
+        // Determinar tipo basado en la extensión del archivo
+        const extension = archivo.nombre.split('.').pop()?.toLowerCase();
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '')) {
+          tipo = 'image';
+        } else if (['mp3', 'wav', 'ogg', 'm4a'].includes(extension || '')) {
+          tipo = 'audio';
+        } else if (['mp4', 'avi', 'mov', 'wmv'].includes(extension || '')) {
+          tipo = 'video';
+        } else {
+          tipo = 'document';
+        }
+        filePath = archivo.url;
+      }
+
+      // Usar endpoint unificado
+      const response = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'send',
+          type: 'lite',
+          to: numero,
+          message: texto,
+          messageType: tipo,
+          filePath
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return {
+          exito: false,
+          error: errorData.error || 'Error enviando mensaje a WhatsApp Lite'
+        };
+      }
+
+      const data = await response.json();
+      return {
+        exito: true,
+        mensaje: data.message || 'Mensaje enviado a WhatsApp Lite correctamente',
+        metadata: {
+          timestamp: new Date().toISOString()
+        }
+      };
+
+    } catch (error) {
+      return {
+        exito: false,
+        error: error instanceof Error ? error.message : 'Error enviando a WhatsApp Lite'
+      };
+    }
+  }
+
+  /**
+   * Envía mensaje usando WhatsApp Business API
+   */
+  private async enviarWhatsAppBusiness(numero: string, texto: string, archivo?: { url: string; nombre: string; tipo: string }, configuracion?: any): Promise<ResultadoEnvio> {
+    try {
       // Formatear el número para WhatsApp
       const numeroFormateado = whatsappService.formatearNumero(numero);
 
@@ -206,8 +304,12 @@ export class MessagingService {
       case 'telegram':
         return await telegramService.verificarBot();
 
-      case 'whatsapp':
-        return await whatsappService.verificarConfiguracion();
+      case 'whatsapp': {
+        // Verificar tanto WhatsApp Business como WhatsApp Lite
+        const businessAvailable = await whatsappService.verificarConfiguracion();
+        const liteStatus = whatsappLiteService.getConnectionStatus();
+        return businessAvailable || liteStatus.connected;
+      }
 
       case 'email':
         // TODO: Verificar configuración de email

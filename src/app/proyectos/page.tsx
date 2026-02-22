@@ -137,7 +137,7 @@ export default function PaginaProyectos() {
   };
 
   const crearNuevoProyecto = () => {
-    router.push('/nuevo')
+    router.push('/proyectos/nuevo')
   }
 
   const proyectosFiltrados = proyectos.filter(proyecto =>

@@ -118,7 +118,9 @@ export default function PaginaProyecto() {
         <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
           <Link href={`/editor-proyectos/${proyecto.id}${proyecto.slides_id || proyecto.sheets_id ? `?${new URLSearchParams({
             ...(proyecto.slides_id && { idPresentacion: proyecto.slides_id }),
-            ...(proyecto.sheets_id && { idHojaCalculo: proyecto.sheets_id })
+            ...(proyecto.sheets_id && { idHojaCalculo: proyecto.sheets_id }),
+            ...(proyecto.presentaciontitulo && { tituloPresentacion: proyecto.presentaciontitulo }),
+            ...(proyecto.hojastitulo && { tituloHoja: proyecto.hojastitulo })
           }).toString()}` : ''}`}>
             <Button variant="contained" color="primary">
               Editar Proyecto

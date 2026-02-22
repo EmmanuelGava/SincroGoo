@@ -22,7 +22,7 @@ import {
 import { ElementoDiapositiva, VistaPreviaDiapositiva } from '../../types'
 import { useThemeMode } from "@/lib/theme"
 import { useThumbnails } from "../../hooks/useThumbnails"
-import { useSlides } from "../../contexts"
+import { useSlides, useUI } from "../../contexts"
 import { EditorElementos } from './EditorElementos'
 
 interface SidebarSlidesProps {
@@ -46,8 +46,11 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
     diapositivasConAsociaciones,
     cargandoDiapositivas,
     idPresentacion,
+    tituloPresentacion: tituloPresentacionContext,
     manejarSeleccionDiapositiva
   } = useSlides()
+  const { tituloPresentacion: tituloPresentacionUI } = useUI()
+  const tituloPresentacion = tituloPresentacionContext || tituloPresentacionUI || 'Presentación'
   
   // Usar el hook de thumbnails
   const { thumbnails, cargandoThumbnails } = useThumbnails(diapositivas, idPresentacion);
@@ -131,7 +134,7 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <Typography variant="h6">Diapositivas</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>{tituloPresentacion}</Typography>
           <IconButton onClick={handleClose} size="small">
             <CloseIcon />
           </IconButton>

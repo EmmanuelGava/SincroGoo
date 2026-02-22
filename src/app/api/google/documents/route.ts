@@ -7,6 +7,7 @@ interface DriveDocument {
   id: string
   name: string
   iconUrl: string
+  thumbnailLink?: string
   lastModified: string
   type: 'sheets' | 'slides'
 }
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
       query = "(mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation')"
     }
 
-    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=50&fields=files(id,name,modifiedTime,iconLink,mimeType)&supportsAllDrives=true&includeItemsFromAllDrives=true`
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=50&fields=files(id,name,modifiedTime,iconLink,thumbnailLink,mimeType)&supportsAllDrives=true&includeItemsFromAllDrives=true`
     
     console.log("URL de la petición a Drive API:", url)
 
@@ -105,6 +106,7 @@ export async function GET(req: NextRequest) {
         id: file.id,
         name: file.name,
         iconUrl: file.iconLink,
+        thumbnailLink: file.thumbnailLink,
         lastModified: file.modifiedTime,
         type: file.mimeType.includes('spreadsheet') ? 'sheets' : 'slides'
       }))

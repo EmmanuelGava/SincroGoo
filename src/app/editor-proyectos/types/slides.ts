@@ -4,6 +4,8 @@ export interface VistaPreviaDiapositiva {
   indice: number
   elementos?: ElementoDiapositiva[]
   thumbnailUrl?: string
+  /** URL de miniatura desde Google (viene de obtenerPresentacion). Usar cuando exista para evitar llamadas duplicadas a la API */
+  urlImagen?: string
 }
 
 export interface ElementoDiapositiva {

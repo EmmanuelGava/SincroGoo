@@ -147,7 +147,7 @@ export function ConnectDocuments() {
       
       // Esperar un momento antes de redirigir
       await new Promise(resolve => setTimeout(resolve, 1000))
-      router.push("/dashboard/edit")
+      router.push("/dashboard")
     } catch (error) {
       console.error("Error connecting documents:", error)
       const message = error instanceof Error ? error.message : "Error al conectar los documentos"

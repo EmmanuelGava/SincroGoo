@@ -11,11 +11,13 @@ import {
   Paper,
   TextField,
   Box,
+  Typography,
   IconButton,
   InputAdornment,
   Tooltip
 } from "@mui/material"
 import { Search, Edit, Save, ChevronUp, ChevronDown, Link, Presentation, X as Close } from "lucide-react"
+import { toast } from "sonner"
 import { useSheets } from "../../contexts"
 import { useUI } from "../../contexts"
 import { useSlides } from "../../contexts/SlidesContext"
@@ -34,8 +36,9 @@ interface CeldasEnlazadasMap {
 }
 
 export function TablaHojas() {
-  const { filas, columnas, filaSeleccionada, setFilaSeleccionada } = useSheets()
-  const { cargando } = useUI()
+  const { filas, columnas, filaSeleccionada, setFilaSeleccionada, tituloHoja: tituloHojaContext, guardarFila } = useSheets()
+  const { cargando, tituloHoja: tituloHojaUI } = useUI()
+  const tituloHoja = tituloHojaContext || tituloHojaUI || 'Hoja de cálculo'
   const { 
     diapositivas,
     diapositivaSeleccionada,
@@ -154,9 +157,12 @@ export function TablaHojas() {
   }
 
   const guardarCambios = async (fila: FilaHoja) => {
-    // TODO: Implementar actualización a través de useGoogleServices
-    setEditandoFila(null)
-    setValoresEditados([])
+    const ok = await guardarFila(fila.id, valoresEditados)
+    if (ok) {
+      setEditandoFila(null)
+      setValoresEditados([])
+      toast.success('Cambios guardados correctamente')
+    }
   }
 
   const abrirSidebarSlides = (fila: FilaHoja) => {
@@ -194,15 +200,25 @@ export function TablaHojas() {
     )
   }
 
+  const actualizarValorEditado = (columnaId: string, nuevoValor: string) => {
+    setValoresEditados(prev =>
+      prev.map(v =>
+        v.columnaId === columnaId ? { ...v, valor: nuevoValor } : v
+      )
+    )
+  }
+
   const renderCelda = (fila: FilaHoja, columna: Columna) => {
     const estaEnlazada = estaCeldaEnlazada(fila.id, columna.id)
-    const valorCelda = fila.valores.find(v => v.columnaId === columna.id)
-    
-    // Asegurarnos de que el valor sea una cadena de texto
+    const estaEditando = editandoFila === fila.id
+
+    const valorCelda = estaEditando
+      ? valoresEditados.find(v => v.columnaId === columna.id)
+      : fila.valores.find(v => v.columnaId === columna.id)
+
     let valorMostrar = ''
-    if (valorCelda?.valor) {
+    if (valorCelda?.valor !== undefined && valorCelda.valor !== null) {
       if (typeof valorCelda.valor === 'object') {
-        // Si es un objeto, intentamos obtener su representación como texto
         try {
           valorMostrar = JSON.stringify(valorCelda.valor)
         } catch (e) {
@@ -211,6 +227,21 @@ export function TablaHojas() {
       } else {
         valorMostrar = String(valorCelda.valor)
       }
+    }
+
+    if (estaEditando) {
+      return (
+        <TextField
+          fullWidth
+          size="small"
+          value={valorMostrar}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            actualizarValorEditado(columna.id, e.target.value)
+          }
+          onClick={(e) => e.stopPropagation()}
+          sx={{ minWidth: 80, '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' } }}
+        />
+      )
     }
 
     return (
@@ -336,6 +367,11 @@ export function TablaHojas() {
           width: '70%'
         })
       }}>
+        <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            {tituloHoja}
+          </Typography>
+        </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2 }}>
           <Box sx={{ position: 'relative', flex: 1 }}>
             <TextField

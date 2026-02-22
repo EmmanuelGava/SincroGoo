@@ -138,28 +138,41 @@ export function crearRequestElemento(
 export function crearRequestsActualizarElemento(
   diapositivaId: string,
   elementoId: string,
-  elemento: Partial<ElementoDiapositiva>
+  elemento: Partial<ElementoDiapositiva>,
+  opciones?: { omitirDeleteText?: boolean }
 ): slides_v1.Schema$Request[] {
   const requests: slides_v1.Schema$Request[] = [];
+  const omitirDeleteText = opciones?.omitirDeleteText ?? false;
 
-  if (!elemento.tipo || !elemento.contenido) return requests;
+  if (!elemento.tipo) return requests;
+  // Para TEXTO permitimos contenido vacío (para borrar); para otros tipos requerimos contenido
+  if (elemento.tipo !== 'TEXTO' && (elemento.contenido === undefined || elemento.contenido === null)) return requests;
 
   switch (elemento.tipo) {
     case 'TEXTO': {
-      if (elemento.contenido.tipo === 'TEXTO' && elemento.contenido.texto) {
-        // Primero borramos el texto existente
-        requests.push({
-          deleteText: {
-            objectId: elementoId,
-            textRange: { type: 'ALL' }
-          }
-        });
+      // Aceptar contenido como string o como objeto { tipo?, texto }
+      const texto = typeof elemento.contenido === 'string'
+        ? elemento.contenido
+        : (elemento.contenido && typeof elemento.contenido === 'object' && elemento.contenido !== null && 'texto' in elemento.contenido)
+          ? (elemento.contenido as { texto?: string }).texto
+          : null;
 
-        // Luego insertamos el nuevo texto
+      if (texto != null) {
+        // Borrar texto existente (omitir si el cuadro puede estar vacío - deleteText falla en rango 0-0)
+        if (!omitirDeleteText) {
+          requests.push({
+            deleteText: {
+              objectId: elementoId,
+              textRange: { type: 'ALL' }
+            }
+          });
+        }
+
+        // Insertar el nuevo texto
         requests.push({
           insertText: {
             objectId: elementoId,
-            text: elemento.contenido.texto,
+            text: String(texto),
             insertionIndex: 0
           }
         });

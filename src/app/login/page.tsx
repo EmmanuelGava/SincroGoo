@@ -17,7 +17,7 @@ export default function LoginPage() {
   // Redirigir si ya está autenticado
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/src/dashboard")
+      router.push("/dashboard")
     }
   }, [status, router])
 
@@ -25,7 +25,7 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await signIn("google", { 
-        callbackUrl: "/src/dashboard",
+        callbackUrl: "/dashboard",
         redirect: true
       })
     } catch (error) {

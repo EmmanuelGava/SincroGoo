@@ -10,55 +10,62 @@ const publicRoutes = [
   '/',
   '/auth/login',
   '/auth/error',
-  '/api/check-dev-mode',
-  '/api/auth',
-  '/api'
+  '/auth/signin',
+  '/auth/callback',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/data-deletion'
 ]
 
-// Lista de rutas que requieren autenticación
-const protectedRoutes = [
-  '/proyectos', 
-  '/editor-proyectos',
-  '/dashboard',
-  '/excel-to-sheets'
-];
-
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
   // En modo desarrollo, permitir acceso a todas las rutas sin autenticación
   if (DEV_MODE_NO_AUTH) {
+    console.log('🔓 [Middleware] Modo desarrollo - permitiendo acceso:', pathname);
     return NextResponse.next();
   }
   
+  // Permitir todas las rutas de NextAuth
+  if (pathname.startsWith('/api/auth/')) {
+    return NextResponse.next()
+  }
+
   // Verificar si la ruta es pública
   const isPublicRoute = publicRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
+    pathname === route || pathname.startsWith(route)
   )
   
   if (isPublicRoute) {
     return NextResponse.next()
   }
 
-  // Obtener el token de autenticación
+  // Para rutas protegidas, verificar autenticación
   const token = await getToken({ 
     req: request,
     secret: process.env.NEXTAUTH_SECRET 
   })
 
-  // Si no hay token y no es una ruta pública, redirigir a login
+  // Si no hay token, redirigir a login
   if (!token) {
+    console.log('🚫 [Middleware] Sin token - redirigiendo a login:', pathname);
+    
+    // Para rutas API, devolver 401
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'No autorizado' }, 
+        { status: 401 }
+      );
+    }
+    
+    // Para rutas de UI, redirigir a login
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('callbackUrl', request.url)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Si hay token, sincronizar con Supabase
-  const response = NextResponse.next()
-  
-  // Agregar el token a los headers para que esté disponible en la API
-  response.headers.set('x-user-email', token.email as string)
-  response.headers.set('x-access-token', token.accessToken as string)
-
-  return response
+  console.log('✅ [Middleware] Token válido - permitiendo acceso:', pathname);
+  return NextResponse.next()
 }
 
 export const config = {
@@ -67,10 +74,8 @@ export const config = {
      * Match all request paths except:
      * 1. /_next (Next.js internals)
      * 2. /api/auth (NextAuth.js internals)
-     * 3. /static (static files)
-     * 4. /_vercel (Vercel internals)
-     * 5. /favicon.ico, /robots.txt (static files)
+     * 3. Static files (favicon.ico, robots.txt, etc.)
      */
-    '/((?!_next|api/auth|static|_vercel|favicon.ico|robots.txt).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|apple-touch-icon.png|site.webmanifest).*)',
   ],
 } 

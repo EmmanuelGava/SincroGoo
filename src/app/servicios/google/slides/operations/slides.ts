@@ -40,16 +40,19 @@ interface OpcionesActualizacionDiapo {
 export function crearRequestInsertarDiapositiva(
   indice: number,
   layout: TipoLayout,
-  presentacionId: string
+  presentacionId: string,
+  objectId?: string
 ): slides_v1.Schema$Request {
-  return {
-    createSlide: {
-      insertionIndex: indice,
-      slideLayoutReference: {
-        predefinedLayout: mapearLayout(layout)
-      }
+  const createSlide: slides_v1.Schema$CreateSlideRequest = {
+    insertionIndex: indice,
+    slideLayoutReference: {
+      predefinedLayout: mapearLayout(layout)
     }
   };
+  if (objectId) {
+    createSlide.objectId = objectId;
+  }
+  return { createSlide };
 }
 
 export function crearRequestActualizarDiapositiva(

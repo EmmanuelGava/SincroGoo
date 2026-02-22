@@ -58,6 +58,10 @@ export default function NuevoProyecto() {
   const [error, setError] = useState<string | null>(null)
   const [pasoActual, setPasoActual] = useState<"datos" | "documentos">("datos")
   
+  // Tipo de proyecto: ambos docs, solo hoja (generar presentación), solo presentación (generar hoja)
+  const [tipoProyecto, setTipoProyecto] = useState<"ambos" | "solo_hoja" | "solo_presentacion">("ambos")
+  const [generarPresentacionDesdeHoja, setGenerarPresentacionDesdeHoja] = useState(true)
+  
   // Estados para la selección de documentos
   const [metodoSeleccion, setMetodoSeleccion] = useState<"manual" | "seleccionar">("manual")
   const [cargandoPresentaciones, setCargandoPresentaciones] = useState(false)
@@ -69,14 +73,14 @@ export default function NuevoProyecto() {
   const [busquedaPresentacion, setBusquedaPresentacion] = useState("")
   const [busquedaHoja, setBusquedaHoja] = useState("")
 
-  // Función para cargar presentaciones de Google Slides
+  // Función para cargar presentaciones de Google Slides (usa /api/google/documents)
   const cargarPresentaciones = async () => {
     setCargandoPresentaciones(true)
     try {
-      const response = await fetch('/api/editor-proyectos/google/presentaciones')
+      const response = await fetch('/api/google/documents?type=slides')
       
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         console.error('Error detallado:', errorData)
         
         if (response.status === 401) {
@@ -88,7 +92,15 @@ export default function NuevoProyecto() {
       }
       
       const data = await response.json()
-      setPresentaciones(data.files || [])
+      // /api/google/documents devuelve { documents } con iconUrl, lastModified
+      const docs = (data.documents || []).filter((d: { type: string }) => d.type === 'slides')
+      setPresentaciones(docs.map((d: { id: string; name: string; iconUrl?: string; thumbnailLink?: string; lastModified?: string }) => ({
+        id: d.id,
+        name: d.name,
+        iconLink: d.iconUrl,
+        thumbnailLink: d.thumbnailLink,
+        modifiedTime: d.lastModified
+      })))
     } catch (error) {
       console.error("Error al cargar presentaciones:", error)
       toast.error("No se pudieron cargar tus presentaciones. Inténtalo de nuevo.")
@@ -97,11 +109,11 @@ export default function NuevoProyecto() {
     }
   }
   
-  // Función para cargar hojas de cálculo de Google Sheets
+  // Función para cargar hojas de cálculo de Google Sheets (usa /api/google/documents)
   const cargarHojas = async () => {
     setCargandoHojas(true)
     try {
-      const response = await fetch('/api/editor-proyectos/google/hojas')
+      const response = await fetch('/api/google/documents?type=sheets')
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -113,7 +125,14 @@ export default function NuevoProyecto() {
       }
       
       const data = await response.json()
-      setHojas(data.files || [])
+      // /api/google/documents devuelve { documents } con iconUrl, lastModified
+      const docs = (data.documents || []).filter((d: { type: string }) => d.type === 'sheets')
+      setHojas(docs.map((d: { id: string; name: string; iconUrl?: string; lastModified?: string }) => ({
+        id: d.id,
+        name: d.name,
+        iconLink: d.iconUrl,
+        modifiedTime: d.lastModified
+      })))
     } catch (error) {
       console.error("Error al cargar hojas de cálculo:", error)
       toast.error("No se pudieron cargar tus hojas de cálculo. Inténtalo de nuevo.")
@@ -125,10 +144,10 @@ export default function NuevoProyecto() {
   // Cargar documentos de Google cuando el usuario está autenticado
   useEffect(() => {
     if (status === "authenticated" && metodoSeleccion === "seleccionar") {
-      cargarPresentaciones()
-      cargarHojas()
+      if (tipoProyecto === "ambos" || tipoProyecto === "solo_presentacion") cargarPresentaciones()
+      if (tipoProyecto === "ambos" || tipoProyecto === "solo_hoja") cargarHojas()
     }
-  }, [status, metodoSeleccion])
+  }, [status, metodoSeleccion, tipoProyecto])
 
   // Verificar estado de autenticación
   if (status === "loading") {
@@ -232,22 +251,53 @@ export default function NuevoProyecto() {
         idHojaCalculoFinal = hojaSeleccionada
       }
 
+      // Validar según tipo de proyecto
+      if (tipoProyecto === "solo_hoja" && !idHojaCalculoFinal) {
+        throw new Error("Selecciona una hoja de cálculo para este proyecto")
+      }
+      if (tipoProyecto === "solo_presentacion" && !idPresentacionFinal) {
+        throw new Error("Selecciona una presentación para este proyecto")
+      }
+      if (tipoProyecto === "ambos" && !idPresentacionFinal && !idHojaCalculoFinal) {
+        throw new Error("Selecciona al menos un documento (presentación o hoja de cálculo)")
+      }
+
       console.log('🔄 IDs a guardar:', {
         presentacion: idPresentacionFinal,
-        hojaCalculo: idHojaCalculoFinal
+        hojaCalculo: idHojaCalculoFinal,
+        tipoProyecto
       })
 
-      // Crear el proyecto usando el endpoint
-      const response = await fetch('/api/editor-proyectos/proyectos', {
+      // Verificar usuario para obtener usuario_id (igual que proyectos/page)
+      const auth_id = session?.user?.id
+      const email = session?.user?.email
+      const nombre = session?.user?.name
+      if (!auth_id) {
+        throw new Error('Sesión inválida. Por favor, inicia sesión de nuevo.')
+      }
+      const verifyRes = await fetch(
+        `/api/supabase/users/verify?auth_id=${encodeURIComponent(auth_id)}&email=${encodeURIComponent(email || '')}&nombre=${encodeURIComponent(nombre || '')}`
+      )
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json()
+        throw new Error(err.error || 'Error al verificar usuario')
+      }
+      const { user } = await verifyRes.json()
+      const usuario_id = user?.id
+      if (!usuario_id) {
+        throw new Error('No se pudo obtener el ID del usuario')
+      }
+
+      // Crear proyecto con /api/supabase/projects
+      const response = await fetch('/api/supabase/projects', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre: titulo.trim(),
           descripcion: descripcion.trim(),
-          slides_id: idPresentacionFinal || null,
-          sheets_id: idHojaCalculoFinal || null,
+          usuario_id,
+          presentacion_id: idPresentacionFinal || null,
+          hoja_calculo_id: idHojaCalculoFinal || null,
         }),
       })
 
@@ -260,22 +310,56 @@ export default function NuevoProyecto() {
       const proyecto = await response.json()
       console.log('✅ Proyecto creado:', proyecto)
 
-      toast.success("Proyecto creado exitosamente")
-      
-      // Construir URL con los IDs
-      const params = new URLSearchParams({
-        ...(idPresentacionFinal && { idPresentacion: idPresentacionFinal }),
-        ...(idHojaCalculoFinal && { idHojaCalculo: idHojaCalculoFinal })
-      })
+      let idPresentacionParaEditor = idPresentacionFinal
+      let idHojaParaEditor = idHojaCalculoFinal
 
-      const url = `/editor-proyectos/${proyecto.id}${params.toString() ? `?${params.toString()}` : ''}`
-      console.log('🔄 Redirigiendo a:', url)
-      
-      router.push(url)
+      // Si solo hoja y se quiere generar presentación, llamar a sheets-to-slides
+      if (tipoProyecto === "solo_hoja" && generarPresentacionDesdeHoja && idHojaCalculoFinal) {
+        try {
+          toast.info("Generando presentación desde los datos de la hoja...")
+          const genRes = await fetch('/api/google/slides/sheets-to-slides', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              spreadsheetId: idHojaCalculoFinal,
+              nombrePresentacion: titulo.trim() || 'Presentación desde hoja'
+            })
+          })
+          const genData = await genRes.json()
+          if (genData.exito && genData.datos?.presentationId) {
+            idPresentacionParaEditor = genData.datos.presentationId
+            await fetch(`/api/supabase/projects/${proyecto.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ presentacion_id: idPresentacionParaEditor })
+            })
+            toast.success("Presentación generada y proyecto creado")
+          } else {
+            toast.warning("Proyecto creado, pero no se pudo generar la presentación. Puedes conectarla después.")
+          }
+        } catch (genErr) {
+          console.error("Error al generar presentación:", genErr)
+          toast.warning("Proyecto creado. Puedes generar la presentación más tarde desde Conectar documentos.")
+        }
+      } else {
+        toast.success("Proyecto creado exitosamente")
+      }
+
+      // Redirigir: al editor si tenemos ambos docs, si no a la página del proyecto/conectar
+      if (idPresentacionParaEditor && idHojaParaEditor) {
+        const params = new URLSearchParams({
+          idPresentacion: idPresentacionParaEditor,
+          idHojaCalculo: idHojaParaEditor
+        })
+        router.push(`/editor-proyectos/${proyecto.id}?${params.toString()}`)
+      } else {
+        router.push(`/proyectos/${proyecto.id}`)
+      }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "Error al crear el proyecto"
       console.error("Error al guardar proyecto:", error)
-      toast.error("Error al crear el proyecto")
-      setError(error instanceof Error ? error.message : "Error al crear el proyecto")
+      toast.error(msg)
+      setError(msg)
     } finally {
       setCargando(false)
     }
@@ -329,6 +413,43 @@ export default function NuevoProyecto() {
             {pasoActual === "documentos" && (
               <Box sx={{ mt: 4 }}>
                 <FormControl component="fieldset" sx={{ mb: 4 }}>
+                  <FormLabel component="legend">Tipo de proyecto</FormLabel>
+                  <RadioGroup 
+                    value={tipoProyecto} 
+                    onChange={(e) => setTipoProyecto(e.target.value as "ambos" | "solo_hoja" | "solo_presentacion")}
+                  >
+                    <FormControlLabel 
+                      value="ambos" 
+                      control={<Radio />} 
+                      label="Conectar ambos (presentación + hoja de cálculo)" 
+                    />
+                    <FormControlLabel 
+                      value="solo_hoja" 
+                      control={<Radio />} 
+                      label="Solo hoja de cálculo → generar presentación automáticamente" 
+                    />
+                    <FormControlLabel 
+                      value="solo_presentacion" 
+                      control={<Radio />} 
+                      label="Solo presentación → generar hoja de cálculo (próximamente)" 
+                    />
+                  </RadioGroup>
+                </FormControl>
+
+                {tipoProyecto === "solo_hoja" && (
+                  <FormControl component="fieldset" sx={{ mb: 3 }}>
+                    <FormLabel component="legend">¿Generar presentación?</FormLabel>
+                    <RadioGroup
+                      value={generarPresentacionDesdeHoja ? "si" : "no"}
+                      onChange={(e) => setGenerarPresentacionDesdeHoja(e.target.value === "si")}
+                    >
+                      <FormControlLabel value="si" control={<Radio />} label="Sí, generar presentación desde los datos de la hoja" />
+                      <FormControlLabel value="no" control={<Radio />} label="No, solo guardar el proyecto (conectar presentación después)" />
+                    </RadioGroup>
+                  </FormControl>
+                )}
+
+                <FormControl component="fieldset" sx={{ mb: 4 }}>
                   <FormLabel component="legend">Método de Selección</FormLabel>
                   <RadioGroup 
                     value={metodoSeleccion} 
@@ -341,22 +462,26 @@ export default function NuevoProyecto() {
                   
                 {metodoSeleccion === "manual" ? (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                    <TextField
-                      label="ID de Presentación"
-                      value={presentacionId}
-                      onChange={(e) => setPresentacionId(e.target.value)}
-                      fullWidth
-                      placeholder="URL o ID de Google Slides"
-                      helperText="Pega la URL completa o el ID de la presentación"
-                    />
-                    <TextField
-                      label="ID de Hoja de Cálculo"
-                      value={hojaCalculoId}
-                      onChange={(e) => setHojaCalculoId(e.target.value)}
-                      fullWidth
-                      placeholder="URL o ID de Google Sheets"
-                      helperText="Pega la URL completa o el ID de la hoja de cálculo"
-                    />
+                    {(tipoProyecto === "ambos" || tipoProyecto === "solo_presentacion") && (
+                      <TextField
+                        label="ID de Presentación"
+                        value={presentacionId}
+                        onChange={(e) => setPresentacionId(e.target.value)}
+                        fullWidth
+                        placeholder="URL o ID de Google Slides"
+                        helperText="Pega la URL completa o el ID de la presentación"
+                      />
+                    )}
+                    {(tipoProyecto === "ambos" || tipoProyecto === "solo_hoja") && (
+                      <TextField
+                        label="ID de Hoja de Cálculo"
+                        value={hojaCalculoId}
+                        onChange={(e) => setHojaCalculoId(e.target.value)}
+                        fullWidth
+                        placeholder="URL o ID de Google Sheets"
+                        helperText={tipoProyecto === "solo_hoja" ? "La presentación se generará desde estos datos" : "Pega la URL completa o el ID de la hoja de cálculo"}
+                      />
+                    )}
                   </Box>
                 ) : (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -366,26 +491,31 @@ export default function NuevoProyecto() {
                         Archivos Seleccionados:
                       </Typography>
                       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <PresentationIcon color={presentacionSeleccionada ? "primary" : "disabled"} />
-                          <Typography>
-                            {presentacionSeleccionada ? 
-                              presentaciones.find(p => p.id === presentacionSeleccionada)?.name || "Presentación seleccionada" :
-                              "Ninguna presentación seleccionada"}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <SpreadsheetIcon color={hojaSeleccionada ? "primary" : "disabled"} />
-                          <Typography>
-                            {hojaSeleccionada ? 
-                              hojas.find(h => h.id === hojaSeleccionada)?.name || "Hoja de cálculo seleccionada" :
-                              "Ninguna hoja de cálculo seleccionada"}
-                          </Typography>
-                        </Box>
+                        {(tipoProyecto === "ambos" || tipoProyecto === "solo_presentacion") && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <PresentationIcon color={presentacionSeleccionada ? "primary" : "disabled"} />
+                            <Typography>
+                              {presentacionSeleccionada ? 
+                                presentaciones.find(p => p.id === presentacionSeleccionada)?.name || "Presentación seleccionada" :
+                                "Ninguna presentación seleccionada"}
+                            </Typography>
+                          </Box>
+                        )}
+                        {(tipoProyecto === "ambos" || tipoProyecto === "solo_hoja") && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <SpreadsheetIcon color={hojaSeleccionada ? "primary" : "disabled"} />
+                            <Typography>
+                              {hojaSeleccionada ? 
+                                hojas.find(h => h.id === hojaSeleccionada)?.name || "Hoja de cálculo seleccionada" :
+                                tipoProyecto === "solo_hoja" ? "Selecciona una hoja (se generará la presentación)" : "Ninguna hoja de cálculo seleccionada"}
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
                     </Box>
 
-                    <Box>
+                    {(tipoProyecto === "ambos" || tipoProyecto === "solo_presentacion") && (
+                    <Box sx={{ mb: 4 }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
                         <PresentationIcon />
                         <Typography variant="h6">Presentaciones</Typography>
@@ -410,7 +540,7 @@ export default function NuevoProyecto() {
                       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
                         {cargandoPresentaciones ? (
                           Array.from({ length: 4 }).map((_, i) => (
-                            <Skeleton key={i} variant="rectangular" height={100} />
+                            <Skeleton key={i} variant="rectangular" height={80} />
                           ))
                         ) : (
                           presentacionesFiltradas.map(doc => (
@@ -419,19 +549,58 @@ export default function NuevoProyecto() {
                               sx={{
                                 cursor: "pointer",
                                 border: presentacionSeleccionada === doc.id ? 2 : 1,
-                                borderColor: presentacionSeleccionada === doc.id ? "primary.main" : "divider"
+                                borderColor: presentacionSeleccionada === doc.id ? "primary.main" : "divider",
+                                overflow: "hidden",
+                                transition: "all 0.2s",
+                                "&:hover": { bgcolor: "action.hover" }
                               }}
                               onClick={() => setPresentacionSeleccionada(doc.id)}
                             >
-                              <CardContent>
-                                <Typography noWrap>{doc.name}</Typography>
-                              </CardContent>
+                              {doc.id ? (
+                                <Box sx={{ aspectRatio: "16/9", position: "relative", bgcolor: "grey.200" }}>
+                                  <Box
+                                    component="img"
+                                    src={`/api/google/documents/thumbnail?fileId=${doc.id}&type=slides`}
+                                    alt={doc.name}
+                                    sx={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      display: "block"
+                                    }}
+                                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                                      const target = e.currentTarget
+                                      target.style.display = "none"
+                                      if (doc.iconLink) {
+                                        target.src = doc.iconLink
+                                        target.style.display = "block"
+                                        target.style.objectFit = "contain"
+                                        target.style.padding = "8px"
+                                      }
+                                    }}
+                                  />
+                                </Box>
+                              ) : doc.iconLink && (
+                                <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1.5 }}>
+                                  <Box component="img" src={doc.iconLink} alt="" sx={{ width: 24, height: 24, flexShrink: 0 }} />
+                                </Box>
+                              )}
+                              <Box sx={{ p: 1.5, minWidth: 0 }}>
+                                <Typography noWrap variant="body2" fontWeight={500}>{doc.name}</Typography>
+                                {doc.modifiedTime && (
+                                  <Typography variant="caption" color="text.secondary" display="block" noWrap>
+                                    {new Date(doc.modifiedTime).toLocaleDateString()}
+                                  </Typography>
+                                )}
+                              </Box>
                             </Card>
                           ))
                         )}
                       </Box>
                     </Box>
+                    )}
 
+                    {(tipoProyecto === "ambos" || tipoProyecto === "solo_hoja") && (
                     <Box>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
                         <SpreadsheetIcon />
@@ -457,7 +626,7 @@ export default function NuevoProyecto() {
                       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
                         {cargandoHojas ? (
                           Array.from({ length: 4 }).map((_, i) => (
-                            <Skeleton key={i} variant="rectangular" height={100} />
+                            <Skeleton key={i} variant="rectangular" height={80} />
                           ))
                         ) : (
                           hojasFiltradas.map(doc => (
@@ -466,18 +635,33 @@ export default function NuevoProyecto() {
                               sx={{
                                 cursor: "pointer",
                                 border: hojaSeleccionada === doc.id ? 2 : 1,
-                                borderColor: hojaSeleccionada === doc.id ? "primary.main" : "divider"
+                                borderColor: hojaSeleccionada === doc.id ? "primary.main" : "divider",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                                p: 2,
+                                transition: "all 0.2s",
+                                "&:hover": { bgcolor: "action.hover" }
                               }}
                               onClick={() => setHojaSeleccionada(doc.id)}
                             >
-                              <CardContent>
-                                <Typography noWrap>{doc.name}</Typography>
-                              </CardContent>
+                              {doc.iconLink && (
+                                <Box component="img" src={doc.iconLink} alt="" sx={{ width: 24, height: 24, flexShrink: 0 }} />
+                              )}
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography noWrap variant="body2" fontWeight={500}>{doc.name}</Typography>
+                                {doc.modifiedTime && (
+                                  <Typography variant="caption" color="text.secondary" display="block" noWrap>
+                                    {new Date(doc.modifiedTime).toLocaleDateString()}
+                                  </Typography>
+                                )}
+                              </Box>
                             </Card>
                           ))
                         )}
                       </Box>
                     </Box>
+                    )}
                   </Box>
                 )}
               </Box>

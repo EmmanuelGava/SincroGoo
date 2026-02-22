@@ -21,6 +21,7 @@ interface SlidesContextType {
   cargandoElementos: boolean
   idPresentacion: string
   idProyecto: string
+  tituloPresentacion: string
   filaSeleccionada: FilaSeleccionada | null
 
   // Setters
@@ -65,6 +66,7 @@ export function SlidesProvider({
   const [cargandoElementos, setCargandoElementos] = useState(false)
   const [elementosSeleccionados, setElementosSeleccionados] = useState<string[]>([])
   const [filaSeleccionada, setFilaSeleccionada] = useState<FilaSeleccionada | null>(null)
+  const [tituloPresentacion, setTituloPresentacion] = useState<string>('')
 
   // Hooks
   const { cargarDiapositivas, actualizarElementosDiapositiva } = useGoogleServices()
@@ -88,6 +90,7 @@ export function SlidesProvider({
         if (resultado?.datos?.diapositivas) {
           console.log('🎯 [SlidesContext] Diapositivas cargadas:', resultado.datos.diapositivas)
           setDiapositivas(resultado.datos.diapositivas)
+          if (resultado.datos.titulo) setTituloPresentacion(resultado.datos.titulo)
 
           // Actualizar diapositivas con asociaciones
           const asociaciones = new Set<string>()
@@ -441,6 +444,7 @@ export function SlidesProvider({
     cargandoElementos,
     idPresentacion,
     idProyecto,
+    tituloPresentacion,
     filaSeleccionada,
 
     // Setters

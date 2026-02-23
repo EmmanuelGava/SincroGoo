@@ -12,12 +12,12 @@ import Dialog from "@mui/material/Dialog"
 import DialogTitle from "@mui/material/DialogTitle"
 import DialogContent from "@mui/material/DialogContent"
 import DialogActions from "@mui/material/DialogActions"
-import IconButton from "@mui/material/IconButton"
-import VisibilityIcon from "@mui/icons-material/Visibility"
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome"
+import EditIcon from "@mui/icons-material/Edit"
 import ContentCopyIcon from "@mui/icons-material/ContentCopy"
 import { EncabezadoSistema } from "@/app/componentes/EncabezadoSistema"
 import { TablaPlantillaSheet } from "./TablaPlantillaSheet"
+import { PreviewSlideCSS } from "./PreviewSlideCSS"
 import { useSheets } from "../../contexts"
 
 const SLIDES_EDIT_URL = (id: string) =>
@@ -32,22 +32,25 @@ interface EditorPlantillaProps {
   idPresentacion: string
   idHojaCalculo: string
   idProyecto: string
+  tituloPresentacion?: string
   columnMapping?: Record<string, string>
   templateType?: string
+  /** Al hacer clic en "Pasar al editor", ir al editor principal (TablaHojas, SidebarSlides). Recibe el nuevo presentationId cuando se generó. */
+  onPasarAlEditor?: (presentationId?: string) => void
 }
 
 export function EditorPlantilla({
   idPresentacion,
   idHojaCalculo,
   idProyecto,
+  tituloPresentacion = '',
   columnMapping = {},
-  templateType = ''
+  templateType = '',
+  onPasarAlEditor
 }: EditorPlantillaProps) {
   const { columnas, filas } = useSheets()
   const [hasPlaceholders, setHasPlaceholders] = useState(false)
   const [cargandoPlaceholders, setCargandoPlaceholders] = useState(true)
-  const [previewAbierto, setPreviewAbierto] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [generarAbierto, setGenerarAbierto] = useState(false)
   const [generando, setGenerando] = useState(false)
   const [progreso, setProgreso] = useState(0)
@@ -89,35 +92,6 @@ export function EditorPlantilla({
     }
     check()
   }, [idPresentacion])
-
-  const handlePreview = async () => {
-    try {
-      toast.info("Creando vista previa...")
-      const body: Record<string, unknown> = {
-        presentationId: idPresentacion,
-        spreadsheetId: idHojaCalculo
-      }
-      if (Object.keys(columnMapping).length > 0) {
-        body.columnMapping = columnMapping
-      } else {
-        body.encabezados = encabezados
-      }
-      const res = await fetch("/api/google/slides/plantilla/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      })
-      const data = await res.json()
-      if (data.exito && data.datos?.url) {
-        setPreviewUrl(data.datos.url)
-        setPreviewAbierto(true)
-      } else {
-        toast.error(data.error || "Error al crear vista previa")
-      }
-    } catch (err) {
-      toast.error("Error al crear vista previa")
-    }
-  }
 
   const handleGenerarClick = () => {
     setResultado(null)
@@ -169,10 +143,10 @@ export function EditorPlantilla({
     setResultado(null)
     try {
       const body: Record<string, unknown> = {
-        presentationId: idPresentacion,
         spreadsheetId: idHojaCalculo,
         proyectoId: idProyecto,
-        templateType: templateType || undefined
+        templateType: templateType || undefined,
+        tituloPresentacion: tituloPresentacion
       }
       if (Object.keys(columnMapping).length > 0) {
         body.columnMapping = columnMapping
@@ -234,57 +208,45 @@ export function EditorPlantilla({
             <TablaPlantillaSheet />
           </div>
 
-          <div className="flex-1 flex flex-col min-w-0">
-            <Box sx={{ p: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
-              <Button
-                variant="outlined"
-                startIcon={<VisibilityIcon />}
-                onClick={handlePreview}
-                size="small"
-              >
-                Preview con primera fila
-              </Button>
-              {(hasPlaceholders || !cargandoPlaceholders) && (
-                <Button
-                  variant="contained"
-                  startIcon={<AutoAwesomeIcon />}
-                  onClick={handleGenerarClick}
-                  size="small"
-                >
-                  Generar todas las diapositivas
-                </Button>
-              )}
-            </Box>
-            <Box sx={{ flex: 1, minHeight: 0, p: 2, display: "flex", flexDirection: "column" }}>
-              <iframe
-                src={SLIDES_EDIT_URL(idPresentacion)}
-                className="w-full flex-1 min-h-0 border rounded"
-                title="Editor de plantilla"
-              />
+          <div className="flex-1 flex flex-col min-w-0 overflow-auto">
+            <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+                {(hasPlaceholders || !cargandoPlaceholders) && (
+                  <Button
+                    variant="contained"
+                    startIcon={<AutoAwesomeIcon />}
+                    onClick={handleGenerarClick}
+                    size="small"
+                  >
+                    Generar todas las diapositivas
+                  </Button>
+                )}
+                {onPasarAlEditor && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    onClick={() => onPasarAlEditor(idPresentacion)}
+                    size="small"
+                  >
+                    Ir al editor
+                  </Button>
+                )}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  Vista previa (primera fila)
+                </Typography>
+                <PreviewSlideCSS
+                  templateType={templateType || "ficha_local"}
+                  columnMapping={columnMapping}
+                  columnas={columnas}
+                  primeraFila={filas[0] ?? null}
+                />
+              </Box>
             </Box>
           </div>
         </div>
       </main>
-
-      <Dialog open={previewAbierto} onClose={() => setPreviewAbierto(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>Preview con datos reales</DialogTitle>
-        <DialogContent>
-          {previewUrl && (
-            <iframe
-              src={previewUrl.replace("/edit", "/embed")}
-              style={{ width: "100%", height: 500, border: "none", display: "block" }}
-              title="Preview"
-              allow="fullscreen"
-            />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => previewUrl && window.open(previewUrl)}>
-            Abrir en nueva pestaña
-          </Button>
-          <Button onClick={() => setPreviewAbierto(false)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog
         open={generarAbierto}
@@ -347,14 +309,28 @@ export function EditorPlantilla({
             </>
           ) : (
             <>
-              <Button
-                variant="contained"
-                href={SLIDES_EDIT_URL(resultado.presentationId || idPresentacion)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Ver presentación
-              </Button>
+              {onPasarAlEditor ? (
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setGenerarAbierto(false)
+                    const nuevoId = resultado?.presentationId
+                    setResultado(null)
+                    onPasarAlEditor(nuevoId)
+                  }}
+                >
+                  Pasar al editor
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  href={SLIDES_EDIT_URL(resultado.presentationId || idPresentacion)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Ver presentación
+                </Button>
+              )}
               <Button onClick={() => { setGenerarAbierto(false); setResultado(null) }}>
                 Cerrar
               </Button>

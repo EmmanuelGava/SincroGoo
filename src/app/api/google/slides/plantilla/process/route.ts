@@ -204,6 +204,50 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', jobId);
 
+    // Actualizar proyecto con la nueva presentación y slide_padre_id
+    const proyectoId = job.proyecto_id as string | null;
+    if (proyectoId) {
+      await supabase
+        .from('proyectos')
+        .update({
+          slides_id: presentationId,
+          fecha_actualizacion: new Date().toISOString()
+        })
+        .eq('id', proyectoId);
+
+      // Guardar slide_padre_id en metadata para asociar sheet con slides
+      const { data: primerItem } = await supabase
+        .from('generacion_job_items')
+        .select('slide_id')
+        .eq('job_id', jobId)
+        .eq('estado', 'completado')
+        .order('fila_index', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (filasProcesadas > 0 && primerItem?.slide_id) {
+        const { data: proyecto } = await supabase
+          .from('proyectos')
+          .select('metadata')
+          .eq('id', proyectoId)
+          .single();
+
+        const metadataActual = (proyecto?.metadata as Record<string, unknown>) || {};
+        const metadataNuevo = {
+          ...metadataActual,
+          slide_padre_id: primerItem.slide_id
+        };
+
+        await supabase
+          .from('proyectos')
+          .update({
+            metadata: metadataNuevo,
+            fecha_actualizacion: new Date().toISOString()
+          })
+          .eq('id', proyectoId);
+      }
+    }
+
     return NextResponse.json({
       exito: true,
       datos: {

@@ -15,7 +15,81 @@ import { PanelGuardarCambios } from '../componentes/PanelGuardarCambios'
 import { EditorPlantilla } from '../componentes/plantilla/EditorPlantilla'
 import { useSlides } from '../contexts'
 
-function EditorContent() {
+function PaginaPlantilla({
+  idProyecto,
+  idHojaCalculo,
+  idPresentacion,
+  tituloHoja,
+  tituloPresentacion,
+  columnMapping,
+  templateType
+}: {
+  idProyecto: string
+  idHojaCalculo: string
+  idPresentacion: string
+  tituloHoja: string
+  tituloPresentacion: string
+  columnMapping: Record<string, string>
+  templateType: string
+}) {
+  const [mostrarEditorPrincipal, setMostrarEditorPrincipal] = useState(false)
+  const [editorTransitionKey, setEditorTransitionKey] = useState(0)
+  const [presentacionParaEditor, setPresentacionParaEditor] = useState<string | null>(null)
+
+  const handlePasarAlEditor = (nuevoPresentationId?: string) => {
+    if (nuevoPresentationId) setPresentacionParaEditor(nuevoPresentationId)
+    setMostrarEditorPrincipal(true)
+    setEditorTransitionKey((k) => k + 1)
+  }
+
+  const idPresentacionEditor = presentacionParaEditor || idPresentacion
+
+  if (mostrarEditorPrincipal) {
+    return (
+      <UIProvider
+        initialIdProyecto={idProyecto}
+        tituloHoja={tituloHoja || undefined}
+        tituloPresentacion={tituloPresentacion || undefined}
+      >
+        <NotificacionProvider>
+          <SheetsProvider idHojaCalculo={idHojaCalculo}>
+            <SlidesProvider
+              key={`slides-${idPresentacionEditor}-${editorTransitionKey}`}
+              idProyecto={idProyecto}
+              idPresentacion={idPresentacionEditor}
+            >
+              <EditorContent inicialSidebarAbierto />
+            </SlidesProvider>
+          </SheetsProvider>
+        </NotificacionProvider>
+      </UIProvider>
+    )
+  }
+
+  return (
+    <UIProvider
+      initialIdProyecto={idProyecto}
+      tituloHoja={tituloHoja || undefined}
+      tituloPresentacion={tituloPresentacion || undefined}
+    >
+      <NotificacionProvider>
+        <SheetsProvider idHojaCalculo={idHojaCalculo}>
+          <EditorPlantilla
+            idProyecto={idProyecto}
+            idPresentacion={idPresentacion}
+            idHojaCalculo={idHojaCalculo}
+            tituloPresentacion={tituloPresentacion}
+            columnMapping={columnMapping}
+            templateType={templateType}
+            onPasarAlEditor={handlePasarAlEditor}
+          />
+        </SheetsProvider>
+      </NotificacionProvider>
+    </UIProvider>
+  )
+}
+
+function EditorContent({ inicialSidebarAbierto = false }: { inicialSidebarAbierto?: boolean }) {
   const { 
     diapositivas, 
     diapositivaSeleccionada, 
@@ -23,9 +97,18 @@ function EditorContent() {
     diapositivasConAsociaciones,
     cargandoDiapositivas,
     idPresentacion,
-    idProyecto
+    idProyecto,
+    recargarDiapositivas
   } = useSlides()
-  const [sidebarAbierto, setSidebarAbierto] = useState(false)
+  const [sidebarAbierto, setSidebarAbierto] = useState(inicialSidebarAbierto)
+
+  // Recargar diapositivas tras entrar desde generación (la API puede tardar en propagar)
+  useEffect(() => {
+    if (inicialSidebarAbierto) {
+      const t = setTimeout(() => recargarDiapositivas(), 1500)
+      return () => clearTimeout(t)
+    }
+  }, [inicialSidebarAbierto, recargarDiapositivas])
 
   const handleDiapositivaSeleccionada = async (idDiapositiva: string) => {
     const diapositiva = diapositivas.find(d => d.id === idDiapositiva)
@@ -148,23 +231,15 @@ export default function EditorPage() {
 
   if (modoProyecto === 'plantilla') {
     return (
-      <UIProvider 
-        initialIdProyecto={idProyecto} 
-        tituloHoja={tituloHoja || undefined} 
-        tituloPresentacion={tituloPresentacion || undefined}
-      >
-        <NotificacionProvider>
-          <SheetsProvider idHojaCalculo={idHojaCalculo}>
-            <EditorPlantilla
-              idProyecto={idProyecto}
-              idPresentacion={idPresentacion}
-              idHojaCalculo={idHojaCalculo}
-              columnMapping={columnMapping}
-              templateType={templateType}
-            />
-          </SheetsProvider>
-        </NotificacionProvider>
-      </UIProvider>
+      <PaginaPlantilla
+        idProyecto={idProyecto}
+        idHojaCalculo={idHojaCalculo}
+        idPresentacion={idPresentacion}
+        tituloHoja={tituloHoja}
+        tituloPresentacion={tituloPresentacion}
+        columnMapping={columnMapping}
+        templateType={templateType}
+      />
     )
   }
 

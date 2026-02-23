@@ -36,24 +36,29 @@ export async function GET(request: NextRequest) {
 
     if (action === 'getData') {
       console.log('📊 [API Sheets] Obteniendo datos de hoja:', spreadsheetId);
-      const [resultadoDatos, resultadoMeta] = await Promise.all([
+      const [datosSettled, metaSettled] = await Promise.allSettled([
         sheetsService.obtenerDatosHoja(spreadsheetId),
         sheetsService.obtenerHojaCalculo(spreadsheetId)
       ]);
+      const resultadoDatos = datosSettled.status === 'fulfilled' ? datosSettled.value : null;
+      const resultadoMeta = metaSettled.status === 'fulfilled' ? metaSettled.value : null;
+      if (metaSettled.status === 'rejected') {
+        console.warn('⚠️ [API Sheets] obtenerHojaCalculo falló (título opcional):', metaSettled.reason?.message);
+      }
       console.log('✅ [API Sheets] Resultado:', {
-        exito: resultadoDatos.exito,
-        hayError: !!resultadoDatos.error,
-        hayDatos: !!resultadoDatos.datos
+        exito: resultadoDatos?.exito,
+        hayError: !!resultadoDatos?.error,
+        hayDatos: !!resultadoDatos?.datos
       });
 
-      if (!resultadoDatos.exito) {
+      if (!resultadoDatos?.exito) {
         return NextResponse.json(
-          { exito: false, error: resultadoDatos.error },
-          { status: resultadoDatos.codigo || 500 }
+          { exito: false, error: resultadoDatos?.error || 'Error al obtener datos' },
+          { status: resultadoDatos?.codigo || 500 }
         );
       }
 
-      const titulo = resultadoMeta.exito && resultadoMeta.datos ? resultadoMeta.datos.titulo : undefined;
+      const titulo = resultadoMeta?.exito && resultadoMeta?.datos ? resultadoMeta.datos.titulo : undefined;
       return NextResponse.json({
         ...resultadoDatos,
         datos: {

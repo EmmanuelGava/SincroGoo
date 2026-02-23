@@ -23,6 +23,9 @@ export class ProjectsService {
     if (error instanceof Error) {
       return `${method}: ${error.message}`;
     }
+    if (error && typeof error === 'object' && 'message' in error) {
+      return `${method}: ${String((error as { message?: unknown }).message)}`;
+    }
     return `${method}: ${String(error)}`;
   }
 
@@ -360,7 +363,7 @@ export class ProjectsService {
   }
 
   /**
-   * Elimina un proyecto
+   * Elimina un proyecto y sus registros relacionados
    * @param projectId ID del proyecto
    * @returns true si se eliminó correctamente, false si hay error
    */
@@ -369,19 +372,51 @@ export class ProjectsService {
       if (!projectId) {
         throw new Error('ID de proyecto no proporcionado');
       }
-      
-      const { supabase } = await getSupabaseClient();
-      
-      // Eliminar proyecto
+
+      const supabase = getSupabaseAdmin();
+
+      // Obtener jobs del proyecto para borrar items
+      const { data: jobs } = await supabase
+        .from('generacion_jobs')
+        .select('id')
+        .eq('proyecto_id', projectId);
+
+      const jobIds = (jobs || []).map((j) => j.id);
+
+      // 1. Eliminar generacion_job_items de los jobs del proyecto
+      if (jobIds.length > 0) {
+        await supabase
+          .from('generacion_job_items')
+          .delete()
+          .in('job_id', jobIds);
+      }
+
+      // 2. Eliminar generacion_jobs del proyecto
+      await supabase
+        .from('generacion_jobs')
+        .delete()
+        .eq('proyecto_id', projectId);
+
+      // 3. Eliminar slides asociados al proyecto (si existe la tabla)
+      try {
+        await supabase
+          .from('slides')
+          .delete()
+          .eq('proyecto_id', projectId);
+      } catch {
+        // Tabla slides puede no existir o no tener proyecto_id
+      }
+
+      // 4. Eliminar el proyecto
       const { error } = await supabase
         .from('proyectos')
         .delete()
         .eq('id', projectId);
-      
+
       if (error) {
         throw error;
       }
-      
+
       return true;
     } catch (error) {
       handleError(this.CONTEXT, this.formatError('deleteProject', error));

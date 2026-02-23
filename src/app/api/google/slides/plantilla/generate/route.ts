@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { SlidesService } from '@/app/servicios/google/slides/SlidesService';
+import { PlantillaTemplateService } from '@/app/servicios/google/slides/PlantillaTemplateService';
 import { SheetsService } from '@/servicios/google/sheets';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { LAYOUTS } from '@/app/servicios/google/slides/plantilla-layouts';
 
 const getBaseUrl = (req: NextRequest) =>
   req.nextUrl.origin || process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
 /**
  * POST /api/google/slides/plantilla/generate
- * Crea un job en cola y dispara el procesamiento en background. Retorna job_id.
- * Body: { presentationId, spreadsheetId, proyectoId, encabezados?, columnMapping?, slideTemplateId? }
+ * Crea un ARCHIVO NUEVO de Slides con la plantilla elegida, un job en cola, y dispara el procesamiento.
+ * Retorna job_id. El process actualizará proyecto.slides_id con el nuevo archivo.
+ * Body: { spreadsheetId, proyectoId, templateType, encabezados?, columnMapping?, tituloPresentacion? }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,23 +25,46 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      presentationId,
       spreadsheetId,
       proyectoId,
+      templateType: templateTypeBody,
       encabezados,
       columnMapping,
-      slideTemplateId,
-      templateType
+      tituloPresentacion
     } = body;
 
-    if (!presentationId || !spreadsheetId || !proyectoId) {
+    if (!spreadsheetId || !proyectoId) {
       return NextResponse.json(
-        { exito: false, error: 'Se requieren presentationId, spreadsheetId y proyectoId' },
+        { exito: false, error: 'Se requieren spreadsheetId y proyectoId' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseAdmin();
+    const { data: proyecto } = await supabase
+      .from('proyectos')
+      .select('usuario_id, nombre, metadata')
+      .eq('id', proyectoId)
+      .single();
+
+    if (!proyecto?.usuario_id) {
+      return NextResponse.json(
+        { exito: false, error: 'Proyecto no encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const templateType = templateTypeBody || (proyecto.metadata as Record<string, unknown>)?.plantilla_template_id as string | undefined;
+    const tipoValido = templateType && LAYOUTS[templateType];
+    if (!tipoValido) {
+      return NextResponse.json(
+        { exito: false, error: 'Se requiere templateType válido (ej: ficha_local, catalogo_productos). O configúralo en el proyecto.' },
         { status: 400 }
       );
     }
 
     const slidesService = SlidesService.getInstance(session.accessToken);
+    const plantillaService = new PlantillaTemplateService(slidesService);
     const sheetsService = SheetsService.getInstance(session.accessToken);
 
     const datosResult = await sheetsService.obtenerDatosHoja(spreadsheetId);
@@ -57,38 +83,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let templateSlideId = slideTemplateId;
-    if (!templateSlideId) {
-      const presResult = await slidesService.obtenerPresentacion(presentationId, false);
-      if (!presResult.exito || !presResult.datos?.slides?.length) {
-        return NextResponse.json(
-          { exito: false, error: 'No se encontró la presentación o está vacía' },
-          { status: 500 }
-        );
-      }
-      templateSlideId = presResult.datos.slides[0].objectId || '';
-    }
-
-    if (!templateSlideId) {
+    const titulo = tituloPresentacion || proyecto.nombre || 'Plantilla SincroGoo';
+    const crearResult = await plantillaService.crearPresentacionDesdePlantilla(templateType, titulo);
+    if (!crearResult) {
       return NextResponse.json(
-        { exito: false, error: 'No se pudo determinar la diapositiva plantilla' },
+        { exito: false, error: 'No se pudo crear la nueva presentación' },
         { status: 500 }
       );
     }
 
-    const supabase = getSupabaseAdmin();
-    const { data: proyecto } = await supabase
-      .from('proyectos')
-      .select('usuario_id')
-      .eq('id', proyectoId)
-      .single();
-
-    if (!proyecto?.usuario_id) {
-      return NextResponse.json(
-        { exito: false, error: 'Proyecto no encontrado' },
-        { status: 404 }
-      );
-    }
+    const presentationId = crearResult.presentationId;
+    const templateSlideId = crearResult.slideId;
 
     const { data: job, error: jobError } = await supabase
       .from('generacion_jobs')
@@ -99,7 +104,7 @@ export async function POST(request: NextRequest) {
         presentation_id: presentationId,
         spreadsheet_id: spreadsheetId,
         slide_template_id: templateSlideId,
-        template_type: templateType || null,
+        template_type: templateType,
         column_mapping: columnMapping || {},
         total_filas: filas.length
       })

@@ -40,6 +40,7 @@ interface SlidesContextType {
   previsualizarCambios: (elementos: ElementoDiapositiva[], mostrarPrevia: boolean) => void
   enlazarElemento: (elementoId: string, columnaId: string) => void
   desenlazarElemento: (elementoId: string) => void
+  recargarDiapositivas: () => Promise<void>
 }
 
 const SlidesContext = createContext<SlidesContextType | null>(null)
@@ -78,39 +79,37 @@ export function SlidesProvider({
     setFilaSeleccionada(filaSeleccionadaSheets)
   }, [filaSeleccionadaSheets])
 
+  const recargarDiapositivas = useCallback(async () => {
+    if (!idPresentacion) return
+    setCargandoDiapositivas(true)
+    setCargando(true)
+    try {
+      const resultado = await cargarDiapositivas(idPresentacion)
+      if (resultado?.datos?.diapositivas) {
+        console.log('🎯 [SlidesContext] Diapositivas recargadas:', resultado.datos.diapositivas.length)
+        setDiapositivas(resultado.datos.diapositivas)
+        if (resultado.datos.titulo) setTituloPresentacion(resultado.datos.titulo)
+        const asociaciones = new Set<string>()
+        resultado.datos.diapositivas.forEach((diapositiva: VistaPreviaDiapositiva) => {
+          if (diapositiva.elementos?.some((elemento: { columnaAsociada?: string }) => elemento.columnaAsociada)) {
+            asociaciones.add(diapositiva.id)
+          }
+        })
+        setDiapositivasConAsociaciones(asociaciones)
+      }
+    } catch (error) {
+      console.error('❌ [SlidesContext] Error al recargar diapositivas:', error)
+      toast.error('Error al recargar las diapositivas')
+    } finally {
+      setCargandoDiapositivas(false)
+      setCargando(false)
+    }
+  }, [idPresentacion, cargarDiapositivas, setCargando])
+
   // Cargar diapositivas al montar
   useEffect(() => {
-    const cargar = async () => {
-      if (!idPresentacion) return
-      
-      setCargandoDiapositivas(true)
-      setCargando(true)
-      try {
-        const resultado = await cargarDiapositivas(idPresentacion)
-        if (resultado?.datos?.diapositivas) {
-          console.log('🎯 [SlidesContext] Diapositivas cargadas:', resultado.datos.diapositivas)
-          setDiapositivas(resultado.datos.diapositivas)
-          if (resultado.datos.titulo) setTituloPresentacion(resultado.datos.titulo)
-
-          // Actualizar diapositivas con asociaciones
-          const asociaciones = new Set<string>()
-          resultado.datos.diapositivas.forEach((diapositiva: VistaPreviaDiapositiva) => {
-            if (diapositiva.elementos?.some(elemento => elemento.columnaAsociada)) {
-              asociaciones.add(diapositiva.id)
-            }
-          })
-          setDiapositivasConAsociaciones(asociaciones)
-        }
-      } catch (error) {
-        console.error('❌ [SlidesContext] Error al cargar diapositivas:', error)
-        toast.error('Error al cargar las diapositivas')
-      } finally {
-        setCargandoDiapositivas(false)
-        setCargando(false)
-      }
-    }
-    cargar()
-  }, [idPresentacion, cargarDiapositivas, setCargando])
+    recargarDiapositivas()
+  }, [idPresentacion, recargarDiapositivas])
 
   // Manejar selección de diapositiva
   const manejarSeleccionDiapositiva = useCallback((
@@ -462,7 +461,8 @@ export function SlidesProvider({
     actualizarElementos,
     previsualizarCambios,
     enlazarElemento,
-    desenlazarElemento
+    desenlazarElemento,
+    recargarDiapositivas
   }
 
   return (

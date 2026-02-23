@@ -31,9 +31,7 @@ POST /api/google/slides/plantilla/process
     |     |     |-- createSlide (slide en blanco)
     |     |     |-- updatePageProperties (fondo con color de la plantilla)
     |     |     |-- Por cada campo del layout:
-    |     |     |     |-- createShape (TEXT_BOX con posicion/tamano)
-    |     |     |     |-- insertText (dato real, no placeholder)
-    |     |     |     |-- updateTextStyle (fontSize, bold, color)
+    |     |     |     |-- Por cada elemento del layout: si tipo imagen y URL valida -> createImage; si texto -> createShape (TEXT_BOX), insertText, updateTextStyle (fontSize, bold, color), y si hay alignment -> updateParagraphStyle
     |     |     |-- Un solo batchUpdate a la Slides API
     |     |-- Actualiza estado del item en Supabase
     |     |-- sleep(1500ms) para respetar rate limit
@@ -109,3 +107,25 @@ Al finalizar la generacion, el boton "Pasar al editor" abre la presentacion en G
 - Delay de 1500ms entre filas
 - Reintentos con delay de 60s ante error 429
 - Maximo 5 reintentos por fila
+
+## Otro flujo: Sheets-to-Slides (pagina)
+
+La ruta **/sheets-to-slides** ofrece el mismo flujo de generacion por plantilla sin pasar por un proyecto existente:
+
+1. El usuario pega la URL de un Google Sheet y conecta.
+2. Se cargan los datos con `GET /api/google/sheets?action=getData&spreadsheetId=...`.
+3. Elige plantilla y titulo de la presentacion.
+4. Ve la vista previa (PreviewSlideCSS) con la primera fila.
+5. Al generar: se crea un **proyecto** en Supabase (nombre, hoja_calculo_id, modo plantilla, metadata.plantilla_template_id) y se llama a `POST /api/google/slides/plantilla/generate` con ese proyectoId. Mismo job y polling que en el editor de plantilla.
+6. Al terminar: enlace a la presentacion y opcion "Ir al proyecto".
+
+No se usa la API `POST /api/google/slides/sheets-to-slides` (que genera una slide por lote de 20 filas con solo titulo). Para diseno por fila y plantillas, se usa siempre el flujo plantilla (generate + process).
+
+## Elementos por tipo en crearSlideConDatos
+
+- **Texto** (por defecto): createShape TEXT_BOX, insertText, updateTextStyle (color, fontSize, bold, fontFamily si viene en el layout). Si el layout tiene `alignment` (LEFT/CENTER/RIGHT), se envia updateParagraphStyle (START/CENTER/END).
+- **Imagen** (`tipo: 'imagen'`): si el valor es una URL publica, createImage con posicion/tamano en EMU. Si createImage falla (p. ej. 400 por URL no publica), se reintenta el batch sin la imagen y se continua el job.
+
+## Texto largo (overflow)
+
+El shape tiene tamano fijo (w, h en el layout). Si el contenido de la celda es muy largo, el texto puede desbordarse visualmente en Slides. No se aplica recorte automatico ni reduccion de fuente. Conviene dar altura suficiente en el layout a los campos que puedan tener mucho texto (p. ej. Descripcion, Notas, Observaciones) o limitar la longitud en el Sheet.

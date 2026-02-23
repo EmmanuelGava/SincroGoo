@@ -745,11 +745,43 @@ export class SlidesService extends BaseGoogleService {
       });
 
       const textRgb = hexToRgb(plantilla.textColor);
+      /** 1 PT = 12700 EMU (Slides API usa EMU para createImage) */
+      const ptToEmu = (pt: number) => Math.round(pt * 12700);
 
       for (let i = 0; i < layout.length; i++) {
         const el = layout[i];
-        const shapeId = `sh_${filaIndex}_${i}_${ts}`;
+        const valor = (datos[el.placeholder] ?? '').trim();
+        const esImagen = el.tipo === 'imagen';
 
+        if (esImagen && valor) {
+          const esUrlValida = valor.startsWith('http://') || valor.startsWith('https://');
+          if (esUrlValida) {
+            const imageId = `img_${filaIndex}_${i}_${ts}`;
+            requests.push({
+              createImage: {
+                objectId: imageId,
+                url: valor,
+                elementProperties: {
+                  pageObjectId: slideId,
+                  size: {
+                    width: { magnitude: ptToEmu(el.w), unit: 'EMU' as const },
+                    height: { magnitude: ptToEmu(el.h), unit: 'EMU' as const }
+                  },
+                  transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: ptToEmu(el.x),
+                    translateY: ptToEmu(el.y),
+                    unit: 'EMU' as const
+                  }
+                }
+              }
+            });
+          }
+          continue;
+        }
+
+        const shapeId = `sh_${filaIndex}_${i}_${ts}`;
         const textoFinal = datos[el.placeholder] ?? '';
 
         requests.push({
@@ -783,21 +815,48 @@ export class SlidesService extends BaseGoogleService {
           });
         }
 
-        if (el.fontSize !== undefined) {
+        const hasTextStyle = el.fontSize !== undefined || el.fontFamily;
+        if (hasTextStyle) {
+          const style: slides_v1.Schema$TextStyle = {
+            foregroundColor: {
+              opaqueColor: {
+                rgbColor: { red: textRgb.red, green: textRgb.green, blue: textRgb.blue }
+              }
+            },
+            bold: el.bold ?? false
+          };
+          if (el.fontSize !== undefined) {
+            style.fontSize = { magnitude: el.fontSize, unit: 'PT' };
+          }
+          if (el.fontFamily) {
+            style.fontFamily = el.fontFamily;
+          }
+          const fields = ['foregroundColor', 'bold'];
+          if (el.fontSize !== undefined) fields.push('fontSize');
+          if (el.fontFamily) fields.push('fontFamily');
           requests.push({
             updateTextStyle: {
               objectId: shapeId,
-              style: {
-                foregroundColor: {
-                  opaqueColor: {
-                    rgbColor: { red: textRgb.red, green: textRgb.green, blue: textRgb.blue }
-                  }
-                },
-                fontSize: { magnitude: el.fontSize, unit: 'PT' },
-                bold: el.bold ?? false
-              },
+              style,
               textRange: { type: 'ALL' },
-              fields: 'foregroundColor,fontSize,bold'
+              fields: fields.join(',')
+            }
+          });
+        }
+
+        if (el.alignment) {
+          const alignmentApi =
+            el.alignment === 'CENTER'
+              ? 'CENTER'
+              : el.alignment === 'RIGHT'
+                ? 'END'
+                : 'START';
+          requests.push({
+            updateParagraphStyle: {
+              objectId: shapeId,
+              style: { alignment: alignmentApi },
+              textRange: { type: 'ALL' },
+              fields: 'alignment'
             }
           });
         }
@@ -806,7 +865,21 @@ export class SlidesService extends BaseGoogleService {
       this.logInfo(`[crearSlideConDatos] Fila ${filaIndex}: slideId=${slideId}, shapes=${layout.length}, requests=${requests.length}`);
 
       await rateLimiter.checkLimit('slides_update');
-      const resultado = await this.actualizarPresentacion(presentacionId, requests);
+      let resultado = await this.actualizarPresentacion(presentacionId, requests);
+
+      const tieneCreateImage = requests.some((r) => (r as { createImage?: unknown }).createImage != null);
+      const pareceErrorImagen =
+        !resultado.exito &&
+        (resultado.codigo === 400 ||
+          /400|Bad Request|invalid|invalid.*url/i.test(String(resultado.error ?? '')));
+
+      if (!resultado.exito && tieneCreateImage && pareceErrorImagen) {
+        const requestsSinImagen = requests.filter((r) => (r as { createImage?: unknown }).createImage == null);
+        this.logError(
+          `[crearSlideConDatos] createImage falló (URL no pública o inválida), continuando sin imagen: ${resultado.error}`
+        );
+        resultado = await this.actualizarPresentacion(presentacionId, requestsSinImagen);
+      }
 
       if (!resultado.exito) {
         return { exito: false, error: resultado.error || 'Error al crear slide con datos' };

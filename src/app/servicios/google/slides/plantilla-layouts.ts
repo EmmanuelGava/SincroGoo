@@ -7,20 +7,29 @@ export function hexToRgb(hex: string): { red: number; green: number; blue: numbe
   return { red: r, green: g, blue: b };
 }
 
+/** Alineación horizontal del texto (mapea a START/CENTER/END de la API) */
+export type AlignmentType = 'LEFT' | 'CENTER' | 'RIGHT';
+
 export interface LayoutElement {
   placeholder: string;
+  /** Tipo de elemento: texto (cuadro de texto) o imagen (createImage). Por defecto texto. */
+  tipo?: 'texto' | 'imagen';
   x: number;
   y: number;
   w: number;
   h: number;
   fontSize?: number;
   bold?: boolean;
+  /** Alineación del párrafo. Solo aplica a elementos de tipo texto. */
+  alignment?: AlignmentType;
+  /** Familia de fuente (ej: "Arial", "Roboto"). Solo aplica a elementos de tipo texto. */
+  fontFamily?: string;
 }
 
 /** Posiciones (pt) por plantilla. Slide ~= 720x405 pt */
 export const LAYOUTS: Record<string, LayoutElement[]> = {
   catalogo_productos: [
-    { placeholder: 'Imagen', x: 40, y: 30, w: 400, h: 200, fontSize: 12 },
+    { placeholder: 'Imagen', tipo: 'imagen', x: 40, y: 30, w: 400, h: 200 },
     { placeholder: 'Nombre', x: 40, y: 240, w: 620, h: 50, fontSize: 28, bold: true },
     { placeholder: 'Precio', x: 40, y: 300, w: 200, h: 40, fontSize: 24 },
     { placeholder: 'Descripción', x: 40, y: 350, w: 620, h: 50, fontSize: 14 }
@@ -33,7 +42,7 @@ export const LAYOUTS: Record<string, LayoutElement[]> = {
     { placeholder: 'Notas', x: 380, y: 100, w: 300, h: 200, fontSize: 14 }
   ],
   ficha_local: [
-    { placeholder: 'Nombre', x: 40, y: 30, w: 620, h: 50, fontSize: 28, bold: true },
+    { placeholder: 'Nombre', x: 40, y: 30, w: 620, h: 50, fontSize: 28, bold: true, fontFamily: 'Roboto' },
     { placeholder: 'Dirección', x: 40, y: 100, w: 620, h: 35, fontSize: 16 },
     { placeholder: 'Teléfono', x: 40, y: 145, w: 300, h: 30, fontSize: 14 },
     { placeholder: 'Sitio Web', x: 40, y: 185, w: 300, h: 30, fontSize: 14 },
@@ -46,7 +55,7 @@ export const LAYOUTS: Record<string, LayoutElement[]> = {
     { placeholder: 'Condiciones', x: 40, y: 300, w: 620, h: 80, fontSize: 14 }
   ],
   reporte_simple: [
-    { placeholder: 'Título', x: 40, y: 30, w: 620, h: 45, fontSize: 24, bold: true },
+    { placeholder: 'Título', x: 40, y: 30, w: 620, h: 45, fontSize: 24, bold: true, alignment: 'CENTER' },
     { placeholder: 'Dato1', x: 40, y: 95, w: 300, h: 80, fontSize: 14 },
     { placeholder: 'Dato2', x: 380, y: 95, w: 300, h: 80, fontSize: 14 },
     { placeholder: 'Observaciones', x: 40, y: 195, w: 620, h: 160, fontSize: 14 }

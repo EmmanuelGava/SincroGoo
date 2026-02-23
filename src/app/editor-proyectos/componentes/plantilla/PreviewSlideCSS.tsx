@@ -92,7 +92,56 @@ export function PreviewSlideCSS({
           columnas,
           primeraFila
         )
+        const esImagen = el.tipo === "imagen"
+        const esUrl = typeof valor === "string" && (valor.startsWith("http://") || valor.startsWith("https://"))
+
+        if (esImagen) {
+          return (
+            <Box
+              key={el.placeholder}
+              sx={{
+                position: "absolute",
+                left: ptToPercent(el.x, SLIDE_W),
+                top: ptToPercent(el.y, SLIDE_H),
+                width: ptToPercent(el.w, SLIDE_W),
+                height: ptToPercent(el.h, SLIDE_H),
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "#eee"
+              }}
+            >
+              {esUrl ? (
+                <Box
+                  component="img"
+                  src={valor}
+                  alt=""
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover"
+                  }}
+                />
+              ) : (
+                <Typography
+                  variant="caption"
+                  sx={{ color: "#999", fontSize: 12 }}
+                >
+                  Sin imagen
+                </Typography>
+              )}
+            </Box>
+          )
+        }
+
         const displayVal = valor.length > 80 ? valor.slice(0, 77) + "…" : valor
+        const textAlign =
+          el.alignment === "CENTER"
+            ? "center"
+            : el.alignment === "RIGHT"
+              ? "right"
+              : "left"
         return (
           <Box
             key={el.placeholder}
@@ -114,7 +163,9 @@ export function PreviewSlideCSS({
                 fontWeight: el.bold ? 700 : 400,
                 color: textColor,
                 lineHeight: 1.2,
-                wordBreak: "break-word"
+                wordBreak: "break-word",
+                textAlign,
+                ...(el.fontFamily && { fontFamily: el.fontFamily })
               }}
             >
               {displayVal || `{{${el.placeholder}}}`}

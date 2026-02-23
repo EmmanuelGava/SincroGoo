@@ -19,7 +19,17 @@ import { useSheets, useUI } from "../../contexts"
 import { BotonSincronizar } from "../sheets/BotonSincronizar"
 import type { FilaHoja } from "../../types/sheets"
 
-export function TablaPlantillaSheet() {
+interface TablaPlantillaSheetProps {
+  /** ID de la fila actualmente seleccionada para la vista previa (resaltada en la tabla) */
+  filaSeleccionadaId?: string | null
+  /** Se llama al hacer clic en una fila para cambiar la fila de la vista previa */
+  onSeleccionarFila?: (fila: FilaHoja) => void
+}
+
+export function TablaPlantillaSheet({
+  filaSeleccionadaId,
+  onSeleccionarFila
+}: TablaPlantillaSheetProps = {}) {
   const { filas, columnas, tituloHoja } = useSheets()
   const { cargando } = useUI()
   const [busqueda, setBusqueda] = useState("")
@@ -87,18 +97,36 @@ export function TablaPlantillaSheet() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filasFiltradas.map((fila) => (
-              <TableRow key={fila.id}>
-                {columnas.map((col) => {
-                  const val = fila.valores.find((v) => v.columnaId === col.id)
-                  return (
-                    <TableCell key={col.id}>
-                      {val?.valor != null ? String(val.valor) : ""}
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
-            ))}
+            {filasFiltradas.map((fila) => {
+              const seleccionada = filaSeleccionadaId != null && fila.id === filaSeleccionadaId
+              return (
+                <TableRow
+                  key={fila.id}
+                  selected={seleccionada}
+                  onClick={
+                    onSeleccionarFila
+                      ? () => onSeleccionarFila(fila)
+                      : undefined
+                  }
+                  sx={
+                    onSeleccionarFila
+                      ? {
+                          cursor: "pointer"
+                        }
+                      : undefined
+                  }
+                >
+                  {columnas.map((col) => {
+                    const val = fila.valores.find((v) => v.columnaId === col.id)
+                    return (
+                      <TableCell key={col.id}>
+                        {val?.valor != null ? String(val.valor) : ""}
+                      </TableCell>
+                    )
+                  })}
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </TableContainer>

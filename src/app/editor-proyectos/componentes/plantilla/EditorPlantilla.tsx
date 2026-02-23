@@ -15,6 +15,8 @@ import DialogActions from "@mui/material/DialogActions"
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome"
 import EditIcon from "@mui/icons-material/Edit"
 import ContentCopyIcon from "@mui/icons-material/ContentCopy"
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"
+import ChevronRightIcon from "@mui/icons-material/ChevronRight"
 import { EncabezadoSistema } from "@/app/componentes/EncabezadoSistema"
 import { TablaPlantillaSheet } from "./TablaPlantillaSheet"
 import { PreviewSlideCSS } from "./PreviewSlideCSS"
@@ -49,6 +51,7 @@ export function EditorPlantilla({
   onPasarAlEditor
 }: EditorPlantillaProps) {
   const { columnas, filas } = useSheets()
+  const [filaPreviewIndex, setFilaPreviewIndex] = useState(0)
   const [hasPlaceholders, setHasPlaceholders] = useState(false)
   const [cargandoPlaceholders, setCargandoPlaceholders] = useState(true)
   const [generarAbierto, setGenerarAbierto] = useState(false)
@@ -67,11 +70,24 @@ export function EditorPlantilla({
     ? Object.keys(columnMapping)
     : encabezados
 
+  const indicePreview = Math.min(Math.max(0, filaPreviewIndex), Math.max(0, filas.length - 1))
+  const filaPreview = filas[indicePreview] ?? null
+  const handleSeleccionarFila = (fila: { id: string }) => {
+    const i = filas.findIndex((f) => f.id === fila.id)
+    if (i >= 0) setFilaPreviewIndex(i)
+  }
+
   const copiarPlaceholder = (titulo: string) => {
     const placeholder = `{{${titulo}}}`
     navigator.clipboard.writeText(placeholder)
     toast.success(`${placeholder} copiado — pégalo en tu diapositiva`)
   }
+
+  useEffect(() => {
+    if (filas.length > 0 && filaPreviewIndex >= filas.length) {
+      setFilaPreviewIndex(Math.max(0, filas.length - 1))
+    }
+  }, [filas.length, filaPreviewIndex])
 
   useEffect(() => {
     const check = async () => {
@@ -205,7 +221,10 @@ export function EditorPlantilla({
             <Typography variant="h6" sx={{ mb: 2 }}>
               Datos del Sheet
             </Typography>
-            <TablaPlantillaSheet />
+            <TablaPlantillaSheet
+              filaSeleccionadaId={filaPreview?.id}
+              onSeleccionarFila={handleSeleccionarFila}
+            />
           </div>
 
           <div className="flex-1 flex flex-col min-w-0 overflow-auto">
@@ -233,14 +252,43 @@ export function EditorPlantilla({
                 )}
               </Box>
               <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  Vista previa (primera fila)
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Vista previa
+                    {filas.length > 0
+                      ? ` (fila ${indicePreview + 1} de ${filas.length})`
+                      : ""}
+                  </Typography>
+                  {filas.length > 1 && (
+                    <Stack direction="row" spacing={0.5}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={indicePreview <= 0}
+                        onClick={() => setFilaPreviewIndex((i) => Math.max(0, i - 1))}
+                        sx={{ minWidth: 36 }}
+                      >
+                        <ChevronLeftIcon fontSize="small" />
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={indicePreview >= filas.length - 1}
+                        onClick={() =>
+                          setFilaPreviewIndex((i) => Math.min(filas.length - 1, i + 1))
+                        }
+                        sx={{ minWidth: 36 }}
+                      >
+                        <ChevronRightIcon fontSize="small" />
+                      </Button>
+                    </Stack>
+                  )}
+                </Stack>
                 <PreviewSlideCSS
                   templateType={templateType || "ficha_local"}
                   columnMapping={columnMapping}
                   columnas={columnas}
-                  primeraFila={filas[0] ?? null}
+                  primeraFila={filaPreview}
                 />
               </Box>
             </Box>

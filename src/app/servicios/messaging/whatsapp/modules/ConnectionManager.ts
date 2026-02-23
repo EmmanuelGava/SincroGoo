@@ -1,5 +1,6 @@
 import { WASocket, makeWASocket } from 'baileys';
 import { isJidBroadcast } from 'baileys';
+import QRCode from 'qrcode';
 import type { BaileysAuthState } from './AuthManager';
 import { BAILEYS_CONFIG } from './BaileysConfig';
 import { EventManager } from './EventManager';
@@ -15,12 +16,9 @@ class WhatsAppUtils {
   static async generateQRCode(qrData: string, sessionId: string): Promise<QRCodeData> {
     try {
       // Generar QR como imagen base64 usando qrcode
-      const QRCode = require('qrcode');
-      
       const qrImageDataUrl = await QRCode.toDataURL(qrData, {
         errorCorrectionLevel: 'M',
         type: 'image/png',
-        quality: 0.92,
         margin: 1,
         color: {
           dark: '#000000',

@@ -56,8 +56,9 @@ export class AuthManager {
         }
       }
       
-      // Usar useMultiFileAuthState para compatibilidad con Baileys
+      // useMultiFileAuthState es de Baileys, no un React Hook
       console.log('🔧 Inicializando useMultiFileAuthState...');
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- Baileys, no React
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
       console.log('✅ useMultiFileAuthState inicializado exitosamente');
       

@@ -24,10 +24,11 @@ export async function GET(request: NextRequest) {
     
     console.log('🐛 [Debug] Estado actual del servicio:', currentState);
 
-    // Verificar si hay socket activo
-    const hasActiveSocket = currentState?.socket && !currentState.socket.end;
+    // Verificar si hay socket activo (ws puede ser WebSocket-like con readyState)
+    const ws = (currentState?.socket as { ws?: { readyState?: number }; end?: (err?: Error) => void } | null)?.ws;
+    const hasActiveSocket = currentState?.socket && !(currentState.socket as { end?: (err?: Error) => void }).end;
     const socketUser = currentState?.socket?.user;
-    const connectionStatus = currentState?.socket?.ws?.readyState;
+    const connectionStatus = ws?.readyState;
 
     const debugInfo = {
       userId,

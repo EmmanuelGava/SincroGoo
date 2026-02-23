@@ -1,4 +1,4 @@
-import { WASocket } from '@whiskeysockets/baileys';
+import { WASocket } from 'baileys';
 
 export interface QRCodeData {
   qrCode: string;

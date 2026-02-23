@@ -61,10 +61,15 @@ export class WhatsAppLiteService {
     return WhatsAppLiteService.instance;
   }
 
-  /**
-   * Conectar WhatsApp Lite
-   */
-  async connect(userId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  /** Resultado de connect: success + data o bien qrCode/sessionId/expiresAt cuando aplica */
+  async connect(userId: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+    qrCode?: string;
+    sessionId?: string;
+    expiresAt?: Date;
+  }> {
     try {
       console.log('🚀 [WhatsAppLiteService] Iniciando conexión para usuario:', userId);
       
@@ -142,7 +147,10 @@ export class WhatsAppLiteService {
           connected: false, 
           message: 'Conexión iniciada, esperando QR...',
           sessionId: sessionId
-        } 
+        },
+        sessionId,
+        qrCode: this.state.currentQR ?? undefined,
+        expiresAt: new Date(Date.now() + 60 * 1000)
       };
 
     } catch (error) {

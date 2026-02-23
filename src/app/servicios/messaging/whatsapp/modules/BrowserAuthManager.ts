@@ -32,7 +32,7 @@ export class BrowserAuthManager {
     // Intentar cargar credenciales existentes
     const existingCredentials = WhatsAppStorage.getCredentials(this.userId, this.sessionId);
     
-    let state = {
+    const state = {
       creds: existingCredentials?.creds || {},
       keys: existingCredentials?.keys || {}
     };

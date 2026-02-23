@@ -101,7 +101,8 @@ export class WhatsAppLiteServiceV2 {
     try {
       console.log('🔧 [WhatsAppLiteV2] Creando socket...');
 
-      // Usar useMultiFileAuthState
+      // useMultiFileAuthState es de Baileys, no un React Hook
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- Baileys
       const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
 
       // Configuración del socket
@@ -179,11 +180,10 @@ export class WhatsAppLiteServiceV2 {
     try {
       console.log('📱 [WhatsAppLiteV2] QR recibido, generando imagen...');
 
-      // Generar imagen QR
+      // Generar imagen QR (opciones compatibles con @types/qrcode para image/png)
       const qrImage = await QRCode.toDataURL(qr, {
         errorCorrectionLevel: 'M',
         type: 'image/png',
-        quality: 0.92,
         margin: 1,
         color: {
           dark: '#000000',
@@ -222,7 +222,7 @@ export class WhatsAppLiteServiceV2 {
       }
 
       // Extraer número de teléfono
-      let phoneNumber = socket.user.id.split('@')[0] || socket.user.id.split(':')[0];
+      const phoneNumber = socket.user.id.split('@')[0] || socket.user.id.split(':')[0];
 
       if (!phoneNumber || phoneNumber.length < 10) {
         console.log('❌ [WhatsAppLiteV2] Número de teléfono inválido:', phoneNumber);
@@ -405,7 +405,7 @@ export class WhatsAppLiteServiceV2 {
     try {
       // Cerrar socket existente
       if (this.state.socket) {
-        this.state.socket.end();
+        this.state.socket.end(undefined);
         this.state.socket = null;
       }
 

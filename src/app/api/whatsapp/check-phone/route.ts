@@ -56,17 +56,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         hasActiveConnections: true,
-        activeConnections: activeConnections.map(conn => ({
-          sessionId: conn.session_id,
-          phoneNumber: conn.phone_number,
-          status: conn.status,
-          lastActivity: conn.last_activity,
-          createdAt: conn.created_at,
-          user: {
-            email: conn.usuarios?.email,
-            nombre: conn.usuarios?.nombre
-          }
-        })),
+        activeConnections: activeConnections.map(conn => {
+          const u = Array.isArray(conn.usuarios) ? conn.usuarios[0] : conn.usuarios;
+          return {
+            sessionId: conn.session_id,
+            phoneNumber: conn.phone_number,
+            status: conn.status,
+            lastActivity: conn.last_activity,
+            createdAt: conn.created_at,
+            user: {
+              email: (u as { email?: string } | null)?.email,
+              nombre: (u as { nombre?: string } | null)?.nombre
+            }
+          };
+        }),
         message: `El número ${cleanPhoneNumber} tiene ${activeConnections.length} conexión(es) activa(s)`
       });
     } else {

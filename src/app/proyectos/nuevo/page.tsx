@@ -465,7 +465,7 @@ export default function NuevoProyecto() {
       console.log('✅ Proyecto creado:', proyecto)
 
       let idPresentacionParaEditor = idPresentacionFinal
-      let idHojaParaEditor = idHojaCalculoFinal
+      const idHojaParaEditor = idHojaCalculoFinal
 
       // Si solo hoja y se quiere generar presentación, llamar a sheets-to-slides
       if (tipoProyecto === "solo_hoja" && generarPresentacionDesdeHoja && idHojaCalculoFinal) {

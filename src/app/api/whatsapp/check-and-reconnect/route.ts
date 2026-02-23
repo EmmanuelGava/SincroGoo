@@ -69,6 +69,10 @@ export async function POST(request: NextRequest) {
     // Si no está conectado, intentar reconectar
     console.log('🔄 WhatsApp Lite no está conectado, intentando reconectar...');
     
+    if (!userId) {
+      return NextResponse.json({ error: 'Usuario no identificado' }, { status: 400 });
+    }
+    
     try {
       const qrData = await whatsappLiteService.connect(userId);
       

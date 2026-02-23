@@ -180,11 +180,12 @@ export function crearRequestsActualizarElemento(
       break;
     }
     case 'IMAGEN': {
-      if (elemento.contenido.tipo === 'IMAGEN') {
+      const contImg = elemento.contenido;
+      if (contImg && contImg.tipo === 'IMAGEN' && 'url' in contImg) {
         requests.push({
           replaceImage: {
             imageObjectId: elementoId,
-            url: elemento.contenido.url,
+            url: contImg.url,
             imageReplaceMethod: 'CENTER_INSIDE'
           }
         });
@@ -192,8 +193,9 @@ export function crearRequestsActualizarElemento(
       break;
     }
     case 'TABLA': {
-      if (elemento.contenido.tipo === 'TABLA') {
-        const { tabla } = elemento.contenido;
+      const contTabla = elemento.contenido;
+      if (contTabla && contTabla.tipo === 'TABLA' && 'tabla' in contTabla) {
+        const { tabla } = contTabla;
         tabla.datos.forEach((fila: string[], i: number) => {
           fila.forEach((celda: string, j: number) => {
             if (celda && celda.trim()) {

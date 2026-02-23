@@ -4,7 +4,7 @@ import {
   WASocket,
   DisconnectReason,
   isJidBroadcast
-} from '@whiskeysockets/baileys';
+} from 'baileys';
 import path from 'path';
 import fs from 'fs';
 
@@ -116,11 +116,10 @@ export class WhatsAppLiteService {
       console.log('🔧 Creando socket de Baileys...');
       this.state.socket = makeWASocket({
         auth: authState.state,
-        printQRInTerminal: false,
         ...BAILEYS_CONFIG,
-        shouldIgnoreJid: jid => isJidBroadcast(jid),
+        shouldIgnoreJid: (jid: string) => isJidBroadcast(jid),
         getMessage: async () => ({ conversation: 'Mensaje no disponible' }),
-        patchMessageBeforeSending: (msg) => {
+        patchMessageBeforeSending: (msg: any) => {
           const requiresPatch = !!(msg.buttonsMessage || msg.templateMessage || msg.listMessage);
           if (requiresPatch) {
             msg = {
@@ -475,11 +474,10 @@ export class WhatsAppLiteService {
       
       this.state.socket = makeWASocket({
         auth: state,
-        printQRInTerminal: false,
         ...BAILEYS_CONFIG,
-        shouldIgnoreJid: jid => isJidBroadcast(jid),
+        shouldIgnoreJid: (jid: string) => isJidBroadcast(jid),
         getMessage: async () => ({ conversation: 'Mensaje no disponible' }),
-        patchMessageBeforeSending: (msg) => {
+        patchMessageBeforeSending: (msg: any) => {
           const requiresPatch = !!(msg.buttonsMessage || msg.templateMessage || msg.listMessage);
           if (requiresPatch) {
             msg = {
@@ -495,7 +493,7 @@ export class WhatsAppLiteService {
         },
       });
 
-      this.setupEventListeners(saveCreds, userAuthDir, userId);
+      this.setupEventListeners(saveCreds, userId, userAuthDir);
       
       // Esperar autenticación
       console.log('⏳ Esperando autenticación de Baileys...');
@@ -553,11 +551,10 @@ export class WhatsAppLiteService {
         
         this.state.socket = makeWASocket({
           auth: state,
-          printQRInTerminal: false,
           ...BAILEYS_CONFIG,
-          shouldIgnoreJid: jid => isJidBroadcast(jid),
+          shouldIgnoreJid: (jid: string) => isJidBroadcast(jid),
           getMessage: async () => ({ conversation: 'Mensaje no disponible' }),
-          patchMessageBeforeSending: (msg) => {
+          patchMessageBeforeSending: (msg: any) => {
             const requiresPatch = !!(msg.buttonsMessage || msg.templateMessage || msg.listMessage);
             if (requiresPatch) {
               msg = {
@@ -573,7 +570,7 @@ export class WhatsAppLiteService {
           },
         });
 
-        this.setupEventListeners(saveCreds, userAuthDir, userId);
+        this.setupEventListeners(saveCreds, userId, userAuthDir);
         
         console.log('⏳ Esperando autenticación de Baileys...');
         await this.waitForAuthentication(30000);
@@ -598,11 +595,10 @@ export class WhatsAppLiteService {
         
         this.state.socket = makeWASocket({
           auth: state,
-          printQRInTerminal: false,
           ...BAILEYS_CONFIG,
-          shouldIgnoreJid: jid => isJidBroadcast(jid),
+          shouldIgnoreJid: (jid: string) => isJidBroadcast(jid),
           getMessage: async () => ({ conversation: 'Mensaje no disponible' }),
-          patchMessageBeforeSending: (msg) => {
+          patchMessageBeforeSending: (msg: any) => {
             const requiresPatch = !!(msg.buttonsMessage || msg.templateMessage || msg.listMessage);
             if (requiresPatch) {
               msg = {
@@ -618,7 +614,7 @@ export class WhatsAppLiteService {
           },
         });
 
-        this.setupEventListeners(saveCreds, userAuthDir, userId);
+        this.setupEventListeners(saveCreds, userId, userAuthDir);
         
         console.log('⏳ Esperando autenticación de Baileys...');
         await this.waitForAuthentication(30000);
@@ -633,7 +629,7 @@ export class WhatsAppLiteService {
     }
   }
 
-  private setupEventListeners(saveCreds: () => Promise<void>, userId: string): void {
+  private setupEventListeners(saveCreds: () => Promise<void>, userId: string, _userAuthDir?: string): void {
     if (!this.state.socket) return;
 
     console.log('🔧 Configurando event listeners de Baileys...');
@@ -645,7 +641,7 @@ export class WhatsAppLiteService {
     });
 
     // Manejar QR code
-    this.state.socket.ev.on('connection.update', async (update) => {
+    this.state.socket.ev.on('connection.update', async (update: { connection?: string; lastDisconnect?: { error?: unknown }; qr?: string }) => {
       const { connection, lastDisconnect, qr } = update;
       
       console.log('📡 Evento connection.update recibido:', { connection, hasQR: !!qr, hasLastDisconnect: !!lastDisconnect });
@@ -676,7 +672,7 @@ export class WhatsAppLiteService {
     });
 
     // Manejar mensajes entrantes
-    this.state.socket.ev.on('messages.upsert', async (m) => {
+    this.state.socket.ev.on('messages.upsert', async (m: any) => {
       const msg = m.messages[0];
       if (!msg.key.fromMe && msg.message) {
         const messageText = WhatsAppUtils.extractMessageText(msg.message);

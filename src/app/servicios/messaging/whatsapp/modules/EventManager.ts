@@ -1,4 +1,7 @@
 import { WASocket } from 'baileys';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
 import { DatabaseManager } from './DatabaseManager';
 import QRCode from 'qrcode';
 
@@ -397,10 +400,7 @@ export class EventManager {
       console.log('🔄 [EventManager] Recargando credenciales en socket existente...');
       
       // Verificar si hay credenciales guardadas
-      const path = require('path');
-      const os = require('os');
-      const fs = require('fs');
-      
+      if (!state.sessionId) return;
       const tempDir = process.env.TEMP || process.env.TMP || os.tmpdir();
       const authDir = path.join(tempDir, 'whatsapp_auth', state.sessionId);
       

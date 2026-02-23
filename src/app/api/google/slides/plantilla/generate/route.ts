@@ -75,12 +75,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { encabezados: headers, filas } = datosResult.datos;
+    const { encabezados: headers, filas: filasRaw } = datosResult.datos;
+    let filas = filasRaw;
     if (filas.length === 0) {
       return NextResponse.json(
         { exito: false, error: 'El Sheet no tiene filas de datos' },
         { status: 400 }
       );
+    }
+    const limiteFilas = (proyecto.metadata as Record<string, unknown>)?.limite_filas as number | null | undefined;
+    if (typeof limiteFilas === 'number' && limiteFilas > 0) {
+      filas = filas.slice(0, limiteFilas);
     }
 
     const titulo = tituloPresentacion || proyecto.nombre || 'Plantilla SincroGoo';

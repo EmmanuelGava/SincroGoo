@@ -40,33 +40,11 @@ export class PlantillaTemplateService {
       };
     }
 
-    await this.slidesService.insertarDiapositiva(presentationId, 1, 'EN_BLANCO', SLIDE_ID);
-    if (firstSlideId) {
-      requests.push({ deleteObject: { objectId: firstSlideId } });
-    }
-
-    requests.push(this.crearRequestFondo(SLIDE_ID, plantilla.bgColor));
-
-    const layout = LAYOUTS[templateId];
-    if (layout) {
-      for (const el of layout) {
-        const shapeId = `shape_${el.placeholder.replace(/\s/g, '_')}`;
-        requests.push(
-          this.crearRequestCreateShape(SLIDE_ID, shapeId, el.x, el.y, el.w, el.h)
-        );
-        const texto = `{{${el.placeholder}}}`;
-        requests.push(this.crearRequestInsertText(shapeId, texto));
-        if (el.fontSize !== undefined) {
-          requests.push(
-            this.crearRequestUpdateTextStyle(shapeId, plantilla.textColor, el.fontSize, el.bold)
-          );
-        }
-      }
-    }
-
-    await this.slidesService.actualizarPresentacion(presentationId, requests);
-
-    return { presentationId, slideId: SLIDE_ID };
+    // Para flujo generate: NO crear slide plantilla con formas. Dejar la slide por defecto en blanco.
+    // El process creará N slides con datos y al final eliminará esa slide vacía.
+    // Así la diapositiva 1 tendrá datos (no quedará en blanco).
+    // No llamar actualizarPresentacion con requests vacíos: Google exige al menos 1 request.
+    return { presentationId, slideId: firstSlideId || SLIDE_ID };
   }
 
   private crearRequestFondo(

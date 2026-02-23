@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SlidesService } from '@/app/servicios/google/slides/SlidesService';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
-import { LAYOUTS } from '@/app/servicios/google/slides/plantilla-layouts';
+import { LAYOUTS, generarLayoutDinamico } from '@/app/servicios/google/slides/plantilla-layouts';
 
 const DELAY_MS = 1500;
 const MAX_RETRIES_429 = 5;
@@ -72,7 +72,17 @@ export async function POST(request: NextRequest) {
     const columnMapping = (job.column_mapping || {}) as Record<string, string>;
     const headers = itemsToProcess[0]?.datos_fila?.encabezados || [];
 
-    if (!templateType || !LAYOUTS[templateType]) {
+    const placeholdersFromMapping = columnMapping && Object.keys(columnMapping).length > 0
+      ? Object.keys(columnMapping)
+      : null;
+    const usarLayoutDinamico = placeholdersFromMapping && placeholdersFromMapping.length > 0;
+
+    let layout: import('@/app/servicios/google/slides/plantilla-layouts').LayoutElement[];
+    if (usarLayoutDinamico) {
+      layout = generarLayoutDinamico(placeholdersFromMapping, templateType || 'ficha_local');
+    } else if (templateType && LAYOUTS[templateType]) {
+      layout = LAYOUTS[templateType];
+    } else {
       console.error(`[plantilla/process] template_type no válido: ${templateType}`);
       await supabase
         .from('generacion_jobs')
@@ -88,8 +98,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const layout = LAYOUTS[templateType];
     const slidesService = SlidesService.getInstance(accessToken);
     const errores: { fila: number; error: string }[] = [];
     let filasProcesadas = 0;
@@ -131,9 +139,10 @@ export async function POST(request: NextRequest) {
 
           const result = await slidesService.crearSlideConDatos(
             presentationId,
-            templateType,
+            templateType || 'ficha_local',
             datos,
-            item.fila_index
+            item.fila_index,
+            layout
           );
 
           if (!result.exito || !result.datos) {

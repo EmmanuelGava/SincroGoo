@@ -107,6 +107,7 @@ export default function NuevoProyecto() {
   const [pasoPlantilla, setPasoPlantilla] = useState<'sheet' | 'template' | 'mapping'>('sheet')
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState<string | null>(null)
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
+  const [limiteFilas, setLimiteFilas] = useState<number | null>(null) // null = todas
   
   // Tipo de proyecto: ambos docs, solo hoja (generar presentación), solo presentación (generar hoja)
   const [tipoProyecto, setTipoProyecto] = useState<"ambos" | "solo_hoja" | "solo_presentacion">("ambos")
@@ -224,16 +225,35 @@ export default function NuevoProyecto() {
     cargarColumnas()
   }, [modoProyecto, hojaSeleccionada])
 
-  // Modo B: al elegir plantilla, auto-match columnas
+  // Modo B: plantillas autoajustables — placeholders = columnas detectadas del usuario (mapeo 1:1)
   useEffect(() => {
-    if (plantillaSeleccionada && columnasDetectadas.length > 0) {
-      const plant = PLANTILLAS.find(p => p.id === plantillaSeleccionada)
-      const placeholders = plant?.placeholders || []
-      setColumnMapping(autoMatchColumns(columnasDetectadas, placeholders))
+    if (columnasDetectadas.length > 0) {
+      setColumnMapping(Object.fromEntries(columnasDetectadas.map(c => [c, c])))
     } else {
       setColumnMapping({})
     }
-  }, [plantillaSeleccionada, columnasDetectadas])
+  }, [columnasDetectadas])
+
+  // Modo B: al entrar al paso 3 (pre-mapeo), cargar/recargar columnas del Sheet para que la plantilla se ajuste al documento del usuario
+  useEffect(() => {
+    if (modoProyecto !== "plantilla" || pasoPlantilla !== "mapping" || !hojaSeleccionada) return
+    const cargarColumnasMapping = async () => {
+      setCargandoColumnas(true)
+      try {
+        const res = await fetch(`/api/google/sheets?action=getData&spreadsheetId=${hojaSeleccionada}`)
+        if (!res.ok) throw new Error("Error al leer columnas")
+        const data = await res.json()
+        const encabezados = data?.datos?.encabezados || []
+        setColumnasDetectadas(encabezados.filter((h: string) => h && String(h).trim()))
+      } catch (err) {
+        console.error("Error al cargar columnas en paso mapping:", err)
+        toast.error("No se pudieron cargar las columnas del Sheet")
+      } finally {
+        setCargandoColumnas(false)
+      }
+    }
+    cargarColumnasMapping()
+  }, [modoProyecto, pasoPlantilla, hojaSeleccionada])
 
   // Verificar estado de autenticación
   if (status === "loading") {
@@ -322,7 +342,8 @@ export default function NuevoProyecto() {
           modo: "plantilla",
           metadata: {
             plantilla_template_id: templateId,
-            column_mapping: columnMapping
+            column_mapping: columnMapping,
+            limite_filas: limiteFilas
           }
         })
       })
@@ -331,8 +352,51 @@ export default function NuevoProyecto() {
         throw new Error(errData.error || "Error al crear el proyecto")
       }
       const proyecto = await response.json()
-      toast.success("Proyecto creado. Redirigiendo al editor...")
-      router.push(`/editor-proyectos/${proyecto.id}?idPresentacion=${idPresentacion}&idHojaCalculo=${hojaSeleccionada}`)
+      toast.info("Proyecto creado. Generando diapositivas...")
+      const genRes = await fetch("/api/google/slides/plantilla/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spreadsheetId: hojaSeleccionada,
+          proyectoId: proyecto.id,
+          templateType: templateId,
+          columnMapping,
+          tituloPresentacion: titulo.trim() || "Plantilla SincroGoo"
+        })
+      })
+      const genData = await genRes.json()
+      const jobId = genData.exito ? genData.datos?.job_id : null
+      if (!jobId) {
+        toast.warning("Proyecto creado, pero no se pudo iniciar la generación.")
+        router.push(`/editor-proyectos/${proyecto.id}`)
+      } else {
+        const esperarGeneracion = async (): Promise<void> => {
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const res = await fetch(`/api/google/slides/plantilla/job/${jobId}`)
+            const data = await res.json()
+            if (!data.exito || !data.datos) {
+              await new Promise((r) => setTimeout(r, 2000))
+              continue
+            }
+            const { estado, filas_procesadas, total_filas } = data.datos
+            if (estado === "completado") {
+              toast.success("Diapositivas generadas correctamente")
+              router.push(`/editor-proyectos/${proyecto.id}`)
+              return
+            }
+            if (estado === "error") {
+              toast.error("Error en la generación. Abre el editor para reintentar.")
+              router.push(`/editor-proyectos/${proyecto.id}`)
+              return
+            }
+            const pct = total_filas > 0 ? Math.round(((filas_procesadas || 0) / total_filas) * 100) : 0
+            toast.loading(`Generando diapositivas... ${pct}%`, { id: "generando" })
+            await new Promise((r) => setTimeout(r, 2000))
+          }
+        }
+        await esperarGeneracion()
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al crear el proyecto"
       toast.error(msg)
@@ -890,21 +954,57 @@ export default function NuevoProyecto() {
 
                 {pasoPlantilla === "mapping" && plantillaSeleccionada && (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                        Columnas detectadas en tu documento (primera fila del Sheet)
+                      </Typography>
+                      {cargandoColumnas ? (
+                        <Skeleton variant="text" width="60%" />
+                      ) : columnasDetectadas.length > 0 ? (
+                        <Stack direction="row" flexWrap="wrap" gap={1}>
+                          {columnasDetectadas.map(col => (
+                            <Chip key={col} label={col} size="small" variant="outlined" />
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">Sin columnas en la primera fila del Sheet</Typography>
+                      )}
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Filas a generar
+                      </Typography>
+                      <TextField
+                        select
+                        size="small"
+                        value={limiteFilas == null ? "todas" : String(limiteFilas)}
+                        onChange={(e) => setLimiteFilas(e.target.value === "todas" ? null : Number(e.target.value))}
+                        SelectProps={{ native: true }}
+                        sx={{ minWidth: 200 }}
+                      >
+                        <option value="todas">Todas las filas</option>
+                        <option value="10">Primeras 10</option>
+                        <option value="20">Primeras 20</option>
+                        <option value="30">Primeras 30</option>
+                        <option value="50">Primeras 50</option>
+                        <option value="100">Primeras 100</option>
+                      </TextField>
+                    </Box>
                     <Typography variant="body2" color="text.secondary">
-                      Asigna cada placeholder de la plantilla a una columna del Sheet. El mapeo automático se intentó por similitud de nombres.
+                      La plantilla se ajusta automáticamente a tus columnas. Puedes excluir columnas o cambiar la asignación si lo deseas.
                     </Typography>
                     <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 2, alignItems: "center" }}>
-                      <Typography variant="subtitle2">Placeholder</Typography>
+                      <Typography variant="subtitle2">Campo</Typography>
                       <span />
                       <Typography variant="subtitle2">Columna del Sheet</Typography>
-                      {PLANTILLAS.find(p => p.id === plantillaSeleccionada)?.placeholders.map(ph => (
+                      {columnasDetectadas.map(ph => (
                         <React.Fragment key={ph}>
-                          <Chip label={`{{${ph}}}`} size="small" variant="outlined" sx={{ justifySelf: "start" }} />
+                          <Chip label={ph} size="small" variant="outlined" sx={{ justifySelf: "start" }} />
                           <ArrowForwardIcon sx={{ color: "text.disabled" }} />
                           <TextField
                             select
                             size="small"
-                            value={columnMapping[ph] ?? ""}
+                            value={columnMapping[ph] ?? ph}
                             onChange={(e) => setColumnMapping(prev => ({ ...prev, [ph]: e.target.value }))}
                             SelectProps={{ native: true }}
                             sx={{ minWidth: 180 }}
@@ -917,11 +1017,11 @@ export default function NuevoProyecto() {
                         </React.Fragment>
                       ))}
                     </Box>
-                    {(!PLANTILLAS.find(p => p.id === plantillaSeleccionada)?.placeholders.length) ? (
+                    {columnasDetectadas.length === 0 && (
                       <Typography variant="body2" color="text.secondary">
-                        Plantilla en blanco: no hay placeholders para mapear.
+                        No hay columnas detectadas en la primera fila del Sheet.
                       </Typography>
-                    ) : null}
+                    )}
                   </Box>
                 )}
               </Box>

@@ -12,9 +12,9 @@ import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema'
 import { TablaHojas } from '../componentes/sheets/TablaHojas'
 import { SidebarSlides } from '../componentes/slides/SidebarSlides'
 import { PanelGuardarCambios } from '../componentes/PanelGuardarCambios'
-import { EditorPlantilla } from '../componentes/plantilla/EditorPlantilla'
 import { useSlides } from '../contexts'
 
+/** Envuelve el editor real (TablaHojas + SidebarSlides) para modo plantilla. Ya no hay página intermedia. */
 function PaginaPlantilla({
   idProyecto,
   idHojaCalculo,
@@ -32,42 +32,6 @@ function PaginaPlantilla({
   columnMapping: Record<string, string>
   templateType: string
 }) {
-  const [mostrarEditorPrincipal, setMostrarEditorPrincipal] = useState(false)
-  const [editorTransitionKey, setEditorTransitionKey] = useState(0)
-  const [presentacionParaEditor, setPresentacionParaEditor] = useState<string | null>(null)
-
-  const handlePasarAlEditor = (nuevoPresentationId?: string) => {
-    if (nuevoPresentationId) setPresentacionParaEditor(nuevoPresentationId)
-    setMostrarEditorPrincipal(true)
-    setEditorTransitionKey((k) => k + 1)
-  }
-
-  const idPresentacionEditor = presentacionParaEditor || idPresentacion
-
-  if (mostrarEditorPrincipal) {
-    return (
-      <UIProvider
-        initialIdProyecto={idProyecto}
-        tituloHoja={tituloHoja || undefined}
-        tituloPresentacion={tituloPresentacion || undefined}
-      >
-        <NotificacionProvider>
-          <SheetsProvider idHojaCalculo={idHojaCalculo}>
-            <SlidesProvider
-              key={`slides-${idPresentacionEditor}-${editorTransitionKey}`}
-              idProyecto={idProyecto}
-              idPresentacion={idPresentacionEditor}
-              columnMapping={columnMapping}
-              templateType={templateType}
-            >
-              <EditorContent inicialSidebarAbierto />
-            </SlidesProvider>
-          </SheetsProvider>
-        </NotificacionProvider>
-      </UIProvider>
-    )
-  }
-
   return (
     <UIProvider
       initialIdProyecto={idProyecto}
@@ -76,15 +40,14 @@ function PaginaPlantilla({
     >
       <NotificacionProvider>
         <SheetsProvider idHojaCalculo={idHojaCalculo}>
-          <EditorPlantilla
+          <SlidesProvider
             idProyecto={idProyecto}
             idPresentacion={idPresentacion}
-            idHojaCalculo={idHojaCalculo}
-            tituloPresentacion={tituloPresentacion}
             columnMapping={columnMapping}
             templateType={templateType}
-            onPasarAlEditor={handlePasarAlEditor}
-          />
+          >
+            <EditorContent inicialSidebarAbierto />
+          </SlidesProvider>
         </SheetsProvider>
       </NotificacionProvider>
     </UIProvider>

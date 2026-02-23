@@ -703,10 +703,11 @@ export class SlidesService extends BaseGoogleService {
     presentacionId: string,
     templateType: string,
     datos: Record<string, string>,
-    filaIndex: number
+    filaIndex: number,
+    layoutOverride?: import('./plantilla-layouts').LayoutElement[]
   ): Promise<ResultadoAPI<string>> {
     try {
-      const layout = LAYOUTS[templateType];
+      const layout = layoutOverride ?? LAYOUTS[templateType];
       if (!layout || layout.length === 0) {
         return { exito: false, error: `Layout no encontrado para plantilla: ${templateType}` };
       }

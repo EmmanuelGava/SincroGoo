@@ -26,6 +26,78 @@ export interface LayoutElement {
   fontFamily?: string;
 }
 
+/** Indica si una columna debe tratarse como imagen (URL) */
+export function esColumnaImagen(nombre: string): boolean {
+  const n = String(nombre || '').toLowerCase()
+  return (
+    n === 'imagen' ||
+    n === 'image' ||
+    n === 'foto' ||
+    n === 'photo' ||
+    n === 'url_imagen' ||
+    n === 'url' ||
+    n.includes('imagen') ||
+    n.includes('foto')
+  )
+}
+
+/** Genera layout dinámico a partir de las columnas del usuario. Slide ~= 720x405 pt */
+export function generarLayoutDinamico(
+  placeholders: string[],
+  basePlantillaId: string = 'ficha_local'
+): LayoutElement[] {
+  if (placeholders.length === 0) return []
+  const result: LayoutElement[] = []
+  const slideW = 720
+  const slideH = 405
+  const margin = 40
+  const rowHeight = 36
+  const imageCols = placeholders.filter((p) => esColumnaImagen(p))
+  const textCols = placeholders.filter((p) => !esColumnaImagen(p))
+  let y = 30
+
+  if (imageCols.length > 0) {
+    const imgCol = imageCols[0]
+    result.push({
+      placeholder: imgCol,
+      tipo: 'imagen',
+      x: margin,
+      y: 30,
+      w: 220,
+      h: 140
+    })
+    y = 180
+  }
+
+  textCols.forEach((ph, i) => {
+    const isFirst = i === 0 && imageCols.length === 0
+    result.push({
+      placeholder: ph,
+      x: margin,
+      y,
+      w: slideW - margin * 2,
+      h: rowHeight,
+      fontSize: isFirst ? 22 : 14,
+      bold: isFirst
+    })
+    y += rowHeight
+  })
+
+  imageCols.slice(1).forEach((ph) => {
+    result.push({
+      placeholder: ph,
+      tipo: 'imagen',
+      x: margin,
+      y,
+      w: 200,
+      h: 120
+    })
+    y += 130
+  })
+
+  return result
+}
+
 /** Posiciones (pt) por plantilla. Slide ~= 720x405 pt */
 export const LAYOUTS: Record<string, LayoutElement[]> = {
   catalogo_productos: [
@@ -42,11 +114,14 @@ export const LAYOUTS: Record<string, LayoutElement[]> = {
     { placeholder: 'Notas', x: 380, y: 100, w: 300, h: 200, fontSize: 14 }
   ],
   ficha_local: [
-    { placeholder: 'Nombre', x: 40, y: 30, w: 620, h: 50, fontSize: 28, bold: true, fontFamily: 'Roboto' },
-    { placeholder: 'Dirección', x: 40, y: 100, w: 620, h: 35, fontSize: 16 },
-    { placeholder: 'Teléfono', x: 40, y: 145, w: 300, h: 30, fontSize: 14 },
-    { placeholder: 'Sitio Web', x: 40, y: 185, w: 300, h: 30, fontSize: 14 },
-    { placeholder: 'Calificación', x: 40, y: 225, w: 200, h: 35, fontSize: 18 }
+    { placeholder: 'imagen', tipo: 'imagen', x: 40, y: 30, w: 200, h: 150 },
+    { placeholder: 'Nombre', x: 260, y: 30, w: 400, h: 45, fontSize: 24, bold: true, fontFamily: 'Roboto' },
+    { placeholder: 'Calificación', x: 260, y: 85, w: 120, h: 28, fontSize: 16 },
+    { placeholder: 'Total Reseñas', x: 390, y: 85, w: 180, h: 28, fontSize: 14 },
+    { placeholder: 'Dirección', x: 40, y: 195, w: 620, h: 30, fontSize: 14 },
+    { placeholder: 'Teléfono', x: 40, y: 235, w: 300, h: 28, fontSize: 14 },
+    { placeholder: 'Sitio Web', x: 40, y: 273, w: 300, h: 28, fontSize: 14 },
+    { placeholder: 'Horarios', x: 360, y: 235, w: 300, h: 66, fontSize: 14 }
   ],
   propuesta_comercial: [
     { placeholder: 'Empresa', x: 40, y: 30, w: 620, h: 50, fontSize: 26, bold: true },

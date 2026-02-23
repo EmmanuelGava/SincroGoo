@@ -2,18 +2,22 @@
 
 ## Resumen
 
-El sistema genera diapositivas en Google Slides a partir de datos de un Google Sheet, usando plantillas predefinidas. Cada fila del Sheet produce una diapositiva con los datos de esa fila insertados en las posiciones definidas por la plantilla.
+El sistema genera diapositivas en Google Slides a partir de datos de un Google Sheet, usando plantillas autoajustables. Cada fila del Sheet produce una diapositiva con los datos de esa fila. Las plantillas se adaptan a las columnas detectadas del documento del usuario.
 
 ## Flujo completo
 
 ```
-Frontend (EditorPlantilla) - clic "Generar todas las diapositivas"
+Frontend (proyectos/nuevo) - clic "Crear"
+    |-- Crea proyecto en Supabase
+    |-- Crea presentacion (PlantillaTemplateService) - 1 slide en blanco
+    |-- POST /api/google/slides/plantilla/generate
     |
     v
 POST /api/google/slides/plantilla/generate
     |-- Obtiene templateType del body o proyecto.metadata.plantilla_template_id
-    |-- Crea ARCHIVO NUEVO de Slides (PlantillaTemplateService.crearPresentacionDesdePlantilla)
+    |-- Crea ARCHIVO NUEVO de Slides (PlantillaTemplateService.crearPresentacionDesdePlantilla: 1 slide vacia, sin formas)
     |-- Lee filas del Sheet (SheetsService.obtenerDatosHoja)
+    |-- Limita filas si proyecto.metadata.limite_filas (10, 20, 30, etc.)
     |-- Crea job en Supabase con presentation_id = nuevo archivo
     |-- Crea items por fila (generacion_job_items)
     |-- Dispara POST /process en background
@@ -22,8 +26,8 @@ POST /api/google/slides/plantilla/generate
     v
 POST /api/google/slides/plantilla/process
     |-- Lee el job y sus items pendientes
-    |-- Lee template_type del job (ej: "ficha_local")
-    |-- Busca el LAYOUT en codigo (plantilla-layouts.ts)
+    |-- Si columnMapping tiene claves: layout = generarLayoutDinamico(claves) - plantillas autoajustables
+    |-- Si no: layout fijo de plantilla-layouts.ts por template_type
     |-- Busca la PLANTILLA en codigo (templates.ts)
     |-- Por cada fila:
     |     |-- Mapea columnas del Sheet a placeholders del layout
@@ -35,24 +39,26 @@ POST /api/google/slides/plantilla/process
     |     |     |-- Un solo batchUpdate a la Slides API
     |     |-- Actualiza estado del item en Supabase
     |     |-- sleep(1500ms) para respetar rate limit
-    |-- Elimina la slide plantilla original
+    |-- Elimina la slide vacia original (plantilla inicial)
     |-- Actualiza proyecto.slides_id = presentation_id (nuevo archivo)
     |-- Guarda metadata.slide_padre_id (primera diapositiva)
     |-- Marca el job como completado
     |
     v
-GET /api/google/slides/plantilla/job/[jobId]  (polling cada 2s)
+GET /api/google/slides/plantilla/job/[jobId]  (polling cada 2s desde proyectos/nuevo)
     |-- Retorna progreso: estado, filas_procesadas, total_filas, errores
     |
     v
-Frontend muestra barra de progreso y resumen final
+proyectos/nuevo: loading visible, toast "Generando diapositivas... X%"
+    |-- Al completar: toast success, router.push(/editor-proyectos/{id})
+    |-- Sin pagina intermedia: va directo al editor real (TablaHojas + SidebarSlides)
 ```
 
 ## Archivos clave
 
 ### Definicion de plantillas
-- `src/app/editor-proyectos/plantilla/templates.ts` - Plantillas disponibles (nombre, colores, placeholders)
-- `src/app/servicios/google/slides/plantilla-layouts.ts` - Posiciones y tamanios de los shapes por plantilla
+- `src/app/editor-proyectos/plantilla/templates.ts` - Plantillas disponibles (nombre, colores) - estilos
+- `src/app/servicios/google/slides/plantilla-layouts.ts` - LAYOUTS fijos + generarLayoutDinamico(placeholders, basePlantilla) para plantillas autoajustables
 
 ### Endpoints API
 - `src/app/api/google/slides/plantilla/generate/route.ts` - Crea el job y dispara el procesamiento
@@ -60,29 +66,36 @@ Frontend muestra barra de progreso y resumen final
 - `src/app/api/google/slides/plantilla/job/[jobId]/route.ts` - Polling de estado del job
 
 ### Servicios
-- `src/app/servicios/google/slides/SlidesService.ts` - Metodo `crearSlideConDatos()` que construye cada slide
-- `src/app/servicios/google/slides/PlantillaTemplateService.ts` - Crea la presentacion inicial con la slide plantilla
+- `src/app/servicios/google/slides/SlidesService.ts` - Metodo `crearSlideConDatos()` que construye cada slide (acepta layoutOverride)
+- `src/app/servicios/google/slides/PlantillaTemplateService.ts` - Crea la presentacion con 1 slide vacia (sin formas); el process la elimina al final
 
 ### Frontend
-- `src/app/editor-proyectos/componentes/plantilla/EditorPlantilla.tsx` - UI del editor de plantilla con preview CSS y generacion
-- `src/app/editor-proyectos/componentes/plantilla/PreviewSlideCSS.tsx` - Vista previa en CSS usando la primera fila del Sheet, el mapeo de columnas y la plantilla elegida (sin llamar a la API)
-- `src/app/editor-proyectos/[projectId]/page.tsx` - Detecta modo plantilla y renderiza EditorPlantilla
+- `src/app/proyectos/nuevo/page.tsx` - Flujo crear proyecto plantilla: paso 1 (Sheet), 2 (plantilla), 3 (mapeo, limite filas). Al Crear: genera diapositivas, polling con loading, redireccion al editor
+- `src/app/editor-proyectos/[projectId]/page.tsx` - Modo plantilla: va directo al editor real (TablaHojas + SidebarSlides), sin pagina intermedia
+- `src/app/editor-proyectos/componentes/plantilla/PreviewSlideCSS.tsx` - Vista previa en CSS (sheets-to-slides, etc.)
 
 ### Base de datos (Supabase)
 - Tabla `generacion_jobs`: Estado del job, template_type, column_mapping
 - Tabla `generacion_job_items`: Estado por fila, slide_id generado
 - Tabla `proyectos`: Tras completar, se actualiza `metadata.slide_padre_id` con el ID de la primera diapositiva generada (asociación sheet ↔ slides)
 
-## Plantillas disponibles
+## Plantillas autoajustables
 
-| ID | Nombre | Placeholders | Fondo |
-|---|---|---|---|
-| catalogo_productos | Catalogo de productos | Imagen, Nombre, Precio, Descripcion | Blanco |
-| ficha_cliente | Ficha de cliente | Nombre, Telefono, Email, Direccion, Notas | Blanco |
-| ficha_local | Ficha de local | Nombre, Direccion, Telefono, Sitio Web, Calificacion | Oscuro #1E1E2E |
-| propuesta_comercial | Propuesta comercial | Empresa, Servicio, Precio, Condiciones | Blanco |
-| reporte_simple | Reporte simple | Titulo, Dato1, Dato2, Observaciones | Gris #F8F9FA |
-| blanco | En blanco | (ninguno) | Blanco |
+Las plantillas se adaptan a las columnas detectadas del Sheet. En paso 3 (mapeo):
+- **Placeholders = columnas detectadas** (mapeo 1:1 por defecto)
+- El usuario puede asignar o excluir columnas
+- **Layout dinamico**: `generarLayoutDinamico(placeholders)` genera posiciones para N campos
+- Columnas tipo imagen (imagen, foto, url_imagen): se detectan con `esColumnaImagen()` y usan createImage
+
+Plantillas de estilo (colores, fondo):
+| ID | Nombre | Fondo |
+|---|---|---|
+| catalogo_productos | Catalogo de productos | Blanco |
+| ficha_cliente | Ficha de cliente | Blanco |
+| ficha_local | Ficha de local | Oscuro #1E1E2E |
+| propuesta_comercial | Propuesta comercial | Blanco |
+| reporte_simple | Reporte simple | Gris #F8F9FA |
+| blanco | En blanco | Blanco |
 
 ## Por que este enfoque (construir desde cero)
 
@@ -100,7 +113,7 @@ La vista previa se muestra en el propio editor sin crear una copia en Slides. Se
 - **Mapeo de columnas** - Placeholder -> columna del Sheet
 - **Plantilla elegida** - Layout (posiciones) y colores (bgColor, textColor)
 
-Al finalizar la generacion, el boton "Pasar al editor" abre la presentacion en Google Slides para editar.
+Al finalizar la generacion en proyectos/nuevo, se redirige al editor real (TablaHojas + SidebarSlides) con la presentacion ya generada.
 
 ## Rate limiting
 

@@ -38,8 +38,8 @@ export const PLANTILLAS: PlantillaDef[] = [
   {
     id: 'ficha_local',
     nombre: 'Ficha de local / establecimiento',
-    descripcion: 'Nombre, dirección, teléfono, sitio web y calificación.',
-    placeholders: ['Nombre', 'Dirección', 'Teléfono', 'Sitio Web', 'Calificación'],
+    descripcion: 'Nombre, dirección, teléfono, sitio web, calificación, reseñas, horarios e imagen.',
+    placeholders: ['Nombre', 'Dirección', 'Teléfono', 'Sitio Web', 'Calificación', 'Total Reseñas', 'Horarios', 'imagen'],
     bgColor: '#1E1E2E',
     accentColor: '#FFFFFF',
     textColor: '#FFFFFF'

@@ -57,6 +57,8 @@ function PaginaPlantilla({
               key={`slides-${idPresentacionEditor}-${editorTransitionKey}`}
               idProyecto={idProyecto}
               idPresentacion={idPresentacionEditor}
+              columnMapping={columnMapping}
+              templateType={templateType}
             >
               <EditorContent inicialSidebarAbierto />
             </SlidesProvider>

@@ -6,6 +6,7 @@ import { useGoogleServices } from '../../hooks/useGoogleServices'
 import { useUI } from '../UIContext'
 import { toast } from 'sonner'
 import { useSheets } from '../SheetsContext'
+import { LAYOUTS } from '@/app/servicios/google/slides/plantilla-layouts'
 
 interface SlidesContextType {
   // Estados
@@ -48,11 +49,15 @@ const SlidesContext = createContext<SlidesContextType | null>(null)
 export function SlidesProvider({ 
   children,
   idProyecto,
-  idPresentacion 
+  idPresentacion,
+  columnMapping,
+  templateType
 }: { 
   children: React.ReactNode
   idProyecto: string
   idPresentacion: string
+  columnMapping?: Record<string, string>
+  templateType?: string
 }) {
   // Estados
   const [diapositivas, setDiapositivas] = useState<VistaPreviaDiapositiva[]>([])
@@ -110,6 +115,63 @@ export function SlidesProvider({
   useEffect(() => {
     recargarDiapositivas()
   }, [idPresentacion, recargarDiapositivas])
+
+  // Enriquecer elementos con columnaAsociada cuando es proyecto plantilla (datos ya enlazados)
+  useEffect(() => {
+    if (
+      !columnMapping ||
+      !templateType ||
+      Object.keys(columnMapping).length === 0 ||
+      !LAYOUTS[templateType] ||
+      columnas.length === 0 ||
+      diapositivas.length === 0
+    ) {
+      return
+    }
+
+    const layout = LAYOUTS[templateType]
+    const enriquecidas = diapositivas.map((diapositiva) => {
+      const elementos = diapositiva.elementos || []
+      const elementosEnriquecidos = elementos.map((elemento, index) => {
+        const layoutEl = layout[index]
+        if (!layoutEl) return elemento
+        const columnaTitulo = columnMapping[layoutEl.placeholder]
+        if (!columnaTitulo) return elemento
+        const columna = columnas.find(
+          (c) => String(c.titulo || '').trim() === String(columnaTitulo || '').trim()
+        )
+        if (!columna) return elemento
+        return { ...elemento, columnaAsociada: columna.id }
+      })
+      return { ...diapositiva, elementos: elementosEnriquecidos }
+    })
+
+    // Solo actualizar si hubo cambios para evitar bucles
+    const hayCambios = enriquecidas.some((d, i) =>
+      (d.elementos || []).some(
+        (el, j) => el.columnaAsociada !== (diapositivas[i]?.elementos?.[j] as ElementoDiapositiva)?.columnaAsociada
+      )
+    )
+    if (hayCambios) {
+      setDiapositivas(enriquecidas)
+      const asociaciones = new Set<string>()
+      enriquecidas.forEach((d) => {
+        if (d.elementos?.some((el: ElementoDiapositiva) => el.columnaAsociada)) {
+          asociaciones.add(d.id)
+        }
+      })
+      setDiapositivasConAsociaciones(asociaciones)
+      // Sincronizar diapositiva seleccionada y sus elementos si corresponde
+      if (diapositivaSeleccionada) {
+        const actualizada = enriquecidas.find((d) => d.id === diapositivaSeleccionada.id)
+        if (actualizada) {
+          setDiapositivaSeleccionada(actualizada)
+          setElementosActuales(actualizada.elementos || [])
+          setElementosPrevia(actualizada.elementos || [])
+        }
+      }
+    }
+  }, [diapositivas, columnMapping, templateType, columnas, diapositivaSeleccionada])
 
   // Manejar selección de diapositiva
   const manejarSeleccionDiapositiva = useCallback((

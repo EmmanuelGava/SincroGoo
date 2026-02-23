@@ -244,6 +244,7 @@ export interface Database {
           presentaciontitulo: string | null;
           usuario_id: string;
           modo?: string | null;
+          metadata?: Record<string, unknown> | null;
         };
         Insert: {
           id?: string;
@@ -257,6 +258,7 @@ export interface Database {
           presentaciontitulo?: string | null;
           usuario_id: string;
           modo?: string | null;
+          metadata?: Record<string, unknown> | null;
         };
         Update: {
           id?: string;
@@ -270,6 +272,7 @@ export interface Database {
           presentaciontitulo?: string | null;
           usuario_id?: string;
           modo?: string | null;
+          metadata?: Record<string, unknown> | null;
         };
       };
 

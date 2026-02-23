@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession, signIn } from "next-auth/react"
 import { toast } from "sonner"
@@ -39,9 +39,41 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ExploreIcon from '@mui/icons-material/Explore'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 
 // Componentes
 import { EncabezadoSistema } from "@/componentes/EncabezadoSistema"
+import { PreviewPlantilla } from "@/app/editor-proyectos/plantilla/PreviewPlantilla"
+import { PLANTILLAS } from "@/app/editor-proyectos/plantilla/templates"
+
+// Utilidad: auto-match de columnas con placeholders por similitud
+function autoMatchColumns(columnas: string[], placeholders: string[]): Record<string, string> {
+  const mapping: Record<string, string> = {}
+  const colLower = columnas.map(c => c.toLowerCase().trim())
+  const usedCols = new Set<number>()
+  for (const ph of placeholders) {
+    const phNorm = ph.toLowerCase().replace(/\s+/g, '')
+    let best = -1
+    let bestScore = 0
+    for (let i = 0; i < colLower.length; i++) {
+      if (usedCols.has(i)) continue
+      const colNorm = colLower[i].replace(/\s+/g, '')
+      let score = 0
+      if (phNorm === colNorm) score = 100
+      else if (colNorm.includes(phNorm) || phNorm.includes(colNorm)) score = 80
+      else if (phNorm[0] === colNorm[0]) score = 30
+      if (score > bestScore) {
+        bestScore = score
+        best = i
+      }
+    }
+    if (best >= 0 && bestScore >= 30) {
+      mapping[ph] = columnas[best]
+      usedCols.add(best)
+    }
+  }
+  return mapping
+}
 
 // Interfaces
 interface GoogleDocument {
@@ -70,6 +102,11 @@ export default function NuevoProyecto() {
   // Modo B: columnas detectadas del Sheet (primera fila)
   const [columnasDetectadas, setColumnasDetectadas] = useState<string[]>([])
   const [cargandoColumnas, setCargandoColumnas] = useState(false)
+  
+  // Modo B: sub-pasos del flujo plantilla
+  const [pasoPlantilla, setPasoPlantilla] = useState<'sheet' | 'template' | 'mapping'>('sheet')
+  const [plantillaSeleccionada, setPlantillaSeleccionada] = useState<string | null>(null)
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   
   // Tipo de proyecto: ambos docs, solo hoja (generar presentación), solo presentación (generar hoja)
   const [tipoProyecto, setTipoProyecto] = useState<"ambos" | "solo_hoja" | "solo_presentacion">("ambos")
@@ -187,6 +224,17 @@ export default function NuevoProyecto() {
     cargarColumnas()
   }, [modoProyecto, hojaSeleccionada])
 
+  // Modo B: al elegir plantilla, auto-match columnas
+  useEffect(() => {
+    if (plantillaSeleccionada && columnasDetectadas.length > 0) {
+      const plant = PLANTILLAS.find(p => p.id === plantillaSeleccionada)
+      const placeholders = plant?.placeholders || []
+      setColumnMapping(autoMatchColumns(columnasDetectadas, placeholders))
+    } else {
+      setColumnMapping({})
+    }
+  }, [plantillaSeleccionada, columnasDetectadas])
+
   // Verificar estado de autenticación
   if (status === "loading") {
     return (
@@ -228,6 +276,7 @@ export default function NuevoProyecto() {
 
   const handleCrearPlantilla = async () => {
     if (modoProyecto !== "plantilla" || !hojaSeleccionada || !titulo.trim()) return
+    const templateId = plantillaSeleccionada || "blanco"
     try {
       setCargando(true)
       setError(null)
@@ -246,11 +295,14 @@ export default function NuevoProyecto() {
       const usuario_id = user?.id
       if (!usuario_id) throw new Error("No se pudo obtener el ID del usuario")
 
-      toast.info("Creando presentación vacía en tu Drive...")
-      const createRes = await fetch("/api/google/slides/create-empty", {
+      toast.info("Creando plantilla en tu Drive...")
+      const createRes = await fetch("/api/google/slides/plantilla/create-from-template", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ titulo: titulo.trim() || "Plantilla SincroGoo" })
+        body: JSON.stringify({
+          templateId,
+          titulo: titulo.trim() || "Plantilla SincroGoo"
+        })
       })
       const createData = await createRes.json()
       if (!createData.exito || !createData.datos?.presentationId) {
@@ -267,7 +319,11 @@ export default function NuevoProyecto() {
           usuario_id,
           presentacion_id: idPresentacion,
           hoja_calculo_id: hojaSeleccionada,
-          modo: "plantilla"
+          modo: "plantilla",
+          metadata: {
+            plantilla_template_id: templateId,
+            column_mapping: columnMapping
+          }
         })
       })
       if (!response.ok) {
@@ -686,87 +742,188 @@ export default function NuevoProyecto() {
 
             {pasoActual === "documentos" && modoProyecto === "plantilla" && (
               <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" sx={{ mb: 3 }}>Crear plantilla desde Sheet</Typography>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-                      <SpreadsheetIcon />
-                      <Typography variant="subtitle1">Selecciona una hoja de cálculo</Typography>
-                      <IconButton onClick={cargarHojas} disabled={cargandoHojas} size="small">
-                        <RefreshIcon />
-                      </IconButton>
+                <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
+                  <Chip
+                    label="1. Sheet"
+                    color={pasoPlantilla === "sheet" ? "primary" : "default"}
+                    variant={pasoPlantilla === "sheet" ? "filled" : "outlined"}
+                    size="small"
+                  />
+                  <Chip
+                    label="2. Plantilla"
+                    color={pasoPlantilla === "template" ? "primary" : "default"}
+                    variant={pasoPlantilla === "template" ? "filled" : "outlined"}
+                    size="small"
+                  />
+                  <Chip
+                    label="3. Mapeo"
+                    color={pasoPlantilla === "mapping" ? "primary" : "default"}
+                    variant={pasoPlantilla === "mapping" ? "filled" : "outlined"}
+                    size="small"
+                  />
+                </Stack>
+                <Typography variant="h6" sx={{ mb: 3 }}>
+                  {pasoPlantilla === "sheet" && "Paso 1 — Seleccionar Sheet"}
+                  {pasoPlantilla === "template" && "Paso 2 — Elegir plantilla visual"}
+                  {pasoPlantilla === "mapping" && "Paso 3 — Pre-mapeo de columnas"}
+                </Typography>
+
+                {pasoPlantilla === "sheet" && (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <Box>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                        <SpreadsheetIcon />
+                        <Typography variant="subtitle1">Selecciona una hoja de cálculo</Typography>
+                        <IconButton onClick={cargarHojas} disabled={cargandoHojas} size="small">
+                          <RefreshIcon />
+                        </IconButton>
+                      </Box>
+                      <TextField
+                        placeholder="Buscar hojas..."
+                        value={busquedaHoja}
+                        onChange={(e) => setBusquedaHoja(e.target.value)}
+                        fullWidth
+                        sx={{ mb: 2 }}
+                        size="small"
+                        InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                      />
+                      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
+                        {cargandoHojas ? (
+                          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} variant="rectangular" height={70} />)
+                        ) : (
+                          hojasFiltradas.map(doc => (
+                            <Card
+                              key={doc.id}
+                              sx={{
+                                cursor: "pointer",
+                                border: hojaSeleccionada === doc.id ? 2 : 1,
+                                borderColor: hojaSeleccionada === doc.id ? "primary.main" : "divider",
+                                display: "flex", alignItems: "center", gap: 1.5, p: 2,
+                                "&:hover": { bgcolor: "action.hover" }
+                              }}
+                              onClick={() => setHojaSeleccionada(doc.id)}
+                            >
+                              {doc.iconLink && <Box component="img" src={doc.iconLink} alt="" sx={{ width: 24, height: 24 }} />}
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography noWrap variant="body2" fontWeight={500}>{doc.name}</Typography>
+                              </Box>
+                            </Card>
+                          ))
+                        )}
+                      </Box>
                     </Box>
+                    {hojaSeleccionada && (
+                      <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                          Columnas detectadas:
+                        </Typography>
+                        {cargandoColumnas ? (
+                          <Skeleton variant="text" width="60%" />
+                        ) : columnasDetectadas.length > 0 ? (
+                          <Stack direction="row" flexWrap="wrap" gap={1}>
+                            {columnasDetectadas.map(col => (
+                              <Chip key={col} label={col} size="small" variant="outlined" />
+                            ))}
+                          </Stack>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">Sin columnas en la primera fila</Typography>
+                        )}
+                      </Box>
+                    )}
                     <TextField
-                      placeholder="Buscar hojas..."
-                      value={busquedaHoja}
-                      onChange={(e) => setBusquedaHoja(e.target.value)}
+                      label="Nombre del proyecto"
+                      value={titulo}
+                      onChange={(e) => setTitulo(e.target.value)}
                       fullWidth
-                      sx={{ mb: 2 }}
-                      size="small"
-                      InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                      required
+                      error={!!error}
+                      helperText={error}
+                      placeholder="Ej: Fichas de clientes"
                     />
-                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
-                      {cargandoHojas ? (
-                        Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} variant="rectangular" height={70} />)
-                      ) : (
-                        hojasFiltradas.map(doc => (
-                          <Card
-                            key={doc.id}
-                            sx={{
-                              cursor: "pointer",
-                              border: hojaSeleccionada === doc.id ? 2 : 1,
-                              borderColor: hojaSeleccionada === doc.id ? "primary.main" : "divider",
-                              display: "flex", alignItems: "center", gap: 1.5, p: 2,
-                              "&:hover": { bgcolor: "action.hover" }
-                            }}
-                            onClick={() => setHojaSeleccionada(doc.id)}
-                          >
-                            {doc.iconLink && <Box component="img" src={doc.iconLink} alt="" sx={{ width: 24, height: 24 }} />}
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography noWrap variant="body2" fontWeight={500}>{doc.name}</Typography>
-                            </Box>
-                          </Card>
-                        ))
-                      )}
-                    </Box>
+                    <TextField
+                      label="Descripción (opcional)"
+                      value={descripcion}
+                      onChange={(e) => setDescripcion(e.target.value)}
+                      fullWidth
+                      multiline
+                      rows={2}
+                    />
                   </Box>
-                  {hojaSeleccionada && (
-                    <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                        Columnas detectadas (puedes usarlas como placeholders con {"{{NombreColumna}}"}):
-                      </Typography>
-                      {cargandoColumnas ? (
-                        <Skeleton variant="text" width="60%" />
-                      ) : columnasDetectadas.length > 0 ? (
-                        <Stack direction="row" flexWrap="wrap" gap={1}>
-                          {columnasDetectadas.map(col => (
-                            <Chip key={col} label={col} size="small" variant="outlined" />
-                          ))}
-                        </Stack>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">Sin columnas en la primera fila</Typography>
-                      )}
+                )}
+
+                {pasoPlantilla === "template" && (
+                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 3 }}>
+                    {PLANTILLAS.map((p) => (
+                      <Card
+                        key={p.id}
+                        sx={{
+                          cursor: "pointer",
+                          border: 2,
+                          borderColor: plantillaSeleccionada === p.id ? "primary.main" : "divider",
+                          overflow: "hidden",
+                          transition: "all 0.2s",
+                          "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                        }}
+                        onClick={() => setPlantillaSeleccionada(p.id)}
+                      >
+                        <PreviewPlantilla
+                          templateId={p.id}
+                          accentColor={p.accentColor}
+                          bgColor={p.bgColor}
+                          placeholders={p.placeholders}
+                        />
+                        <CardContent sx={{ py: 1.5 }}>
+                          <Typography variant="subtitle1" fontWeight={600}>{p.nombre}</Typography>
+                          <Typography variant="body2" color="text.secondary">{p.descripcion}</Typography>
+                          {p.placeholders.length > 0 && (
+                            <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 1 }}>
+                              {p.placeholders.slice(0, 4).map(ph => (
+                                <Chip key={ph} label={`{{${ph}}}`} size="small" variant="outlined" sx={{ fontSize: 10 }} />
+                              ))}
+                            </Stack>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                )}
+
+                {pasoPlantilla === "mapping" && plantillaSeleccionada && (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Asigna cada placeholder de la plantilla a una columna del Sheet. El mapeo automático se intentó por similitud de nombres.
+                    </Typography>
+                    <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 2, alignItems: "center" }}>
+                      <Typography variant="subtitle2">Placeholder</Typography>
+                      <span />
+                      <Typography variant="subtitle2">Columna del Sheet</Typography>
+                      {PLANTILLAS.find(p => p.id === plantillaSeleccionada)?.placeholders.map(ph => (
+                        <React.Fragment key={ph}>
+                          <Chip label={`{{${ph}}}`} size="small" variant="outlined" sx={{ justifySelf: "start" }} />
+                          <ArrowForwardIcon sx={{ color: "text.disabled" }} />
+                          <TextField
+                            select
+                            size="small"
+                            value={columnMapping[ph] ?? ""}
+                            onChange={(e) => setColumnMapping(prev => ({ ...prev, [ph]: e.target.value }))}
+                            SelectProps={{ native: true }}
+                            sx={{ minWidth: 180 }}
+                          >
+                            <option value="">Sin asignar</option>
+                            {columnasDetectadas.map(col => (
+                              <option key={col} value={col}>{col}</option>
+                            ))}
+                          </TextField>
+                        </React.Fragment>
+                      ))}
                     </Box>
-                  )}
-                  <TextField
-                    label="Nombre del proyecto"
-                    value={titulo}
-                    onChange={(e) => setTitulo(e.target.value)}
-                    fullWidth
-                    required
-                    error={!!error}
-                    helperText={error}
-                    placeholder="Ej: Fichas de clientes"
-                  />
-                  <TextField
-                    label="Descripción (opcional)"
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    fullWidth
-                    multiline
-                    rows={2}
-                  />
-                </Box>
+                    {(!PLANTILLAS.find(p => p.id === plantillaSeleccionada)?.placeholders.length) ? (
+                      <Typography variant="body2" color="text.secondary">
+                        Plantilla en blanco: no hay placeholders para mapear.
+                      </Typography>
+                    ) : null}
+                  </Box>
+                )}
               </Box>
             )}
 
@@ -1043,17 +1200,51 @@ export default function NuevoProyecto() {
             )}
             {pasoActual === "documentos" && modoProyecto === "plantilla" && (
               <>
-                <Button onClick={() => { setPasoActual("modo"); setModoProyecto(null); setHojaSeleccionada(""); setColumnasDetectadas([]); }} sx={{ mr: 1 }}>
-                  Anterior
-                </Button>
                 <Button
-                  variant="contained"
-                  onClick={handleCrearPlantilla}
-                  disabled={cargando || !hojaSeleccionada || !titulo.trim()}
-                  startIcon={cargando ? <CircularProgress size={20} /> : <AddIcon />}
+                  onClick={() => {
+                    if (pasoPlantilla === "sheet") {
+                      setPasoActual("modo")
+                      setModoProyecto(null)
+                      setHojaSeleccionada("")
+                      setColumnasDetectadas([])
+                      setPlantillaSeleccionada(null)
+                      setPasoPlantilla("sheet")
+                    } else if (pasoPlantilla === "template") {
+                      setPasoPlantilla("sheet")
+                      setPlantillaSeleccionada(null)
+                    } else {
+                      setPasoPlantilla("template")
+                    }
+                  }}
+                  sx={{ mr: 1 }}
                 >
-                  Crear Proyecto
+                  {pasoPlantilla === "sheet" ? "Cancelar" : "Anterior"}
                 </Button>
+                {pasoPlantilla !== "mapping" ? (
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      if (pasoPlantilla === "sheet") setPasoPlantilla("template")
+                      else setPasoPlantilla("mapping")
+                    }}
+                    disabled={
+                      pasoPlantilla === "sheet" ? (!hojaSeleccionada || !titulo.trim()) :
+                      pasoPlantilla === "template" ? !plantillaSeleccionada : false
+                    }
+                    endIcon={<ArrowForwardIcon />}
+                  >
+                    Siguiente
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    onClick={handleCrearPlantilla}
+                    disabled={cargando || !hojaSeleccionada || !titulo.trim()}
+                    startIcon={cargando ? <CircularProgress size={20} /> : <AddIcon />}
+                  >
+                    Crear proyecto y generar plantilla
+                  </Button>
+                )}
               </>
             )}
             {pasoActual === "documentos" && modoProyecto === "enlace" && (

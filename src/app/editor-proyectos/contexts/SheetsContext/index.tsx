@@ -136,6 +136,9 @@ export function SheetsProvider({ children, idHojaCalculo }: SheetsProviderProps)
         f.id === filaId ? { ...f, valores: nuevosValores, ultimaActualizacion: new Date() } : f
       )
     )
+    if (filaSeleccionada?.id === filaId) {
+      setFilaSeleccionada({ ...filaSeleccionada, valores: nuevosValores })
+    }
   }
 
   const columnaALetra = (n: number): string => {

@@ -12,6 +12,7 @@ import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema'
 import { TablaHojas } from '../componentes/sheets/TablaHojas'
 import { SidebarSlides } from '../componentes/slides/SidebarSlides'
 import { PanelGuardarCambios } from '../componentes/PanelGuardarCambios'
+import { EditorPlantilla } from '../componentes/plantilla/EditorPlantilla'
 import { useSlides } from '../contexts'
 
 function EditorContent() {
@@ -56,7 +57,13 @@ interface ProyectoFetch {
   id: string
   hoja_calculo_id?: string
   presentacion_id?: string
-  metadata?: { hojastitulo?: string; presentaciontitulo?: string }
+  modo?: 'enlace' | 'plantilla'
+  metadata?: {
+    hojastitulo?: string
+    presentaciontitulo?: string
+    plantilla_template_id?: string
+    column_mapping?: Record<string, string>
+  }
 }
 
 export default function EditorPage() {
@@ -69,6 +76,8 @@ export default function EditorPage() {
   const [tituloPresentacion, setTituloPresentacion] = useState<string>('')
   const [cargandoProyecto, setCargandoProyecto] = useState(true)
   const [errorProyecto, setErrorProyecto] = useState<string | null>(null)
+  const [modoProyecto, setModoProyecto] = useState<'enlace' | 'plantilla'>('enlace')
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
 
   const projectId = params.projectId 
     ? (Array.isArray(params.projectId) ? params.projectId[0] : params.projectId)
@@ -92,6 +101,8 @@ export default function EditorPage() {
           setIdProyecto(proyecto.id)
           setIdHojaCalculo(proyecto.hoja_calculo_id || searchParams.get('idHojaCalculo') || '')
           setIdPresentacion(proyecto.presentacion_id || searchParams.get('idPresentacion') || '')
+          setModoProyecto(proyecto.modo || 'enlace')
+          setColumnMapping(proyecto.metadata?.column_mapping || {})
           if (proyecto.metadata?.hojastitulo) setTituloHoja(proyecto.metadata.hojastitulo)
           else if (searchParams.get('tituloHoja')) setTituloHoja(searchParams.get('tituloHoja')!)
           if (proyecto.metadata?.presentaciontitulo) setTituloPresentacion(proyecto.metadata.presentaciontitulo)
@@ -130,6 +141,27 @@ export default function EditorPage() {
       <div className="flex flex-col justify-center items-center h-screen gap-4">
         <p>No se encontró la hoja de cálculo o la presentación asociada al proyecto.</p>
       </div>
+    )
+  }
+
+  if (modoProyecto === 'plantilla') {
+    return (
+      <UIProvider 
+        initialIdProyecto={idProyecto} 
+        tituloHoja={tituloHoja || undefined} 
+        tituloPresentacion={tituloPresentacion || undefined}
+      >
+        <NotificacionProvider>
+          <SheetsProvider idHojaCalculo={idHojaCalculo}>
+            <EditorPlantilla
+              idProyecto={idProyecto}
+              idPresentacion={idPresentacion}
+              idHojaCalculo={idHojaCalculo}
+              columnMapping={columnMapping}
+            />
+          </SheetsProvider>
+        </NotificacionProvider>
+      </UIProvider>
     )
   }
 

@@ -111,20 +111,24 @@ export class ProjectsService {
       console.log(`Se encontraron ${data?.length || 0} proyectos para el usuario`);
       
       // Mapear resultados a formato Project
-      return data.map(item => ({
-        id: item.id,
-        nombre: item.nombre,
-        descripcion: item.descripcion || undefined,
-        usuario_id: item.usuario_id,
-        presentacion_id: item.slides_id || undefined,
-        hoja_calculo_id: item.sheets_id || undefined,
-        created_at: item.fecha_creacion,
-        updated_at: item.fecha_actualizacion,
-        metadata: {
-          hojastitulo: item.hojastitulo,
-          presentaciontitulo: item.presentaciontitulo
-        }
-      }));
+      return data.map(item => {
+        const metadata = typeof item.metadata === 'string' ? (() => { try { return JSON.parse(item.metadata); } catch { return {}; } })() : (item.metadata || {});
+        return {
+          id: item.id,
+          nombre: item.nombre,
+          descripcion: item.descripcion || undefined,
+          usuario_id: item.usuario_id,
+          presentacion_id: item.slides_id || undefined,
+          hoja_calculo_id: item.sheets_id || undefined,
+          created_at: item.fecha_creacion,
+          updated_at: item.fecha_actualizacion,
+          metadata: {
+            ...metadata,
+            hojastitulo: item.hojastitulo,
+            presentaciontitulo: item.presentaciontitulo
+          }
+        };
+      });
     } catch (error) {
       handleError(this.CONTEXT, this.formatError('listProjects', error));
       return [];
@@ -148,6 +152,7 @@ export class ProjectsService {
       
       if (!data) return null;
       
+      const metadata = typeof data.metadata === 'string' ? (() => { try { return JSON.parse(data.metadata); } catch { return {}; } })() : (data.metadata || {});
       return {
         id: data.id,
         nombre: data.nombre,
@@ -155,9 +160,11 @@ export class ProjectsService {
         usuario_id: data.usuario_id,
         presentacion_id: data.slides_id || undefined,
         hoja_calculo_id: data.sheets_id || undefined,
+        modo: (data.modo as 'enlace' | 'plantilla') || 'enlace',
         created_at: data.fecha_creacion,
         updated_at: data.fecha_actualizacion,
         metadata: {
+          ...metadata,
           hojastitulo: data.hojastitulo,
           presentaciontitulo: data.presentaciontitulo
         }
@@ -205,6 +212,7 @@ export class ProjectsService {
         usuario_id: data.usuario_id,
         presentacion_id: data.slides_id || undefined,
         hoja_calculo_id: data.sheets_id || undefined,
+        modo: (data.modo as 'enlace' | 'plantilla') || 'enlace',
         created_at: data.fecha_creacion,
         updated_at: data.fecha_actualizacion,
         metadata: {
@@ -270,7 +278,8 @@ export class ProjectsService {
         fecha_actualizacion: new Date().toISOString(),
         // Extraer metadatos específicos
         hojastitulo: params.metadata?.hojastitulo || null,
-        presentaciontitulo: params.metadata?.presentaciontitulo || null
+        presentaciontitulo: params.metadata?.presentaciontitulo || null,
+        metadata: params.metadata ? JSON.stringify(params.metadata) : null
       };
       if (params.modo !== undefined) {
         projectData.modo = params.modo;
@@ -328,6 +337,9 @@ export class ProjectsService {
       }
       if (params.metadata?.presentaciontitulo !== undefined) {
         updateData.presentaciontitulo = params.metadata.presentaciontitulo;
+      }
+      if (params.metadata !== undefined) {
+        updateData.metadata = JSON.stringify(params.metadata);
       }
       
       // Actualizar proyecto

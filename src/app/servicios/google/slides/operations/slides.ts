@@ -117,6 +117,23 @@ export function crearRequestDuplicarDiapositiva(
   };
 }
 
+export function crearRequestReplaceAllText(
+  buscar: string,
+  reemplazar: string,
+  pageObjectIds?: string[]
+): slides_v1.Schema$Request {
+  return {
+    replaceAllText: {
+      containsText: {
+        text: buscar,
+        matchCase: false
+      },
+      replaceText: reemplazar,
+      ...(pageObjectIds && pageObjectIds.length > 0 && { pageObjectIds })
+    }
+  };
+}
+
 export function crearRequestMoverDiapositiva(
   diapositivaId: string,
   nuevoIndice: number,

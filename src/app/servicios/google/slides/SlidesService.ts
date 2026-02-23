@@ -20,7 +20,8 @@ import {
   crearRequestActualizarDiapositiva,
   crearRequestEliminarDiapositiva,
   crearRequestDuplicarDiapositiva,
-  crearRequestMoverDiapositiva
+  crearRequestMoverDiapositiva,
+  crearRequestReplaceAllText
 } from './operations/slides';
 import {
   crearRequestElemento,
@@ -215,6 +216,43 @@ export class SlidesService extends BaseGoogleService {
     }
   }
 
+  async batchUpdateConRespuesta(
+    presentationId: string,
+    updates: slides_v1.Schema$Request[]
+  ): Promise<ResultadoAPI<slides_v1.Schema$BatchUpdatePresentationResponse>> {
+    try {
+      await rateLimiter.checkLimit('slides_update');
+      const api = await this.getGoogleAPI();
+      const slidesApi = api.slides('v1');
+      
+      const response = await slidesApi.presentations.batchUpdate({
+        presentationId,
+        requestBody: {
+          requests: updates
+        },
+        auth: this.oauth2Client
+      });
+
+      return {
+        exito: true,
+        datos: response.data
+      };
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  reemplazarPlaceholders(
+    presentationId: string,
+    replacements: Record<string, string>,
+    pageObjectIds?: string[]
+  ): Promise<ResultadoAPI<void>> {
+    const requests = Object.entries(replacements).map(([buscar, reemplazar]) =>
+      crearRequestReplaceAllText(buscar, String(reemplazar ?? ''), pageObjectIds)
+    );
+    return this.actualizarPresentacion(presentationId, requests);
+  }
+
   async obtenerMiniaturaSlide(presentationId: string, slideId: string): Promise<ResultadoAPI<string>> {
     try {
       const cacheKey = `thumbnail_${presentationId}_${slideId}`;
@@ -286,6 +324,37 @@ export class SlidesService extends BaseGoogleService {
 
       return {
         exito: true
+      };
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  async copiarPresentacion(
+    presentationId: string,
+    nuevoTitulo: string
+  ): Promise<ResultadoAPI<string>> {
+    try {
+      await rateLimiter.checkLimit('drive_copy');
+      const api = await this.getGoogleAPI();
+      const driveApi = api.drive('v3');
+      
+      const response = await driveApi.files.copy({
+        fileId: presentationId,
+        requestBody: {
+          name: nuevoTitulo,
+          mimeType: 'application/vnd.google-apps.presentation'
+        },
+        auth: this.oauth2Client
+      });
+
+      const newId = response.data.id;
+      if (!newId) {
+        return { exito: false, error: 'No se obtuvo el ID de la copia' };
+      }
+      return {
+        exito: true,
+        datos: newId
       };
     } catch (error) {
       return handleError(error);
@@ -414,6 +483,26 @@ export class SlidesService extends BaseGoogleService {
     try {
       const request = crearRequestDuplicarDiapositiva(diapositivaId, indiceDestino, presentacionId);
       return await this.actualizarPresentacion(presentacionId, [request]);
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  async duplicarDiapositivaYObtenerId(
+    presentacionId: string,
+    diapositivaId: string,
+    indiceDestino?: number
+  ): Promise<ResultadoAPI<string>> {
+    try {
+      const request = crearRequestDuplicarDiapositiva(diapositivaId, indiceDestino, presentacionId);
+      const resultado = await this.batchUpdateConRespuesta(presentacionId, [request]);
+      if (!resultado.exito || !resultado.datos?.replies?.[0]?.duplicateObject?.objectId) {
+        return { exito: false, error: 'No se obtuvo el ID de la diapositiva duplicada' };
+      }
+      return {
+        exito: true,
+        datos: resultado.datos.replies[0].duplicateObject!.objectId!
+      };
     } catch (error) {
       return handleError(error);
     }

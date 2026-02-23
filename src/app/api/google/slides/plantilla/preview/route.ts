@@ -81,13 +81,20 @@ export async function POST(request: NextRequest) {
     }
 
     const copyId = copyResult.datos;
-    const replaceResult = await slidesService.reemplazarPlaceholders(copyId, replacements);
+    const replaceResult = await slidesService.reemplazarPlaceholdersSeguro(copyId, replacements);
 
     if (!replaceResult.exito) {
       return NextResponse.json(
         { exito: false, error: replaceResult.error || 'Error al reemplazar placeholders' },
         { status: 500 }
       );
+    }
+
+    // Compartir para que el embed funcione en el iframe (anyone with link can view)
+    const shareResult = await slidesService.compartirParaEmbed(copyId);
+    if (!shareResult.exito) {
+      console.warn('[plantilla/preview] No se pudo compartir la copia para embed:', shareResult.error);
+      // Continuar igual - el usuario puede abrir en nueva pestaña
     }
 
     return NextResponse.json({

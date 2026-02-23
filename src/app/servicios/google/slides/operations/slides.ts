@@ -106,13 +106,12 @@ export function crearRequestEliminarDiapositiva(
 
 export function crearRequestDuplicarDiapositiva(
   diapositivaId: string,
-  indiceDestino: number | undefined,
-  presentacionId: string
+  _indiceDestino: number | undefined,
+  _presentacionId: string
 ): slides_v1.Schema$Request {
   return {
     duplicateObject: {
-      objectId: diapositivaId,
-      ...(indiceDestino !== undefined && { insertionIndex: indiceDestino })
+      objectId: diapositivaId
     }
   };
 }

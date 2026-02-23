@@ -312,6 +312,93 @@ export interface Database {
         };
       };
 
+      generacion_jobs: {
+        Row: {
+          id: string;
+          proyecto_id: string | null;
+          usuario_id: string | null;
+          estado: string;
+          presentation_id: string | null;
+          spreadsheet_id: string | null;
+          slide_template_id: string | null;
+          template_type: string | null;
+          column_mapping: Json | null;
+          total_filas: number;
+          filas_procesadas: number;
+          filas_error: number;
+          errores: Json | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          proyecto_id?: string | null;
+          usuario_id?: string | null;
+          estado?: string;
+          presentation_id?: string | null;
+          spreadsheet_id?: string | null;
+          slide_template_id?: string | null;
+          template_type?: string | null;
+          column_mapping?: Json | null;
+          total_filas?: number;
+          filas_procesadas?: number;
+          filas_error?: number;
+          errores?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          proyecto_id?: string | null;
+          usuario_id?: string | null;
+          estado?: string;
+          presentation_id?: string | null;
+          spreadsheet_id?: string | null;
+          slide_template_id?: string | null;
+          template_type?: string | null;
+          column_mapping?: Json | null;
+          total_filas?: number;
+          filas_procesadas?: number;
+          filas_error?: number;
+          errores?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
+
+      generacion_job_items: {
+        Row: {
+          id: string;
+          job_id: string | null;
+          fila_index: number;
+          datos_fila: Json | null;
+          slide_id: string | null;
+          estado: string;
+          error: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          job_id?: string | null;
+          fila_index: number;
+          datos_fila?: Json | null;
+          slide_id?: string | null;
+          estado?: string;
+          error?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          job_id?: string | null;
+          fila_index?: number;
+          datos_fila?: Json | null;
+          slide_id?: string | null;
+          estado?: string;
+          error?: string | null;
+          created_at?: string | null;
+        };
+      };
+
       slides: {
         Row: {
           id: string;

@@ -33,13 +33,15 @@ interface EditorPlantillaProps {
   idHojaCalculo: string
   idProyecto: string
   columnMapping?: Record<string, string>
+  templateType?: string
 }
 
 export function EditorPlantilla({
   idPresentacion,
   idHojaCalculo,
   idProyecto,
-  columnMapping = {}
+  columnMapping = {},
+  templateType = ''
 }: EditorPlantillaProps) {
   const { columnas, filas } = useSheets()
   const [hasPlaceholders, setHasPlaceholders] = useState(false)
@@ -54,6 +56,7 @@ export function EditorPlantilla({
     total: number
     fallidas: number
     errores: { fila: number; error: string }[]
+    presentationId?: string
   } | null>(null)
 
   const encabezados = columnas.map((c) => c.titulo).filter(Boolean)
@@ -121,13 +124,55 @@ export function EditorPlantilla({
     setGenerarAbierto(true)
   }
 
+  const pollJob = async (jobId: string) => {
+    const interval = 2000
+    const poll = async (): Promise<void> => {
+      try {
+        const res = await fetch(`/api/google/slides/plantilla/job/${jobId}`)
+        const data = await res.json()
+        if (!data.exito || !data.datos) return
+        const { estado, total_filas, filas_procesadas, filas_error, errores, presentation_id } = data.datos
+        const pct = total_filas > 0 ? Math.round(((filas_procesadas + filas_error) / total_filas) * 100) : 0
+        setProgreso(Math.min(pct, 99))
+        setResultado({
+          generadas: filas_procesadas,
+          total: total_filas,
+          fallidas: filas_error,
+          errores: Array.isArray(errores) ? errores : []
+        })
+        if (estado === "completado") {
+          setProgreso(100)
+          setGenerando(false)
+          toast.success(`Se generaron ${filas_procesadas} diapositivas correctamente`)
+          if (filas_error > 0) {
+            toast.warning(`${filas_error} filas fallaron. Revisa el resumen.`)
+          }
+          setResultado((r) => (r ? { ...r, presentationId: presentation_id } : r))
+          return
+        }
+        if (estado === "error") {
+          setGenerando(false)
+          toast.error("Error en la generación")
+          return
+        }
+        setTimeout(poll, interval)
+      } catch {
+        setTimeout(poll, interval)
+      }
+    }
+    poll()
+  }
+
   const handleGenerarConfirmar = async () => {
     setGenerando(true)
     setProgreso(0)
+    setResultado(null)
     try {
       const body: Record<string, unknown> = {
         presentationId: idPresentacion,
-        spreadsheetId: idHojaCalculo
+        spreadsheetId: idHojaCalculo,
+        proyectoId: idProyecto,
+        templateType: templateType || undefined
       }
       if (Object.keys(columnMapping).length > 0) {
         body.columnMapping = columnMapping
@@ -140,23 +185,15 @@ export function EditorPlantilla({
         body: JSON.stringify(body)
       })
       const data = await res.json()
-      if (data.exito && data.datos) {
-        setResultado(data.datos)
-        setProgreso(100)
-        toast.success(
-          `Se generaron ${data.datos.generadas} diapositivas correctamente`
-        )
-        if (data.datos.fallidas > 0) {
-          toast.warning(
-            `${data.datos.fallidas} filas fallaron. Revisa el resumen.`
-          )
-        }
+      if (data.exito && data.datos?.job_id) {
+        toast.info("Generación iniciada. Procesando en segundo plano...")
+        pollJob(data.datos.job_id)
       } else {
-        toast.error(data.error || "Error al generar diapositivas")
+        toast.error(data.error || "Error al iniciar generación")
+        setGenerando(false)
       }
     } catch {
       toast.error("Error al generar diapositivas")
-    } finally {
       setGenerando(false)
     }
   }
@@ -219,16 +256,6 @@ export function EditorPlantilla({
               )}
             </Box>
             <Box sx={{ flex: 1, minHeight: 0, p: 2, display: "flex", flexDirection: "column" }}>
-              <Button
-                variant="contained"
-                size="medium"
-                href={`https://docs.google.com/presentation/d/${idPresentacion}/edit`}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{ alignSelf: "flex-start", mb: 2 }}
-              >
-                Abrir en Google Slides (editar)
-              </Button>
               <iframe
                 src={SLIDES_EDIT_URL(idPresentacion)}
                 className="w-full flex-1 min-h-0 border rounded"
@@ -245,8 +272,9 @@ export function EditorPlantilla({
           {previewUrl && (
             <iframe
               src={previewUrl.replace("/edit", "/embed")}
-              style={{ width: "100%", height: 500, border: "none" }}
+              style={{ width: "100%", height: 500, border: "none", display: "block" }}
               title="Preview"
+              allow="fullscreen"
             />
           )}
         </DialogContent>
@@ -266,46 +294,71 @@ export function EditorPlantilla({
       >
         <DialogTitle>Generar todas las diapositivas</DialogTitle>
         <DialogContent>
-          {!resultado ? (
-            <>
-              <Typography sx={{ mb: 2 }}>
-                Se van a generar {filas.length} diapositivas, una por cada fila
-                del Sheet. ¿Continuar?
+          {!generando && !resultado ? (
+            <Typography sx={{ mb: 2 }}>
+              Se van a generar {filas.length} diapositivas, una por cada fila
+              del Sheet. El proceso se ejecuta en segundo plano para evitar límites de la API. ¿Continuar?
+            </Typography>
+          ) : generando || (resultado && resultado.generadas + resultado.fallidas < resultado.total) ? (
+            <Box>
+              <Typography sx={{ mb: 1 }}>
+                Procesando fila {(resultado?.generadas ?? 0) + (resultado?.fallidas ?? 0) + 1} de {resultado?.total ?? filas.length}...
               </Typography>
-              {generando && (
-                <LinearProgress variant="indeterminate" sx={{ mt: 2 }} />
-              )}
-            </>
-          ) : (
+              <LinearProgress variant="determinate" value={progreso} sx={{ mt: 2 }} />
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                {progreso}%
+              </Typography>
+            </Box>
+          ) : resultado ? (
             <Box>
               <Typography color="success.main" fontWeight={600}>
                 Se generaron {resultado.generadas} diapositivas correctamente
               </Typography>
               {resultado.fallidas > 0 && (
-                <Typography color="warning.main" sx={{ mt: 1 }}>
-                  {resultado.fallidas} fallaron:{" "}
-                  {resultado.errores.map((e) => `Fila ${e.fila}`).join(", ")}
-                </Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Typography color="warning.main">
+                    {resultado.fallidas} fallaron
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 2, mt: 0.5, maxHeight: 120, overflow: "auto" }}>
+                    {resultado.errores.map((e) => (
+                      <li key={e.fila}>
+                        <Typography variant="body2" color="text.secondary">
+                          Fila {e.fila}: {e.error}
+                        </Typography>
+                      </li>
+                    ))}
+                  </Box>
+                </Box>
               )}
             </Box>
-          )}
+          ) : null}
         </DialogContent>
         <DialogActions>
-          {!resultado ? (
+          {!resultado || (resultado && resultado.generadas + resultado.fallidas < resultado.total) ? (
             <>
               <Button onClick={() => setGenerarAbierto(false)} disabled={generando}>
                 Cancelar
               </Button>
-              <Button
-                variant="contained"
-                onClick={handleGenerarConfirmar}
-                disabled={generando}
-              >
-                {generando ? "Generando..." : "Continuar"}
-              </Button>
+              {!generando ? (
+                <Button variant="contained" onClick={handleGenerarConfirmar}>
+                  Continuar
+                </Button>
+              ) : null}
             </>
           ) : (
-            <Button onClick={() => setGenerarAbierto(false)}>Cerrar</Button>
+            <>
+              <Button
+                variant="contained"
+                href={SLIDES_EDIT_URL(resultado.presentationId || idPresentacion)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ver presentación
+              </Button>
+              <Button onClick={() => { setGenerarAbierto(false); setResultado(null) }}>
+                Cerrar
+              </Button>
+            </>
           )}
         </DialogActions>
       </Dialog>

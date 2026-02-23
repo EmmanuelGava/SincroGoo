@@ -78,6 +78,7 @@ export default function EditorPage() {
   const [errorProyecto, setErrorProyecto] = useState<string | null>(null)
   const [modoProyecto, setModoProyecto] = useState<'enlace' | 'plantilla'>('enlace')
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
+  const [templateType, setTemplateType] = useState<string>('')
 
   const projectId = params.projectId 
     ? (Array.isArray(params.projectId) ? params.projectId[0] : params.projectId)
@@ -103,6 +104,7 @@ export default function EditorPage() {
           setIdPresentacion(proyecto.presentacion_id || searchParams.get('idPresentacion') || '')
           setModoProyecto(proyecto.modo || 'enlace')
           setColumnMapping(proyecto.metadata?.column_mapping || {})
+          setTemplateType(proyecto.metadata?.plantilla_template_id || '')
           if (proyecto.metadata?.hojastitulo) setTituloHoja(proyecto.metadata.hojastitulo)
           else if (searchParams.get('tituloHoja')) setTituloHoja(searchParams.get('tituloHoja')!)
           if (proyecto.metadata?.presentaciontitulo) setTituloPresentacion(proyecto.metadata.presentaciontitulo)
@@ -158,6 +160,7 @@ export default function EditorPage() {
               idPresentacion={idPresentacion}
               idHojaCalculo={idHojaCalculo}
               columnMapping={columnMapping}
+              templateType={templateType}
             />
           </SheetsProvider>
         </NotificacionProvider>

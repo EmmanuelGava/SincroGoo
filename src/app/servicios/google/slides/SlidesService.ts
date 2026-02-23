@@ -30,10 +30,15 @@ import {
   extraerTitulo
 } from './operations/elements';
 import { google } from 'googleapis';
+import { LAYOUTS, hexToRgb } from './plantilla-layouts';
+import { PLANTILLAS } from '@/app/editor-proyectos/plantilla/templates';
 
 export class SlidesService extends BaseGoogleService {
   protected serviceName = 'SlidesService';
-  protected requiredScopes = ['https://www.googleapis.com/auth/presentations'];
+  protected requiredScopes = [
+    'https://www.googleapis.com/auth/presentations',
+    'https://www.googleapis.com/auth/drive.file'
+  ];
   private static instance: SlidesService | null = null;
   protected cache: APICache;
 
@@ -253,6 +258,124 @@ export class SlidesService extends BaseGoogleService {
     return this.actualizarPresentacion(presentationId, requests);
   }
 
+  /**
+   * Reemplaza placeholders de forma segura usando deleteText + insertText.
+   * Evita el fallo "This request cannot be applied" cuando el texto está en
+   * múltiples runs fragmentados ({{, Nombre, }}).
+   * @param pageObjectIds - Si se indica, solo procesa esas diapositivas
+   */
+  async reemplazarPlaceholdersSeguro(
+    presentationId: string,
+    replacements: Record<string, string>,
+    pageObjectIds?: string[]
+  ): Promise<ResultadoAPI<{ shapesModificados: number }>> {
+    try {
+      await rateLimiter.checkLimit('slides_update');
+      const api = await this.getGoogleAPI();
+      const slidesApi = api.slides('v1');
+
+      const presentacion = await slidesApi.presentations.get({
+        presentationId,
+        auth: this.oauth2Client
+      });
+
+      const slides = presentacion.data.slides || [];
+      const requests: slides_v1.Schema$Request[] = [];
+      let shapesConPlaceholders = 0;
+
+      for (const slide of slides) {
+        const slideId = slide.objectId || '';
+        if (pageObjectIds && pageObjectIds.length > 0 && !pageObjectIds.includes(slideId)) {
+          continue;
+        }
+
+        const elements = slide.pageElements || [];
+        for (const element of elements) {
+          const objectId = element.objectId;
+          const shape = element.shape;
+          if (!objectId || !shape?.text?.textElements) continue;
+
+          const textoCompleto = (shape.text.textElements || [])
+            .map((te) => (te as { textRun?: { content?: string } }).textRun?.content || '')
+            .join('');
+
+          if (!textoCompleto.trim()) continue;
+
+          let textoModificado = textoCompleto;
+          let hayReemplazos = false;
+
+          for (const [placeholder, valor] of Object.entries(replacements)) {
+            if (textoModificado.includes(placeholder)) {
+              textoModificado = textoModificado.replaceAll(placeholder, String(valor ?? ''));
+              hayReemplazos = true;
+            }
+          }
+
+          if (hayReemplazos) {
+            this.logInfo(
+              `[reemplazarPlaceholdersSeguro] Shape ${objectId}: "${textoCompleto.trim().slice(0, 50)}..." -> "${textoModificado.trim().slice(0, 80)}..."`
+            );
+            shapesConPlaceholders++;
+            requests.push({
+              deleteText: {
+                objectId,
+                textRange: { type: 'ALL' }
+              }
+            });
+            requests.push({
+              insertText: {
+                objectId,
+                insertionIndex: 0,
+                text: textoModificado.trim()
+              }
+            });
+          }
+        }
+      }
+
+      this.logInfo(
+        `[reemplazarPlaceholdersSeguro] Shapes con placeholders: ${shapesConPlaceholders}, requests: ${requests.length}`
+      );
+
+      if (requests.length > 0) {
+        await slidesApi.presentations.batchUpdate({
+          presentationId,
+          requestBody: { requests },
+          auth: this.oauth2Client
+        });
+      }
+
+      return {
+        exito: true,
+        datos: { shapesModificados: shapesConPlaceholders }
+      };
+    } catch (error) {
+      this.logError('Error en reemplazarPlaceholdersSeguro:', error);
+      return handleError(error);
+    }
+  }
+
+  /**
+   * Reemplaza placeholders uno por uno; si alguno falla (ej. texto no existe),
+   * continúa con los demás en vez de fallar todo el batch.
+   * @deprecated Usar reemplazarPlaceholdersSeguro para evitar runs fragmentados.
+   */
+  async reemplazarPlaceholdersResiliente(
+    presentationId: string,
+    replacements: Record<string, string>,
+    pageObjectIds?: string[]
+  ): Promise<ResultadoAPI<{ ok: number; fallidos: string[] }>> {
+    const fallidos: string[] = [];
+    let ok = 0;
+    for (const [buscar, reemplazar] of Object.entries(replacements)) {
+      const request = crearRequestReplaceAllText(buscar, String(reemplazar ?? ''), pageObjectIds);
+      const res = await this.actualizarPresentacion(presentationId, [request]);
+      if (res.exito) ok++;
+      else fallidos.push(buscar);
+    }
+    return { exito: true, datos: { ok, fallidos } };
+  }
+
   async obtenerMiniaturaSlide(presentationId: string, slideId: string): Promise<ResultadoAPI<string>> {
     try {
       const cacheKey = `thumbnail_${presentationId}_${slideId}`;
@@ -357,6 +480,29 @@ export class SlidesService extends BaseGoogleService {
         datos: newId
       };
     } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  /**
+   * Comparte un archivo de Drive para que sea visible en embeds (iframe).
+   * Añade permiso "anyone with link can view" para que el embed de Google Slides funcione.
+   */
+  async compartirParaEmbed(fileId: string): Promise<ResultadoAPI<void>> {
+    try {
+      const api = await this.getGoogleAPI();
+      const driveApi = api.drive('v3');
+      await driveApi.permissions.create({
+        fileId,
+        requestBody: {
+          type: 'anyone',
+          role: 'reader'
+        },
+        auth: this.oauth2Client
+      });
+      return { exito: true };
+    } catch (error) {
+      this.logError('Error al compartir para embed:', error);
       return handleError(error);
     }
   }
@@ -544,6 +690,131 @@ export class SlidesService extends BaseGoogleService {
       const requests = crearRequestsActualizarElemento(diapositivaId, elementoId, elemento);
       return await this.actualizarPresentacion(presentacionId, requests);
     } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  /**
+   * Construye una slide desde cero con los datos ya insertados.
+   * Crea la slide, aplica fondo, y genera cada shape con texto y estilos.
+   * @returns El slideId de la slide creada
+   */
+  async crearSlideConDatos(
+    presentacionId: string,
+    templateType: string,
+    datos: Record<string, string>,
+    filaIndex: number
+  ): Promise<ResultadoAPI<string>> {
+    try {
+      const layout = LAYOUTS[templateType];
+      if (!layout || layout.length === 0) {
+        return { exito: false, error: `Layout no encontrado para plantilla: ${templateType}` };
+      }
+
+      const plantilla = PLANTILLAS.find(p => p.id === templateType);
+      if (!plantilla) {
+        return { exito: false, error: `Plantilla no encontrada: ${templateType}` };
+      }
+
+      const ts = Date.now();
+      const slideId = `sg_${filaIndex}_${ts}`;
+      const requests: slides_v1.Schema$Request[] = [];
+
+      requests.push({
+        createSlide: {
+          objectId: slideId,
+          slideLayoutReference: { predefinedLayout: 'BLANK' }
+        }
+      });
+
+      const bgRgb = hexToRgb(plantilla.bgColor);
+      requests.push({
+        updatePageProperties: {
+          objectId: slideId,
+          pageProperties: {
+            pageBackgroundFill: {
+              solidFill: {
+                color: {
+                  rgbColor: { red: bgRgb.red, green: bgRgb.green, blue: bgRgb.blue }
+                }
+              }
+            }
+          },
+          fields: 'pageBackgroundFill.solidFill.color'
+        }
+      });
+
+      const textRgb = hexToRgb(plantilla.textColor);
+
+      for (let i = 0; i < layout.length; i++) {
+        const el = layout[i];
+        const shapeId = `sh_${filaIndex}_${i}_${ts}`;
+
+        const textoFinal = datos[el.placeholder] ?? '';
+
+        requests.push({
+          createShape: {
+            objectId: shapeId,
+            shapeType: 'TEXT_BOX',
+            elementProperties: {
+              pageObjectId: slideId,
+              size: {
+                width: { magnitude: el.w, unit: 'PT' },
+                height: { magnitude: el.h, unit: 'PT' }
+              },
+              transform: {
+                scaleX: 1,
+                scaleY: 1,
+                translateX: el.x,
+                translateY: el.y,
+                unit: 'PT'
+              }
+            }
+          }
+        });
+
+        if (textoFinal) {
+          requests.push({
+            insertText: {
+              objectId: shapeId,
+              text: textoFinal,
+              insertionIndex: 0
+            }
+          });
+        }
+
+        if (el.fontSize !== undefined) {
+          requests.push({
+            updateTextStyle: {
+              objectId: shapeId,
+              style: {
+                foregroundColor: {
+                  opaqueColor: {
+                    rgbColor: { red: textRgb.red, green: textRgb.green, blue: textRgb.blue }
+                  }
+                },
+                fontSize: { magnitude: el.fontSize, unit: 'PT' },
+                bold: el.bold ?? false
+              },
+              textRange: { type: 'ALL' },
+              fields: 'foregroundColor,fontSize,bold'
+            }
+          });
+        }
+      }
+
+      this.logInfo(`[crearSlideConDatos] Fila ${filaIndex}: slideId=${slideId}, shapes=${layout.length}, requests=${requests.length}`);
+
+      await rateLimiter.checkLimit('slides_update');
+      const resultado = await this.actualizarPresentacion(presentacionId, requests);
+
+      if (!resultado.exito) {
+        return { exito: false, error: resultado.error || 'Error al crear slide con datos' };
+      }
+
+      return { exito: true, datos: slideId };
+    } catch (error) {
+      this.logError(`[crearSlideConDatos] Error en fila ${filaIndex}:`, error);
       return handleError(error);
     }
   }

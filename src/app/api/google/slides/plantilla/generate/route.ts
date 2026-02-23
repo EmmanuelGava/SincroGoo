@@ -3,12 +3,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { SlidesService } from '@/app/servicios/google/slides/SlidesService';
 import { SheetsService } from '@/servicios/google/sheets';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
+
+const getBaseUrl = (req: NextRequest) =>
+  req.nextUrl.origin || process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
 /**
  * POST /api/google/slides/plantilla/generate
- * Genera una diapositiva por cada fila del Sheet, duplicando la plantilla y reemplazando placeholders.
- * Body: { presentationId, spreadsheetId, encabezados?: string[], columnMapping?: Record<string, string>, slideTemplateId?: string }
- * columnMapping: placeholder name -> sheet column name (e.g. { "Nombre": "Nombre Completo" })
+ * Crea un job en cola y dispara el procesamiento en background. Retorna job_id.
+ * Body: { presentationId, spreadsheetId, proyectoId, encabezados?, columnMapping?, slideTemplateId? }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -18,11 +21,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { presentationId, spreadsheetId, encabezados, columnMapping, slideTemplateId } = body;
+    const {
+      presentationId,
+      spreadsheetId,
+      proyectoId,
+      encabezados,
+      columnMapping,
+      slideTemplateId,
+      templateType
+    } = body;
 
-    if (!presentationId || !spreadsheetId) {
+    if (!presentationId || !spreadsheetId || !proyectoId) {
       return NextResponse.json(
-        { exito: false, error: 'Se requieren presentationId y spreadsheetId' },
+        { exito: false, error: 'Se requieren presentationId, spreadsheetId y proyectoId' },
         { status: 400 }
       );
     }
@@ -65,76 +76,80 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let exito = 0;
-    const fallidos: { fila: number; error: string }[] = [];
-    const numSlidesAntes = (await slidesService.obtenerPresentacion(presentationId, false)).datos?.slides?.length || 0;
-    let insercionIndex = numSlidesAntes;
+    const supabase = getSupabaseAdmin();
+    const { data: proyecto } = await supabase
+      .from('proyectos')
+      .select('usuario_id')
+      .eq('id', proyectoId)
+      .single();
 
-    for (let i = 0; i < filas.length; i++) {
-      const fila = filas[i];
-      const valores = fila.valores || [];
-
-      try {
-        const dupResult = await slidesService.duplicarDiapositivaYObtenerId(
-          presentationId,
-          templateSlideId,
-          insercionIndex
-        );
-
-        if (!dupResult.exito || !dupResult.datos) {
-          fallidos.push({ fila: i + 2, error: dupResult.error || 'Error al duplicar' });
-          continue;
-        }
-
-        const nuevaSlideId = dupResult.datos;
-        insercionIndex++;
-
-        const replacements: Record<string, string> = {};
-        if (columnMapping && typeof columnMapping === 'object' && Object.keys(columnMapping).length > 0) {
-          for (const [placeholder, columnName] of Object.entries(columnMapping)) {
-            const colIdx = headers.findIndex((h: string) => String(h || '').trim() === String(columnName || '').trim());
-            const valor = colIdx >= 0 ? valores[colIdx] : null;
-            const valorStr = valor?.valor != null && valor.valor !== '' ? String(valor.valor) : '';
-            replacements[`{{${placeholder}}}`] = valorStr;
-          }
-        } else {
-          const colsToUse = Array.isArray(encabezados) && encabezados.length > 0 ? encabezados : headers;
-          colsToUse.forEach((col: string, idx: number) => {
-            const headerName = (headers[idx] || col || '').toString().trim();
-            const valor = valores[idx];
-            const valorStr = valor?.valor != null && valor.valor !== '' ? String(valor.valor) : '';
-            if (headerName) replacements[`{{${headerName}}}`] = valorStr;
-            if (col && col !== headerName) replacements[`{{${col}}}`] = valorStr;
-          });
-        }
-
-        const replaceResult = await slidesService.reemplazarPlaceholders(
-          presentationId,
-          replacements,
-          [nuevaSlideId]
-        );
-
-        if (!replaceResult.exito) {
-          fallidos.push({ fila: i + 2, error: replaceResult.error || 'Error al reemplazar' });
-          continue;
-        }
-
-        exito++;
-      } catch (err) {
-        fallidos.push({
-          fila: i + 2,
-          error: err instanceof Error ? err.message : 'Error desconocido'
-        });
-      }
+    if (!proyecto?.usuario_id) {
+      return NextResponse.json(
+        { exito: false, error: 'Proyecto no encontrado' },
+        { status: 404 }
+      );
     }
+
+    const { data: job, error: jobError } = await supabase
+      .from('generacion_jobs')
+      .insert({
+        proyecto_id: proyectoId,
+        usuario_id: proyecto.usuario_id,
+        estado: 'pendiente',
+        presentation_id: presentationId,
+        spreadsheet_id: spreadsheetId,
+        slide_template_id: templateSlideId,
+        template_type: templateType || null,
+        column_mapping: columnMapping || {},
+        total_filas: filas.length
+      })
+      .select('id')
+      .single();
+
+    if (jobError || !job) {
+      console.error('[plantilla/generate] Error creando job:', jobError);
+      return NextResponse.json(
+        { exito: false, error: 'Error al crear el job de generación' },
+        { status: 500 }
+      );
+    }
+
+    const items = filas.map((fila: { valores?: unknown[] }, i: number) => ({
+      job_id: job.id,
+      fila_index: i,
+      datos_fila: {
+        valores: fila.valores || [],
+        encabezados: headers
+      },
+      estado: 'pendiente'
+    }));
+
+    const { error: itemsError } = await supabase.from('generacion_job_items').insert(items);
+    if (itemsError) {
+      console.error('[plantilla/generate] Error creando items:', itemsError);
+      await supabase.from('generacion_jobs').delete().eq('id', job.id);
+      return NextResponse.json(
+        { exito: false, error: 'Error al crear los items del job' },
+        { status: 500 }
+      );
+    }
+
+    const base = getBaseUrl(request);
+    const processUrl = `${base}/api/google/slides/plantilla/process`;
+    fetch(processUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobId: job.id,
+        accessToken: session.accessToken
+      })
+    }).catch((err) => console.error('[plantilla/generate] Error disparando process:', err));
 
     return NextResponse.json({
       exito: true,
       datos: {
-        generadas: exito,
-        total: filas.length,
-        fallidas: fallidos.length,
-        errores: fallidos
+        job_id: job.id,
+        total_filas: filas.length
       }
     });
   } catch (error) {

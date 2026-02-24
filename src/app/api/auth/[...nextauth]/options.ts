@@ -157,6 +157,21 @@ export const authOptions: NextAuthOptions = {
             console.error('[NextAuth] Error obteniendo JWT de Supabase para Google:', e);
             token.error = "SupabaseTokenError";
           }
+          // Guardar refresh_token de Google en tabla usuarios para sync automática
+          if (account.refresh_token && user.id) {
+            try {
+              const supabaseAdmin = createClient<Database>(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY!
+              );
+              await supabaseAdmin
+                .from('usuarios')
+                .update({ google_refresh_token: account.refresh_token })
+                .eq('auth_id', user.id);
+            } catch (e) {
+              console.error('[NextAuth] Error guardando refresh_token:', e);
+            }
+          }
         } else if (account.provider === 'credentials') {
           token.provider = 'supabase';
         }

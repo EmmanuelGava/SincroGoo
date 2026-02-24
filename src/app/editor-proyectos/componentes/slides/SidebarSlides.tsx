@@ -22,6 +22,7 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   PictureAsPdf as PdfIcon,
+  Slideshow as PptxIcon,
   ContentCopy as ContentCopyIcon,
   OpenInNew as OpenInNewIcon
 } from "@mui/icons-material"
@@ -31,6 +32,7 @@ import { useThumbnails } from "../../hooks/useThumbnails"
 import { useSlides, useUI } from "../../contexts"
 import { toast } from "sonner"
 import { EditorElementos } from './EditorElementos'
+import { SyncConfigPanel } from '../SyncConfigPanel'
 
 interface NavegacionFilas {
   indiceActual: number
@@ -64,6 +66,7 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
     diapositivasConAsociaciones,
     cargandoDiapositivas,
     idPresentacion,
+    idProyecto,
     tituloPresentacion: tituloPresentacionContext,
     manejarSeleccionDiapositiva
   } = useSlides()
@@ -170,6 +173,21 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
                   <PdfIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+              <Tooltip title="Descargar como PowerPoint (.pptx)">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    if (idPresentacion) {
+                      window.open(
+                        `/api/google/slides/export-pptx?presentationId=${idPresentacion}&nombre=${encodeURIComponent(tituloPresentacion || 'presentacion')}`,
+                        '_blank'
+                      );
+                    }
+                  }}
+                >
+                  <PptxIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="Copiar enlace para compartir">
                 <IconButton
                   size="small"
@@ -225,6 +243,12 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
             </Box>
           )}
         </Box>
+
+        {idProyecto && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <SyncConfigPanel projectId={idProyecto} />
+          </Box>
+        )}
 
         {/* Contenido */}
         <Box sx={{ 

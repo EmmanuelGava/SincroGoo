@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
 
-// Helper para crear el cliente de Supabase con el token del usuario
-async function getUserSupabaseClient() {
+// Helper: supabaseToken si existe; si no, fallback a admin + usuario_id (cuando signInWithIdToken falló)
+async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
+  const usuarioId = await getUsuarioIdFromSession();
+  if (!usuarioId) return null;
   try {
-    const { supabase, session } = await getSupabaseClient(true);
-    if (!session) return null;
-    return { supabase, session };
-  } catch (error) {
-    console.error('Error getting Supabase client:', error);
-    return null;
+    const { supabase } = await getSupabaseClient(true);
+    return { supabase, userId: usuarioId };
+  } catch {
+    return { supabase: getSupabaseAdmin(), userId: usuarioId };
   }
 }
 
@@ -20,9 +20,7 @@ export async function GET(request: NextRequest) {
     const client = await getUserSupabaseClient();
     if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
-    const { supabase, session } = client;
-    const userId = session.user?.id;
-    if (!userId) return NextResponse.json({ error: 'Usuario no identificado' }, { status: 401 });
+    const { supabase, userId } = client;
 
     const searchParams = request.nextUrl.searchParams;
     const estado_id = searchParams.get('estado_id');
@@ -57,10 +55,7 @@ export async function POST(request: NextRequest) {
     const client = await getUserSupabaseClient();
     if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    const { supabase, session } = client;
-    const userId = session.user?.id;
-    if (!userId) return NextResponse.json({ error: 'Usuario no identificado' }, { status: 401 });
-
+    const { supabase, userId } = client;
     const body = await request.json();
     const { nombre, email, telefono, empresa, cargo, estado_id, probabilidad_cierre, tags, notas } = body;
     

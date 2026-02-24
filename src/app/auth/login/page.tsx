@@ -76,14 +76,14 @@ export default function LoginPage() {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            SincroGoo
+            Klosync
           </Typography>
         </Toolbar>
       </AppBar>
       <Container maxWidth="sm" sx={{ mt: 8 }}>
         <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h4" component="h1" gutterBottom>
-            Bienvenido a SincroGoo
+            Bienvenido a Klosync
           </Typography>
           <Typography variant="body1" color="text.secondary" paragraph>
             Inicia sesión con tu cuenta de Google para continuar

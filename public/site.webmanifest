@@ -1,6 +1,6 @@
 {
-  "name": "SincroGoo",
-  "short_name": "SincroGoo",
+  "name": "Klosync",
+  "short_name": "Klosync",
   "description": "CRM y automatización de mensajería",
   "start_url": "/",
   "display": "standalone",

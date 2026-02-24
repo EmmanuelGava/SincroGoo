@@ -36,6 +36,12 @@ import SpreadsheetIcon from '@mui/icons-material/TableChart'
 import LinkIcon from '@mui/icons-material/Link'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import DownloadIcon from '@mui/icons-material/Download'
+import SlideshowIcon from '@mui/icons-material/Slideshow'
+import MergeTypeIcon from '@mui/icons-material/MergeType'
+import CleaningServicesIcon from '@mui/icons-material/CleaningServices'
+import DescriptionIcon from '@mui/icons-material/Description'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import ExploreIcon from '@mui/icons-material/Explore'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
@@ -422,7 +428,7 @@ export default function NuevoProyecto() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           templateId,
-          titulo: titulo.trim() || "Plantilla SincroGoo"
+          titulo: titulo.trim() || "Plantilla Klosync"
         })
       })
       const createData = await createRes.json()
@@ -471,8 +477,8 @@ export default function NuevoProyecto() {
         filtro: personalizacion.filtro
       }
       const genBody = tipoFuenteDatos === "sheets"
-        ? { spreadsheetId: hojaSeleccionada, proyectoId: proyecto.id, templateType: templateId, columnMapping, tituloPresentacion: titulo.trim() || "Plantilla SincroGoo", personalizacion: personalizacionPayload }
-        : { datosInlined, proyectoId: proyecto.id, templateType: templateId, columnMapping, tituloPresentacion: titulo.trim() || "Plantilla SincroGoo", personalizacion: personalizacionPayload }
+        ? { spreadsheetId: hojaSeleccionada, proyectoId: proyecto.id, templateType: templateId, columnMapping, tituloPresentacion: titulo.trim() || "Plantilla Klosync", personalizacion: personalizacionPayload }
+        : { datosInlined, proyectoId: proyecto.id, templateType: templateId, columnMapping, tituloPresentacion: titulo.trim() || "Plantilla Klosync", personalizacion: personalizacionPayload }
       const genRes = await fetch("/api/google/slides/plantilla/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -837,9 +843,9 @@ export default function NuevoProyecto() {
                   >
                     <CardContent sx={{ textAlign: "center", py: 3 }}>
                       <CloudUploadIcon sx={{ fontSize: 40, color: "success.main", mb: 1.5 }} />
-                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Excel → Sheets</Typography>
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Excel/CSV → Sheets</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Sube un archivo Excel y conviértelo a Google Sheets
+                        Sube un archivo Excel o CSV y conviértelo a Google Sheets
                       </Typography>
                     </CardContent>
                   </Card>
@@ -857,9 +863,109 @@ export default function NuevoProyecto() {
                   >
                     <CardContent sx={{ textAlign: "center", py: 3 }}>
                       <PresentationIcon sx={{ fontSize: 40, color: "primary.main", mb: 1.5 }} />
-                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Excel → Slides</Typography>
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Excel/CSV → Slides</Typography>
                       <Typography variant="body2" color="text.secondary">
                         Excel o CSV a presentación de Google Slides automáticamente
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/merge-sheets")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <MergeTypeIcon sx={{ fontSize: 40, color: "primary.dark", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Fusionar Sheets</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Combina múltiples Google Sheets en uno solo
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/clean-data")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <CleaningServicesIcon sx={{ fontSize: 40, color: "success.dark", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Limpiar datos</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Detecta duplicados, normaliza texto y limpia tu Sheet
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/sheets-to-word")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <DescriptionIcon sx={{ fontSize: 40, color: "primary.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Sheet → Word</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Genera documentos Word desde un Sheet con plantilla
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/pptx-to-slides")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <SlideshowIcon sx={{ fontSize: 40, color: "warning.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>PPTX → Slides</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Importa un archivo PowerPoint a Google Slides
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/pdf-to-sheets")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <PictureAsPdfIcon sx={{ fontSize: 40, color: "error.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>PDF → Sheets</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Extrae texto de un PDF y créalo como Google Sheet
                       </Typography>
                     </CardContent>
                   </Card>
@@ -880,6 +986,46 @@ export default function NuevoProyecto() {
                       <Typography variant="subtitle1" fontWeight={600} gutterBottom>Explorador</Typography>
                       <Typography variant="body2" color="text.secondary">
                         Busca establecimientos en el mapa y exporta a Google Sheets
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/sheets-to-excel")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <DownloadIcon sx={{ fontSize: 40, color: "warning.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Sheets → Excel</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Descarga un Google Sheet como archivo Excel (.xlsx)
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    sx={{
+                      minWidth: 220,
+                      flex: "1 1 220px",
+                      cursor: "pointer",
+                      border: 2,
+                      borderColor: "divider",
+                      transition: "all 0.2s",
+                      "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" }
+                    }}
+                    onClick={() => router.push("/slides-to-sheet")}
+                  >
+                    <CardContent sx={{ textAlign: "center", py: 3 }}>
+                      <SlideshowIcon sx={{ fontSize: 40, color: "secondary.main", mb: 1.5 }} />
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>Slides → Sheet</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Extrae textos de Slides y crea un Google Sheet con los datos
                       </Typography>
                     </CardContent>
                   </Card>

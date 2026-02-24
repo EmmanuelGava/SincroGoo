@@ -12,10 +12,10 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "SincroGoo - Sincroniza tus documentos de Google",
+  title: "Klosync - Sincroniza tus documentos de Google",
   description: "Sincroniza precios entre Google Sheets y Google Slides fácilmente",
   generator: 'Next.js',
-  applicationName: 'SincroGoo',
+  applicationName: 'Klosync',
   referrer: 'origin-when-cross-origin',
   keywords: ['Google Slides', 'Google Sheets', 'Sincronización', 'Automatización', 'Presentaciones', 'Hojas de cálculo'],
   authors: [{ name: 'Emmanuel Gava' }],
@@ -27,10 +27,10 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    title: "SincroGoo - Sincroniza tus documentos de Google",
+    title: "Klosync - Sincroniza tus documentos de Google",
     description: "Sincroniza precios entre Google Sheets y Google Slides fácilmente",
-    url: 'https://sincrogoo.vercel.app',
-    siteName: 'SincroGoo',
+    url: 'https://klosync.vercel.app',
+    siteName: 'Klosync',
     images: [
       {
         url: '/og-image.png',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SincroGoo - Sincroniza tus documentos de Google',
+    title: 'Klosync - Sincroniza tus documentos de Google',
     description: 'Sincroniza precios entre Google Sheets y Google Slides fácilmente',
     images: ['/og-image.png'],
     creator: '@emmanuelgava',

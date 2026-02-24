@@ -254,8 +254,8 @@ export async function POST(request: NextRequest) {
       .eq('id', jobId);
 
     // Actualizar proyecto con la nueva presentación y slide_padre_id
-    const proyectoId = job.proyecto_id as string | null;
-    if (proyectoId) {
+    const proyectoIdFinal = job.proyecto_id as string | null;
+    if (proyectoIdFinal) {
       await supabase
         .from('proyectos')
         .update({

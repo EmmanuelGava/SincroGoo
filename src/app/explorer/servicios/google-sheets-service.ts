@@ -216,7 +216,7 @@ export class GoogleSheetsService {
           },
           body: JSON.stringify({
             properties: {
-              title: 'Historial de Búsquedas - SincroGoo',
+              title: 'Historial de Búsquedas - Klosync',
             },
             sheets: [
               {

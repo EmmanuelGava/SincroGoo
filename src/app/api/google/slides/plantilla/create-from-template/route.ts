@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const resultado = await plantillaService.crearPresentacionDesdePlantilla(
       templateId,
-      titulo.trim() || 'Plantilla SincroGoo'
+      titulo.trim() || 'Plantilla Klosync'
     );
 
     if (!resultado) {

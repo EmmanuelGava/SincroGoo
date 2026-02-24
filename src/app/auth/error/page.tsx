@@ -35,7 +35,7 @@ export default function AuthErrorPage() {
       <AppBar position="static" color="primary" elevation={0}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            SincroGoo
+            Klosync
           </Typography>
         </Toolbar>
       </AppBar>

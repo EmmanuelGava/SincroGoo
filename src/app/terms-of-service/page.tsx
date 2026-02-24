@@ -21,7 +21,7 @@ export default function TermsOfService() {
         <section className="mb-6">
           <h2 className="text-2xl font-semibold mb-3">2. Descripción del Servicio</h2>
           <p>
-            SincroGoo proporciona una plataforma de mensajería unificada que permite a los usuarios gestionar 
+            Klosync proporciona una plataforma de mensajería unificada que permite a los usuarios gestionar 
             conversaciones de múltiples plataformas (WhatsApp, Telegram, Email) desde una sola interfaz. 
             Nos reservamos el derecho de modificar o descontinuar el servicio en cualquier momento con previo aviso.
           </p>
@@ -79,8 +79,8 @@ export default function TermsOfService() {
           </p>
           <div className="bg-blue-50 p-4 rounded-lg mt-4">
             <p><strong>Email:</strong> emmagava10@gmail.com</p>
-            <p><strong>Aplicación:</strong> SincroGoo</p>
-            <p><strong>Sitio web:</strong> sincrogoo.vercel.app</p>
+            <p><strong>Aplicación:</strong> Klosync</p>
+            <p><strong>Sitio web:</strong> klosync.vercel.app</p>
           </div>
         </section>
       </div>

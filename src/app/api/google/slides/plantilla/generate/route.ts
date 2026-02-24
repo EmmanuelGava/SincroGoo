@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const titulo = tituloPresentacion || proyecto.nombre || 'Plantilla SincroGoo';
+    const titulo = tituloPresentacion || proyecto.nombre || 'Plantilla Klosync';
     const crearResult = await plantillaService.crearPresentacionDesdePlantilla(templateType, titulo);
     if (!crearResult) {
       return NextResponse.json(

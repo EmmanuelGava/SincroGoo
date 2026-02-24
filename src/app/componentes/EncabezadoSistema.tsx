@@ -36,19 +36,42 @@ import { ThemeToggleButton } from './ThemeToggleButton';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import SlideshowOutlinedIcon from '@mui/icons-material/SlideshowOutlined';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import AddIcon from '@mui/icons-material/Add';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import MergeTypeIcon from '@mui/icons-material/MergeType';
+import CleaningServicesOutlinedIcon from '@mui/icons-material/CleaningServicesOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 
 // Páginas principales del sistema (sin links rotos)
 const pages = [
   { name: 'Dashboard', href: '/dashboard', icon: <DashboardOutlinedIcon fontSize="small" /> },
   { name: 'Chat', href: '/chat', icon: <ChatOutlinedIcon fontSize="small" /> },
   { name: 'CRM', href: '/crm', icon: <PersonOutlineOutlinedIcon fontSize="small" /> },
-  { name: 'Proyectos', href: '/proyectos', icon: <FolderOutlinedIcon fontSize="small" /> },
+  { name: 'Sync Tools', href: '/proyectos', icon: <FolderOutlinedIcon fontSize="small" />, hasMenu: true },
+];
+
+// Submenú de Proyectos (alineado con /proyectos/nuevo)
+const proyectosMenuItems = [
+  { name: 'Mis proyectos', href: '/proyectos', icon: <FolderOutlinedIcon fontSize="small" /> },
+  { name: 'Nuevo proyecto', href: '/proyectos/nuevo', icon: <AddIcon fontSize="small" /> },
+  { name: 'Plantilla desde Sheet', href: '/proyectos/nuevo?modo=plantilla', icon: <SlideshowOutlinedIcon fontSize="small" /> },
+  { name: 'Excel/CSV → Sheets', href: '/excel-to-sheets', icon: <CloudUploadIcon fontSize="small" /> },
+  { name: 'Excel/CSV → Slides', href: '/excel-to-slides', icon: <SlideshowOutlinedIcon fontSize="small" /> },
+  { name: 'Sheets → Excel', href: '/sheets-to-excel', icon: <DownloadOutlinedIcon fontSize="small" /> },
+  { name: 'Slides → Sheet', href: '/slides-to-sheet', icon: <SlideshowOutlinedIcon fontSize="small" /> },
+  { name: 'Sheet → Word', href: '/sheets-to-word', icon: <DescriptionOutlinedIcon fontSize="small" /> },
+  { name: 'PPTX → Slides', href: '/pptx-to-slides', icon: <SlideshowOutlinedIcon fontSize="small" /> },
+  { name: 'PDF → Sheets', href: '/pdf-to-sheets', icon: <PictureAsPdfOutlinedIcon fontSize="small" /> },
+  { name: 'Fusionar Sheets', href: '/merge-sheets', icon: <MergeTypeIcon fontSize="small" /> },
+  { name: 'Limpiar datos', href: '/clean-data', icon: <CleaningServicesOutlinedIcon fontSize="small" /> },
   { name: 'Explorador', href: '/explorer', icon: <ExploreOutlinedIcon fontSize="small" /> },
 ];
 
@@ -70,6 +93,7 @@ export function EncabezadoSistema() {
   // Estados para los menús
   const [anchorElNav, setAnchorElNav] = useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
+  const [anchorElProyectos, setAnchorElProyectos] = useState<null | HTMLElement>(null);
 
   // Manejadores para el menú de navegación
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -82,6 +106,20 @@ export function EncabezadoSistema() {
 
   const handleNavigation = (href: string) => {
     handleCloseNavMenu();
+    setAnchorElProyectos(null);
+    router.push(href);
+  };
+
+  const handleOpenProyectosMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElProyectos(event.currentTarget);
+  };
+
+  const handleCloseProyectosMenu = () => {
+    setAnchorElProyectos(null);
+  };
+
+  const handleProyectosNavigation = (href: string) => {
+    handleCloseProyectosMenu();
     router.push(href);
   };
 
@@ -233,7 +271,7 @@ export function EncabezadoSistema() {
               <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
                 <Image
                   src="/logo.png"
-                  alt="SincroGoo Logo"
+                  alt="Klosync Logo"
                   width={36}
                   height={36}
                   style={{ objectFit: 'contain' }}
@@ -258,9 +296,10 @@ export function EncabezadoSistema() {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 textDecoration: 'none',
+                textTransform: 'uppercase',
               }}
             >
-              SincroGoo
+              Klosync
             </Typography>
 
             {/* Menú móvil */}
@@ -318,29 +357,63 @@ export function EncabezadoSistema() {
                 }}
               >
                 {pages.map((page) => (
-                  <Link key={page.name} href={page.href} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <MenuItem 
-                      selected={pathname === page.href}
-                      sx={{ 
-                        borderRadius: 1,
-                        mx: 0.5,
-                        my: 0.3,
-                        '&.Mui-selected': {
-                          bgcolor: mode === 'dark' 
-                            ? alpha('#6534ac', 0.15)
-                            : alpha('#6534ac', 0.08),
-                          color: 'primary.main',
-                        }
-                      }}
-                    >
-                      <ListItemIcon>
-                        {React.cloneElement(page.icon, { 
-                          color: pathname === page.href ? "primary" : "inherit" 
-                        })}
-                      </ListItemIcon>
-                      <ListItemText>{page.name}</ListItemText>
-                    </MenuItem>
-                  </Link>
+                  page.name === 'Sync Tools' ? (
+                    <Box key={page.name}>
+                      <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+                        Sync Tools
+                      </Typography>
+                      {proyectosMenuItems.map((item) => (
+                        <Link key={item.name} href={item.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                          <MenuItem 
+                            selected={pathname === item.href || (item.href === '/proyectos' && pathname === '/proyectos')}
+                            onClick={handleCloseNavMenu}
+                            sx={{ 
+                              borderRadius: 1,
+                              mx: 0.5,
+                              my: 0.2,
+                              pl: 4,
+                              '&.Mui-selected': {
+                                bgcolor: mode === 'dark' 
+                                  ? alpha('#6534ac', 0.15)
+                                  : alpha('#6534ac', 0.08),
+                                color: 'primary.main',
+                              }
+                            }}
+                          >
+                            <ListItemIcon sx={{ minWidth: 36 }}>
+                              {item.icon}
+                            </ListItemIcon>
+                            <ListItemText primary={item.name} />
+                          </MenuItem>
+                        </Link>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Link key={page.name} href={page.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                      <MenuItem 
+                        selected={pathname === page.href}
+                        onClick={handleCloseNavMenu}
+                        sx={{ 
+                          borderRadius: 1,
+                          mx: 0.5,
+                          my: 0.3,
+                          '&.Mui-selected': {
+                            bgcolor: mode === 'dark' 
+                              ? alpha('#6534ac', 0.15)
+                              : alpha('#6534ac', 0.08),
+                            color: 'primary.main',
+                          }
+                        }}
+                      >
+                        <ListItemIcon>
+                          {React.cloneElement(page.icon, { 
+                            color: pathname === page.href ? "primary" : "inherit" 
+                          })}
+                        </ListItemIcon>
+                        <ListItemText>{page.name}</ListItemText>
+                      </MenuItem>
+                    </Link>
+                  )
                 ))}
               </Menu>
             </Box>
@@ -350,7 +423,7 @@ export function EncabezadoSistema() {
               <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
                 <Image
                   src="/logo.png"
-                  alt="SincroGoo Logo"
+                  alt="Klosync Logo"
                   width={32}
                   height={32}
                   style={{ objectFit: 'contain' }}
@@ -375,43 +448,113 @@ export function EncabezadoSistema() {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 textDecoration: 'none',
+                textTransform: 'uppercase',
               }}
             >
-              SincroGoo
+              Klosync
             </Typography>
             
             {/* Botones de navegación - Versión escritorio */}
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-              {pages.map((page) => (
-                <Link key={page.name} href={page.href} style={{ textDecoration: 'none' }}>
-                  <Button
-                    startIcon={page.icon}
-                    sx={{
-                      my: 2,
-                      mx: 0.5,
-                      color: pathname === page.href ? 'primary.main' : 'text.secondary',
-                      display: 'flex',
-                      alignItems: 'center',
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      px: 2,
-                      '&:hover': {
-                        bgcolor: mode === 'dark' 
-                          ? alpha('#6534ac', 0.15)
-                          : alpha('#6534ac', 0.08),
-                      },
-                      ...(pathname === page.href && {
-                        bgcolor: mode === 'dark' 
-                          ? alpha('#6534ac', 0.2)
-                          : alpha('#6534ac', 0.1),
-                      })
-                    }}
-                  >
-                    {page.name}
-                  </Button>
-                </Link>
-              ))}
+              {pages.map((page) => {
+                const isProyectos = page.name === 'Sync Tools';
+                const isProyectosActive = pathname.startsWith('/proyectos') || pathname.startsWith('/excel') || pathname === '/explorer';
+                if (isProyectos) {
+                  return (
+                    <Box key={page.name}>
+                      <Button
+                        startIcon={page.icon}
+                        endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+                        onClick={handleOpenProyectosMenu}
+                        sx={{
+                          my: 2,
+                          mx: 0.5,
+                          color: isProyectosActive ? 'primary.main' : 'text.secondary',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 500,
+                          px: 2,
+                          '&:hover': {
+                            bgcolor: mode === 'dark' 
+                              ? alpha('#6534ac', 0.15)
+                              : alpha('#6534ac', 0.08),
+                          },
+                          ...(isProyectosActive && {
+                            bgcolor: mode === 'dark' 
+                              ? alpha('#6534ac', 0.2)
+                              : alpha('#6534ac', 0.1),
+                          })
+                        }}
+                      >
+                        {page.name}
+                      </Button>
+                      <Menu
+                        anchorEl={anchorElProyectos}
+                        open={Boolean(anchorElProyectos)}
+                        onClose={handleCloseProyectosMenu}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                        slotProps={{
+                          paper: {
+                            sx: {
+                              borderRadius: 2,
+                              mt: 1.5,
+                              boxShadow: 3,
+                              minWidth: 220,
+                            }
+                          }
+                        }}
+                      >
+                        {proyectosMenuItems.map((item) => (
+                          <MenuItem
+                            key={item.name}
+                            onClick={() => handleProyectosNavigation(item.href)}
+                            selected={pathname === item.href || (item.href === '/proyectos' && pathname === '/proyectos')}
+                            sx={{ py: 1.5 }}
+                          >
+                            <ListItemIcon sx={{ minWidth: 36 }}>
+                              {item.icon}
+                            </ListItemIcon>
+                            <ListItemText primary={item.name} />
+                          </MenuItem>
+                        ))}
+                      </Menu>
+                    </Box>
+                  );
+                }
+                return (
+                  <Link key={page.name} href={page.href} style={{ textDecoration: 'none' }}>
+                    <Button
+                      startIcon={page.icon}
+                      sx={{
+                        my: 2,
+                        mx: 0.5,
+                        color: pathname === page.href ? 'primary.main' : 'text.secondary',
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        px: 2,
+                        '&:hover': {
+                          bgcolor: mode === 'dark' 
+                            ? alpha('#6534ac', 0.15)
+                            : alpha('#6534ac', 0.08),
+                        },
+                        ...(pathname === page.href && {
+                          bgcolor: mode === 'dark' 
+                            ? alpha('#6534ac', 0.2)
+                            : alpha('#6534ac', 0.1),
+                        })
+                      }}
+                    >
+                      {page.name}
+                    </Button>
+                  </Link>
+                );
+              })}
             </Box>
 
             {/* Sección derecha: Theme Toggle y Avatar */}

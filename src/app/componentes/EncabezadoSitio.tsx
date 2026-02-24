@@ -169,7 +169,7 @@ export function EncabezadoSitio() {
               <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
                 <Image
                   src="/logo.png"
-                  alt="SincroGoo Logo"
+                  alt="Klosync Logo"
                   width={36}
                   height={36}
                   style={{ objectFit: 'contain' }}
@@ -194,7 +194,7 @@ export function EncabezadoSitio() {
                     WebkitTextFillColor: 'transparent',
                   }}
                 >
-                  SincroGoo
+                  Klosync
                 </Typography>
                 
                 {isHome && (

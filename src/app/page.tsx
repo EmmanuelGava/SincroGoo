@@ -193,7 +193,7 @@ const testimonials = [
   {
     name: "Ana Martínez",
     role: "Coordinadora de Proyectos",
-    content: "La facilidad de uso y las características avanzadas de SincroGoo son impresionantes. La vista previa en tiempo real y el control total sobre las actualizaciones son exactamente lo que necesitábamos."
+    content: "La facilidad de uso y las características avanzadas de Klosync son impresionantes. La vista previa en tiempo real y el control total sobre las actualizaciones son exactamente lo que necesitábamos."
   }
 ]
 
@@ -545,7 +545,7 @@ export default function HomePage() {
                   lineHeight: 1.6
                 }}
               >
-                Regístrate gratis y descubre cómo SincroGoo puede transformar la forma en que presentas tus datos. Empieza a ahorrar tiempo y a crear presentaciones impactantes.
+                Regístrate gratis y descubre cómo Klosync puede transformar la forma en que presentas tus datos. Empieza a ahorrar tiempo y a crear presentaciones impactantes.
               </Typography>
               
               <Box 

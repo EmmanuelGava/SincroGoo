@@ -50,7 +50,7 @@ export default function LoginPage() {
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <PresentationIcon className="h-6 w-6" />
-            <span className="font-bold text-xl">SincroGoo</span>
+            <span className="font-bold text-xl">Klosync</span>
           </Link>
         </div>
       </header>
@@ -60,7 +60,7 @@ export default function LoginPage() {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
             <CardDescription>
-              Inicia sesión con tu cuenta de Google para acceder a SincroGoo
+              Inicia sesión con tu cuenta de Google para acceder a Klosync
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -112,7 +112,7 @@ export default function LoginPage() {
       
       <footer className="border-t py-4">
         <div className="container text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} SincroGoo. Todos los derechos reservados.
+          &copy; {new Date().getFullYear()} Klosync. Todos los derechos reservados.
         </div>
       </footer>
     </div>

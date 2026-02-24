@@ -12,7 +12,7 @@
 - **URL:** debe ser de la forma:
   - `https://docs.google.com/spreadsheets/d/ID_DEL_DOCUMENTO/edit`
   - o `.../edit#gid=0` (la app extrae el ID igual).
-- **Permisos:** la cuenta con la que inicias sesión en SincroGoo debe tener **acceso de lectura** al Sheet (propietario o compartido con "puede ver" / "puede editar").
+- **Permisos:** la cuenta con la que inicias sesión en Klosync debe tener **acceso de lectura** al Sheet (propietario o compartido con "puede ver" / "puede editar").
 
 ### 2. Columna de imágenes (solo plantilla Catálogo de productos)
 

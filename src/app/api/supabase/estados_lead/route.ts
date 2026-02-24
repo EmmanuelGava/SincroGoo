@@ -1,20 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '../../../../lib/supabase/client';
+import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '../../../../lib/supabase/client';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
+
+async function getUserIdAndSupabase(): Promise<{ userId: string; supabase: ReturnType<typeof getSupabaseAdmin> } | null> {
+  const usuarioId = await getUsuarioIdFromSession();
+  if (!usuarioId) return null;
+  // Usar supabaseToken si existe; si no, admin (fallback cuando signInWithIdToken falló)
+  try {
+    const { supabase } = await getSupabaseClient(true);
+    return { userId: usuarioId, supabase };
+  } catch {
+    return { userId: usuarioId, supabase: getSupabaseAdmin() };
+  }
+}
 
 // GET /api/supabase/estados_lead - Listar estados (ordenados)
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, session } = await getSupabaseClient(true);
-    if (!session) {
+    const client = await getUserIdAndSupabase();
+    if (!client) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Usar el user ID de la sesión de NextAuth/Supabase
-    const userId = session.user?.id;
-    if (!userId) {
-      return NextResponse.json({ error: 'Usuario no identificado' }, { status: 401 });
-    }
+    const { userId, supabase } = client;
 
     const { data, error } = await supabase
       .from('estados_lead')
@@ -38,11 +46,10 @@ export async function GET(request: NextRequest) {
 // POST /api/supabase/estados_lead - Crear estado
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, session } = await getSupabaseClient(true);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const client = await getUserIdAndSupabase();
+    if (!client) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+    const { userId, supabase } = client;
     const body = await request.json();
     const { nombre, orden, color, is_default, icono } = body;
 
@@ -56,7 +63,7 @@ export async function POST(request: NextRequest) {
         nombre,
         orden,
         color,
-        usuario_id: session.user.id, // Usar el ID del usuario autenticado
+        usuario_id: userId,
         is_default,
         icono
       })
@@ -74,11 +81,10 @@ export async function POST(request: NextRequest) {
 // PATCH /api/supabase/estados_lead - Actualizar estado (por id)
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase, session } = await getSupabaseClient(true);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const client = await getUserIdAndSupabase();
+    if (!client) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+    const { userId, supabase } = client;
     const body = await request.json();
     const { id, ...fields } = body;
     if (!id) return NextResponse.json({ error: 'Falta el id del estado' }, { status: 400 });
@@ -88,7 +94,7 @@ export async function PATCH(request: NextRequest) {
       .from('estados_lead')
       .select('id')
       .eq('id', id)
-      .eq('usuario_id', session.user.id)
+      .eq('usuario_id', userId)
       .single();
 
     if (checkError || !existingState) {
@@ -99,7 +105,7 @@ export async function PATCH(request: NextRequest) {
       .from('estados_lead')
       .update(fields)
       .eq('id', id)
-      .eq('usuario_id', session.user.id)
+      .eq('usuario_id', userId)
       .select('*')
       .single();
 
@@ -114,11 +120,10 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/supabase/estados_lead - Eliminar estado (por id)
 export async function DELETE(request: NextRequest) {
   try {
-    const { supabase, session } = await getSupabaseClient(true);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const client = await getUserIdAndSupabase();
+    if (!client) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+    const { userId, supabase } = client;
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'Falta el id del estado' }, { status: 400 });
@@ -128,20 +133,20 @@ export async function DELETE(request: NextRequest) {
       .from('estados_lead')
       .select('id')
       .eq('id', id)
-      .eq('usuario_id', session.user.id)
+      .eq('usuario_id', userId)
       .single();
 
     if (checkError || !existingState) {
       return NextResponse.json({ error: 'Estado no encontrado o no autorizado' }, { status: 404 });
     }
 
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from('estados_lead')
       .delete()
       .eq('id', id)
-      .eq('usuario_id', session.user.id);
+      .eq('usuario_id', userId);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
     return NextResponse.json({ success: true });
   } catch (error) {
     const { error: errorMessage, status } = formatErrorResponse(error);

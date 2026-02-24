@@ -40,7 +40,7 @@ export const Footer = () => {
               <Box 
                 component="img"
                 src="/logo.png"
-                alt="SincroGoo Logo"
+                alt="Klosync Logo"
                 sx={{ 
                   height: 40,
                   width: 40,
@@ -61,7 +61,7 @@ export const Footer = () => {
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                SincroGoo
+                Klosync
               </Typography>
               
               <Typography 
@@ -278,7 +278,7 @@ export const Footer = () => {
             variant="body2" 
             color="text.secondary"
           >
-            &copy; {new Date().getFullYear()} SincroGoo. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} Klosync. Todos los derechos reservados.
           </Typography>
           
           <Box 

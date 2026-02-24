@@ -112,6 +112,24 @@ export async function getSupabaseClient(requireAuth = false) {
  * @returns Cliente de Supabase con privilegios administrativos
  * @throws Error si se llama desde el cliente
  */
+/**
+ * Obtiene el usuario_id (UUID de tabla usuarios) para rutas que requieren auth.
+ * Usa auth_id de NextAuth para hacer lookup en usuarios.
+ * Útil cuando supabaseToken falta (p. ej. signInWithIdToken falló) pero hay sesión NextAuth válida.
+ */
+export async function getUsuarioIdFromSession(): Promise<string | null> {
+  if (isClient) return null;
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+
+  const admin = getSupabaseAdmin();
+  const { data: usuario, error } = await admin.from('usuarios').select('id').eq('auth_id', session.user.id).single();
+  if (error || !usuario?.id) return null;
+
+  return usuario.id;
+}
+
 export function getSupabaseAdmin(): SupabaseClient<Database> {
   if (isClient) {
     throw new Error('getSupabaseAdmin() no debe ser llamado desde el cliente');

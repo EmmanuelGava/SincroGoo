@@ -1166,7 +1166,7 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
               />
               <TextField
                 label="Mensaje de prueba"
-                placeholder="Hola, este es un mensaje de prueba desde SincroGoo"
+                placeholder="Hola, este es un mensaje de prueba desde Klosync"
                 value={testMessage}
                 onChange={(e) => setTestMessage(e.target.value)}
                 multiline

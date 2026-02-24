@@ -219,7 +219,7 @@ export function PersonalizacionPlantilla({
                   onClick={() => {
                     update({
                       paletaId: p.id,
-                      colores: { fondo: p.fondo, texto: p.texto, acento: p.accento }
+                      colores: { fondo: p.fondo, texto: p.texto, acento: p.acento }
                     })
                   }}
                   sx={{ height: "100%" }}

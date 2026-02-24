@@ -13,7 +13,7 @@ export default function DataDeletion() {
         <section className="mb-6">
           <h2 className="text-2xl font-semibold mb-3">Solicitud de Eliminación de Datos</h2>
           <p className="mb-4">
-            Si desea eliminar sus datos personales de SincroGoo, puede hacerlo siguiendo estos pasos:
+            Si desea eliminar sus datos personales de Klosync, puede hacerlo siguiendo estos pasos:
           </p>
         </section>
 
@@ -23,7 +23,7 @@ export default function DataDeletion() {
             Puede eliminar su cuenta y todos los datos asociados directamente desde la aplicación:
           </p>
           <ul className="list-disc pl-6 mb-4">
-            <li>Inicie sesión en su cuenta de SincroGoo</li>
+            <li>Inicie sesión en su cuenta de Klosync</li>
             <li>Vaya a Configuración → Cuenta</li>
             <li>Seleccione "Eliminar Cuenta"</li>
             <li>Confirme la eliminación</li>
@@ -46,7 +46,7 @@ export default function DataDeletion() {
           </p>
           <div className="bg-gray-100 p-4 rounded-lg mb-4">
             <p><strong>Email:</strong> emmagava10@gmail.com</p>
-            <p><strong>Asunto:</strong> Solicitud de Eliminación de Datos - SincroGoo</p>
+            <p><strong>Asunto:</strong> Solicitud de Eliminación de Datos - Klosync</p>
           </div>
           <p className="mb-4">
             En su solicitud, incluya:
@@ -92,7 +92,7 @@ export default function DataDeletion() {
           </p>
           <ul className="list-disc pl-6 mb-4">
             <li>Debe solicitar la eliminación directamente a cada plataforma</li>
-            <li>SincroGoo eliminará las referencias y configuraciones</li>
+            <li>Klosync eliminará las referencias y configuraciones</li>
             <li>Los mensajes enviados a través de estas plataformas siguen sus políticas respectivas</li>
           </ul>
         </section>
@@ -104,7 +104,7 @@ export default function DataDeletion() {
           </p>
           <div className="bg-blue-50 p-4 rounded-lg">
             <p><strong>Email:</strong> emmagava10@gmail.com</p>
-            <p><strong>Aplicación:</strong> SincroGoo</p>
+            <p><strong>Aplicación:</strong> Klosync</p>
             <p><strong>Respuesta:</strong> Dentro de 48 horas</p>
           </div>
         </section>

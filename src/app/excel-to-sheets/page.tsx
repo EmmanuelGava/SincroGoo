@@ -257,7 +257,10 @@ export default function ExcelToSheetsPage() {
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Paper sx={{ p: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom align="center">
-            Excel a Google Sheets
+            Excel / CSV a Google Sheets
+          </Typography>
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 1 }}>
+            Sube un archivo Excel (.xlsx, .xls) o CSV y conviértelo a Google Sheets
           </Typography>
           
           <Stepper activeStep={activeStep} sx={{ my: 4 }}>

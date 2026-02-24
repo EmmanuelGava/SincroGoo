@@ -245,6 +245,10 @@ export interface Database {
           usuario_id: string;
           modo?: string | null;
           metadata?: Record<string, unknown> | null;
+          sync_automatica?: boolean;
+          sync_frecuencia?: string | null;
+          ultima_sync?: string | null;
+          sync_notificacion?: Record<string, boolean> | null;
         };
         Insert: {
           id?: string;
@@ -259,6 +263,10 @@ export interface Database {
           usuario_id: string;
           modo?: string | null;
           metadata?: Record<string, unknown> | null;
+          sync_automatica?: boolean;
+          sync_frecuencia?: string | null;
+          ultima_sync?: string | null;
+          sync_notificacion?: Record<string, boolean> | null;
         };
         Update: {
           id?: string;
@@ -273,6 +281,10 @@ export interface Database {
           usuario_id?: string;
           modo?: string | null;
           metadata?: Record<string, unknown> | null;
+          sync_automatica?: boolean;
+          sync_frecuencia?: string | null;
+          ultima_sync?: string | null;
+          sync_notificacion?: Record<string, boolean> | null;
         };
       };
 

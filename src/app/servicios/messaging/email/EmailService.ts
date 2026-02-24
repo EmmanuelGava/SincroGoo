@@ -52,7 +52,7 @@ export class EmailService {
         ],
         from: { 
           email: params.from || this.fromEmail,
-          name: 'SincroGoo CRM'
+          name: 'Klosync CRM'
         },
         content: [
           {

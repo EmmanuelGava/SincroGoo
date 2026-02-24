@@ -13,7 +13,7 @@ export default function PrivacyPolicy() {
         <section className="mb-6">
           <h2 className="text-2xl font-semibold mb-3">1. Información que Recopilamos</h2>
           <p>
-            SincroGoo recopila información necesaria para proporcionar servicios de mensajería unificada:
+            Klosync recopila información necesaria para proporcionar servicios de mensajería unificada:
           </p>
           <ul className="list-disc pl-6 mb-4">
             <li>Información de la cuenta (nombre, correo electrónico)</li>
@@ -66,8 +66,8 @@ export default function PrivacyPolicy() {
           </p>
           <div className="bg-blue-50 p-4 rounded-lg mt-4">
             <p><strong>Email:</strong> emmagava10@gmail.com</p>
-            <p><strong>Aplicación:</strong> SincroGoo</p>
-            <p><strong>Sitio web:</strong> sincrogoo.vercel.app</p>
+            <p><strong>Aplicación:</strong> Klosync</p>
+            <p><strong>Sitio web:</strong> klosync.vercel.app</p>
           </div>
         </section>
       </div>

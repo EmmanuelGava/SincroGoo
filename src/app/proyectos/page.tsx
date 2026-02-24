@@ -7,6 +7,7 @@ import { Container, Typography, Button, Box, TextField, CircularProgress, Stack 
 import { toast } from 'sonner'
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema'
 import ListaProyectos from '@/app/proyectos/componentes/ListaProyectos'
+import { HistorialGeneraciones } from '@/app/proyectos/componentes/HistorialGeneraciones'
 
 // Definir tipo Proyecto directamente
 interface Proyecto {
@@ -188,9 +189,14 @@ export default function PaginaProyectos() {
             spacing={2} 
             sx={{ mb: 3, py: 2 }}
           >
-            <Typography variant="h4" fontWeight="bold">
-              Mis Proyectos
-            </Typography>
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                Mis Proyectos
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Conecta tus datos y genera presentaciones
+              </Typography>
+            </Box>
             
             <Stack direction="row" spacing={1}>
               <TextField
@@ -220,6 +226,10 @@ export default function PaginaProyectos() {
               cargando={cargando}
               busqueda={busqueda}
             />
+          </Box>
+
+          <Box sx={{ mt: 4 }}>
+            <HistorialGeneraciones />
           </Box>
         </Container>
       </Box>

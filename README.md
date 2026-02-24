@@ -1,6 +1,6 @@
-# SincroGoo 📄
+# Klosync 📄
 
-SincroGoo es una aplicación web que permite sincronizar y editar documentos de Google Sheets y Google Slides de manera eficiente y sencilla.
+Klosync es una aplicación web que permite sincronizar y editar documentos de Google Sheets y Google Slides de manera eficiente y sencilla.
 
 ## Características ✨
 
@@ -42,7 +42,7 @@ SincroGoo es una aplicación web que permite sincronizar y editar documentos de 
    - Dominios autorizados
 5. Crea credenciales OAuth 2.0:
    - Tipo: Aplicación Web
-   - Nombre: SincroGoo
+   - Nombre: Klosync
    - URIs de redirección autorizados:
      ```
      http://localhost:3000/api/auth/callback/google
@@ -108,7 +108,7 @@ yarn dev
 ## Estructura del Proyecto 📁
 
 ```
-SincroGoo/
+Klosync/
 ├── app/                  # Directorio principal de la aplicación
 │   ├── api/             # Endpoints de la API
 │   ├── auth/            # Configuración de autenticación
@@ -135,4 +135,4 @@ Este proyecto está bajo la Licencia MIT - mira el archivo [LICENSE.md](LICENSE.
 
 Emmanuel Gava - [@tu_twitter](https://twitter.com/tu_twitter)
 
-Link del proyecto: [https://github.com/EmmanuelGava/SincroGoo](https://github.com/EmmanuelGava/SincroGoo) 
+Link del proyecto: [https://github.com/EmmanuelGava/Klosync](https://github.com/EmmanuelGava/Klosync) 

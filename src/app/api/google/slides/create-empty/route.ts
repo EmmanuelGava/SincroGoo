@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     const slidesService = SlidesService.getInstance(session.accessToken);
     const resultado = await slidesService.crearPresentacion({
-      titulo: titulo.trim() || 'Presentación SincroGoo'
+      titulo: titulo.trim() || 'Presentación Klosync'
     });
 
     if (!resultado.exito || !resultado.datos) {

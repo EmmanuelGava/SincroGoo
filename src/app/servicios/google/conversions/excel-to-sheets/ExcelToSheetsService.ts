@@ -76,10 +76,14 @@ export class ExcelToSheetsService extends BaseConversionService {
       if (!this.verificarArchivo(archivo, [
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel',
+        'text/csv',
+        'application/csv',
+        'text/plain',
         '.xlsx',
-        '.xls'
+        '.xls',
+        '.csv'
       ])) {
-        throw new Error('Formato de archivo no válido');
+        throw new Error('Formato de archivo no válido. Use Excel (.xlsx, .xls) o CSV.');
       }
 
       // 2. Si hay ID existente, verificar acceso

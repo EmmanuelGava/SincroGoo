@@ -20,7 +20,7 @@ export const Testimonios = () => {
       role: "Gerente de Marketing",
       company: "TechSolutions",
       avatar: "/avatars/avatar1.jpg",
-      testimonial: "SincroGoo ha revolucionado la forma en que presentamos datos a nuestros clientes. La sincronización automática y el editor visual nos permiten mantener nuestras presentaciones siempre actualizadas."
+      testimonial: "Klosync ha revolucionado la forma en que presentamos datos a nuestros clientes. La sincronización automática y el editor visual nos permiten mantener nuestras presentaciones siempre actualizadas."
     },
     {
       name: "Carlos Rodríguez",
@@ -34,7 +34,7 @@ export const Testimonios = () => {
       role: "Consultora de Negocios",
       company: "ConsultPro",
       avatar: "/avatars/avatar3.jpg",
-      testimonial: "La facilidad de uso y las características avanzadas de SincroGoo son impresionantes. La vista previa en tiempo real y el control total sobre las actualizaciones son exactamente lo que necesitábamos."
+      testimonial: "La facilidad de uso y las características avanzadas de Klosync son impresionantes. La vista previa en tiempo real y el control total sobre las actualizaciones son exactamente lo que necesitábamos."
     }
   ];
 

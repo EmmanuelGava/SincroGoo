@@ -48,7 +48,7 @@ export function normalizeRowObjectsToDatosHoja(
             ? ''
             : typeof v === 'object'
               ? String(v)
-              : v
+              : (v as string | number)
       };
     })
   }));

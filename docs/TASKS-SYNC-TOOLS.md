@@ -194,6 +194,49 @@ Sync Tools → Mis proyectos, Nuevo proyecto, Plantilla desde Sheet, Excel/CSV �
 
 ---
 
+## FASE 5 — MEJORAS DEL EDITOR Y GENERACIÓN DE SLIDES
+
+### TASK 5.1: Preview carrusel de miniaturas al terminar generación ✅ HECHO
+> **Esfuerzo: medio** — Mostrar miniaturas de las slides generadas para revisión rápida.
+
+**Completado:**
+- [x] Componente `PreviewCarrusel.tsx` — Dialog con slide grande + flechas prev/next + strip de miniaturas clicables
+- [x] Usa API existente `/api/google/slides/thumbnails` + `/api/google/slides` para listar slides
+- [x] Integrado en flujo post-generación en `proyectos/nuevo/page.tsx`: al completar, muestra preview antes de ir al editor
+- [x] Botones "Abrir en Google Slides" y "Ir al editor"
+
+---
+
+### TASK 5.2: Re-sincronizar slides existentes sin regenerar todo ✅ HECHO
+> **Esfuerzo: medio** — Actualizar datos en slides ya generadas sin perder customizaciones manuales.
+
+**Completado:**
+- [x] API route: `src/app/api/google/slides/resync/route.ts` — POST con `presentationId` + `spreadsheetId`, lee textos actuales de la presentación, busca placeholders {col}/{{col}}, aplica `replaceAllText` preservando formato
+- [x] Botón "Re-sync" en sidebar del editor (`SidebarSlides.tsx`) con menú desplegable (2 modos)
+- [x] Recarga automática de thumbnails tras re-sync exitoso
+
+---
+
+### TASK 5.3: Modo enriquecimiento (actualizar slides respetando diseño) ✅ HECHO
+> **Esfuerzo: medio** — Actualizar contenido sin alterar formato, posición ni estilos personalizados.
+
+**Completado:**
+- [x] Modo `enriquecimiento` en API `/api/google/slides/resync` — usa `replaceAllText` que preserva formato nativo (fontFamily, fontSize, color, bold, etc.)
+- [x] Menú en sidebar con opción "Modo enriquecimiento" separada de "Re-sync placeholders"
+- [x] Detección de placeholders en ambos formatos: `{columna}` y `{{columna}}`
+
+---
+
+### TASK 5.4: Notificación al terminar generación larga — POSPUESTA
+> Fuera del MVP. Se implementará cuando se integre Resend para email.
+
+---
+
+### TASK 5.5: Editor visual de plantillas con Fabric.js — POSPUESTO
+> Fuera del MVP. Requiere investigación profunda y esfuerzo muy alto.
+
+---
+
 ## ACTUALIZACIÓN DEL MENÚ
 
 Al completar cada fase, actualizar `EncabezadoSistema.tsx` (array `proyectosMenuItems`) y `/proyectos/nuevo` (sección Herramientas):
@@ -228,5 +271,10 @@ Sync Tools → Mis proyectos, Nuevo proyecto, Plantilla desde Sheet,
 | 10 | PDF → Sheets (4.3) | ✅ HECHO | Feature de nicho |
 | 11 | Fusionar Sheets (4.4) | ✅ HECHO | Power user feature |
 | 12 | Limpiar datos (4.5) | ✅ HECHO | Diferenciador único |
+| 13 | Preview carrusel miniaturas (5.1) | ✅ HECHO | UX post-generación |
+| 14 | Re-sync sin regenerar (5.2) | ✅ HECHO | Ahorra tiempo al usuario |
+| 15 | Modo enriquecimiento (5.3) | ✅ HECHO | Respeta diseño manual |
+| 16 | Notificación al terminar (5.4) | ⏸ Pospuesto | No MVP |
+| 17 | Editor visual Fabric.js (5.5) | ⏸ Pospuesto | No MVP |
 
-**12/12 tareas completadas. Todas las fases finalizadas.**
+**Fases 1-4 completadas (12/12). Fase 5: 3/3 MVP completadas (15/17 total). 2 pospuestas.**

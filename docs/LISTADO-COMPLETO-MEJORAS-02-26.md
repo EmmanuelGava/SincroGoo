@@ -169,10 +169,10 @@
 - [x] Ordenar filas por columna (ASC/DESC) — HECHO (PersonalizacionPlantilla.tsx UI + generate/route.ts aplica ordenamiento)
 
 ### Mejoras pendientes
-- [ ] Preview carrusel de miniaturas al terminar generación
-- [ ] Re-sincronizar slides existentes sin regenerar todo
-- [ ] Modo enriquecimiento (actualizar slides existentes respetando diseño original)
-- [ ] Notificación por email o WhatsApp al terminar generación larga
+- [x] Preview carrusel de miniaturas al terminar generación — PreviewCarrusel.tsx con Dialog, flechas, strip de thumbnails
+- [x] Re-sincronizar slides existentes sin regenerar todo — API `/api/google/slides/resync` + botón en sidebar editor
+- [x] Modo enriquecimiento (actualizar slides respetando diseño) — modo `enriquecimiento` en API resync, preserva formato
+- [ ] Notificación por email o WhatsApp al terminar generación larga (pospuesto, no MVP)
 - [x] Historial de generaciones por proyecto — HistorialGeneraciones.tsx integrado en `/proyectos` (fecha, estado, filas, errores expandibles, link a presentación)
 
 ### Editor de plantillas

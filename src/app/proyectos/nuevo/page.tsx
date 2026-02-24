@@ -48,6 +48,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 
 // Componentes
+import { PreviewCarrusel } from "@/app/proyectos/componentes/PreviewCarrusel"
 import { EncabezadoSistema } from "@/componentes/EncabezadoSistema"
 import { PreviewPlantilla } from "@/app/editor-proyectos/plantilla/PreviewPlantilla"
 import { PLANTILLAS } from "@/app/editor-proyectos/plantilla/templates"
@@ -105,6 +106,7 @@ export default function NuevoProyecto() {
   const [hojaCalculoId, setHojaCalculoId] = useState("")
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewData, setPreviewData] = useState<{ presentationId: string; projectId: string; totalSlides: number } | null>(null)
   const [pasoActual, setPasoActual] = useState<"modo" | "datos" | "documentos">("modo")
   
   // Modo de creación: enlace = conectar docs existentes | plantilla = crear plantilla desde Sheet
@@ -501,8 +503,13 @@ export default function NuevoProyecto() {
             }
             const { estado, filas_procesadas, total_filas } = data.datos
             if (estado === "completado") {
+              toast.dismiss("generando")
               toast.success("Diapositivas generadas correctamente")
-              router.push(`/editor-proyectos/${proyecto.id}`)
+              setPreviewData({
+                presentationId: data.datos.presentation_id,
+                projectId: proyecto.id,
+                totalSlides: data.datos.filas_procesadas || 0,
+              })
               return
             }
             if (estado === "error") {
@@ -706,6 +713,23 @@ export default function NuevoProyecto() {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <EncabezadoSistema />
+
+      {previewData && (
+        <PreviewCarrusel
+          open={!!previewData}
+          presentationId={previewData.presentationId}
+          projectId={previewData.projectId}
+          totalSlides={previewData.totalSlides}
+          onClose={() => {
+            setPreviewData(null)
+            router.push(`/editor-proyectos/${previewData.projectId}`)
+          }}
+          onOpenEditor={() => {
+            setPreviewData(null)
+            router.push(`/editor-proyectos/${previewData.projectId}`)
+          }}
+        />
+      )}
       
       <Box sx={{ maxWidth: 800, mx: "auto", px: 4, py: 8 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 6, gap: 2 }}>

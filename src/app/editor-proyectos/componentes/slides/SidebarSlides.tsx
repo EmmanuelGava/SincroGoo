@@ -13,6 +13,10 @@ import {
   ListItem,
   ListItemButton,
   Tooltip,
+  Menu,
+  MenuItem,
+  ListItemIcon as MuiListItemIcon,
+  ListItemText as MuiListItemText,
 } from "@mui/material"
 import { 
   Close as CloseIcon, 
@@ -24,12 +28,13 @@ import {
   PictureAsPdf as PdfIcon,
   Slideshow as PptxIcon,
   ContentCopy as ContentCopyIcon,
-  OpenInNew as OpenInNewIcon
+  OpenInNew as OpenInNewIcon,
+  SyncOutlined as SyncIcon,
 } from "@mui/icons-material"
 import { ElementoDiapositiva, VistaPreviaDiapositiva } from '../../types'
 import { useThemeMode } from "@/lib/theme"
 import { useThumbnails } from "../../hooks/useThumbnails"
-import { useSlides, useUI } from "../../contexts"
+import { useSlides, useUI, useSheets } from "../../contexts"
 import { toast } from "sonner"
 import { EditorElementos } from './EditorElementos'
 import { SyncConfigPanel } from '../SyncConfigPanel'
@@ -68,10 +73,47 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
     idPresentacion,
     idProyecto,
     tituloPresentacion: tituloPresentacionContext,
-    manejarSeleccionDiapositiva
+    manejarSeleccionDiapositiva,
+    recargarDiapositivas,
   } = useSlides()
   const { tituloPresentacion: tituloPresentacionUI } = useUI()
   const tituloPresentacion = tituloPresentacionContext || tituloPresentacionUI || 'Presentación'
+
+  let idHojaCalculo: string | undefined
+  try {
+    const sheetsCtx = useSheets()
+    idHojaCalculo = sheetsCtx.idHojaCalculo
+  } catch {
+    idHojaCalculo = undefined
+  }
+
+  const [resyncLoading, setResyncLoading] = useState(false)
+  const [syncMenuAnchor, setSyncMenuAnchor] = useState<HTMLElement | null>(null)
+
+  const handleResync = async (modo: 'placeholders' | 'enriquecimiento' = 'placeholders') => {
+    if (!idPresentacion || !idHojaCalculo) return
+    setSyncMenuAnchor(null)
+    setResyncLoading(true)
+    try {
+      const res = await fetch('/api/google/slides/resync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presentationId: idPresentacion, spreadsheetId: idHojaCalculo, modo }),
+      })
+      const data = await res.json()
+      if (!data.exito) throw new Error(data.error)
+      if (data.datos.cambios === 0) {
+        toast.info(data.datos.mensaje)
+      } else {
+        toast.success(data.datos.mensaje)
+        await recargarDiapositivas()
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al re-sincronizar')
+    } finally {
+      setResyncLoading(false)
+    }
+  }
   
   // Usar el hook de thumbnails
   const { thumbnails, cargandoThumbnails } = useThumbnails(diapositivas, idPresentacion);
@@ -188,6 +230,39 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
                   <PptxIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+              {idHojaCalculo && (
+                <>
+                  <Tooltip title="Re-sincronizar datos del Sheet">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => setSyncMenuAnchor(e.currentTarget)}
+                      disabled={resyncLoading}
+                    >
+                      {resyncLoading ? <CircularProgress size={16} /> : <SyncIcon fontSize="small" />}
+                    </IconButton>
+                  </Tooltip>
+                  <Menu
+                    anchorEl={syncMenuAnchor}
+                    open={!!syncMenuAnchor}
+                    onClose={() => setSyncMenuAnchor(null)}
+                  >
+                    <MenuItem onClick={() => handleResync('placeholders')}>
+                      <MuiListItemIcon><SyncIcon fontSize="small" /></MuiListItemIcon>
+                      <MuiListItemText
+                        primary="Re-sync placeholders"
+                        secondary="Reemplaza {columna} con datos del Sheet"
+                      />
+                    </MenuItem>
+                    <MenuItem onClick={() => handleResync('enriquecimiento')}>
+                      <MuiListItemIcon><SyncIcon fontSize="small" color="primary" /></MuiListItemIcon>
+                      <MuiListItemText
+                        primary="Modo enriquecimiento"
+                        secondary="Actualiza datos respetando diseño"
+                      />
+                    </MenuItem>
+                  </Menu>
+                </>
+              )}
               <Tooltip title="Copiar enlace para compartir">
                 <IconButton
                   size="small"

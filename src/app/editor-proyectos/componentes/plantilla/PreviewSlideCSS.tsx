@@ -14,11 +14,18 @@ function ptToPercent(value: number, total: number): string {
   return `${(value / total) * 100}%`
 }
 
+export interface PersonalizacionPreview {
+  fontFamily?: string
+  colores?: { fondo: string; texto: string; acento: string }
+}
+
 interface PreviewSlideCSSProps {
   templateType: string
   columnMapping: Record<string, string>
   columnas: ColumnaHoja[]
   primeraFila: FilaHoja | null
+  /** Overrides para vista previa en paso de personalización */
+  personalizacion?: PersonalizacionPreview
 }
 
 /** Obtiene el valor de la primera fila para un placeholder */
@@ -41,14 +48,16 @@ export function PreviewSlideCSS({
   templateType,
   columnMapping,
   columnas,
-  primeraFila
+  primeraFila,
+  personalizacion
 }: PreviewSlideCSSProps) {
   const plantilla = PLANTILLAS.find((p) => p.id === templateType)
   const layout = LAYOUTS[templateType]
 
-  const bgColor = plantilla?.bgColor ?? "#FFFFFF"
-  const textColor = plantilla?.textColor ?? "#1F2937"
-  const accentColor = plantilla?.accentColor ?? "#6B7280"
+  const bgColor = personalizacion?.colores?.fondo ?? plantilla?.bgColor ?? "#FFFFFF"
+  const textColor = personalizacion?.colores?.texto ?? plantilla?.textColor ?? "#1F2937"
+  const accentColor = personalizacion?.colores?.acento ?? plantilla?.accentColor ?? "#6B7280"
+  const fontFamily = personalizacion?.fontFamily ?? undefined
 
   if (!layout || layout.length === 0) {
     return (
@@ -165,7 +174,7 @@ export function PreviewSlideCSS({
                 lineHeight: 1.2,
                 wordBreak: "break-word",
                 textAlign,
-                ...(el.fontFamily && { fontFamily: el.fontFamily })
+                fontFamily: fontFamily || el.fontFamily || "inherit"
               }}
             >
               {displayVal || `{{${el.placeholder}}}`}

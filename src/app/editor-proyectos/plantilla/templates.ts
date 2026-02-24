@@ -63,6 +63,24 @@ export const PLANTILLAS: PlantillaDef[] = [
     textColor: '#1F2937'
   },
   {
+    id: 'tarjeta_minimalista',
+    nombre: 'Tarjeta minimalista',
+    descripcion: 'Imagen a la izquierda, título y descripción a la derecha. Diseño limpio.',
+    placeholders: ['Título', 'Subtítulo', 'Descripción', 'Imagen'],
+    bgColor: '#FAFAFA',
+    accentColor: '#0EA5E9',
+    textColor: '#1E293B'
+  },
+  {
+    id: 'portada',
+    nombre: 'Portada',
+    descripcion: 'Título centrado y subtítulo. Ideal como primera diapositiva.',
+    placeholders: ['Título', 'Subtítulo'],
+    bgColor: '#1E293B',
+    accentColor: '#38BDF8',
+    textColor: '#F8FAFC'
+  },
+  {
     id: 'blanco',
     nombre: 'Plantilla en blanco',
     descripcion: 'Sin diseño. Diseñas desde cero en Google Slides.',

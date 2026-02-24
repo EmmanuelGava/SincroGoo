@@ -11,30 +11,48 @@ import {
   useTheme,
   List,
   ListItem,
-  ListItemButton
+  ListItemButton,
+  Tooltip,
 } from "@mui/material"
 import { 
   Close as CloseIcon, 
   Link as LinkIcon,
   ImageNotSupported,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  PictureAsPdf as PdfIcon,
+  ContentCopy as ContentCopyIcon,
+  OpenInNew as OpenInNewIcon
 } from "@mui/icons-material"
 import { ElementoDiapositiva, VistaPreviaDiapositiva } from '../../types'
 import { useThemeMode } from "@/lib/theme"
 import { useThumbnails } from "../../hooks/useThumbnails"
 import { useSlides, useUI } from "../../contexts"
+import { toast } from "sonner"
 import { EditorElementos } from './EditorElementos'
+
+interface NavegacionFilas {
+  indiceActual: number
+  total: number
+  onAnterior: () => void
+  onSiguiente: () => void
+  puedeAnterior: boolean
+  puedeSiguiente: boolean
+}
 
 interface SidebarSlidesProps {
   sidebarAbierto: boolean
   setSidebarAbierto: (abierto: boolean) => void
   onDiapositivaSeleccionada?: (idDiapositiva: string) => void
+  navegacionFilas?: NavegacionFilas
 }
 
 export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
   sidebarAbierto,
   setSidebarAbierto,
-  onDiapositivaSeleccionada
+  onDiapositivaSeleccionada,
+  navegacionFilas
 }) => {
   const theme = useTheme();
   const { theme: themeMode } = useThemeMode();
@@ -57,7 +75,7 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
   
   // Estado local para controlar la apertura del Drawer
   const [open, setOpen] = useState(false);
-  
+
   // Estado para errores de imagen
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
@@ -131,13 +149,81 @@ export const SidebarSlides: React.FC<SidebarSlidesProps> = ({
           borderBottom: 1, 
           borderColor: 'divider',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
+          flexDirection: 'column',
+          gap: 1
         }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>{tituloPresentacion}</Typography>
-          <IconButton onClick={handleClose} size="small">
-            <CloseIcon />
-          </IconButton>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>{tituloPresentacion}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Tooltip title="Exportar a PDF">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    if (idPresentacion) {
+                      window.open(
+                        `/api/google/slides/export-pdf?presentationId=${idPresentacion}&nombre=${encodeURIComponent(tituloPresentacion || 'presentacion')}`,
+                        '_blank'
+                      );
+                    }
+                  }}
+                >
+                  <PdfIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Copiar enlace para compartir">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    if (idPresentacion) {
+                      const link = `https://docs.google.com/presentation/d/${idPresentacion}/view`;
+                      navigator.clipboard.writeText(link);
+                      toast.success('Enlace copiado al portapapeles');
+                    }
+                  }}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Abrir en Google Slides">
+                <IconButton
+                  size="small"
+                  href={`https://docs.google.com/presentation/d/${idPresentacion}/edit`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <OpenInNewIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <IconButton onClick={handleClose} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+          {navegacionFilas && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Fila {navegacionFilas.indiceActual} de {navegacionFilas.total}
+              </Typography>
+              <IconButton
+                size="small"
+                disabled={!navegacionFilas.puedeAnterior}
+                onClick={navegacionFilas.onAnterior}
+                sx={{ p: 0.25 }}
+                aria-label="Fila anterior"
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                disabled={!navegacionFilas.puedeSiguiente}
+                onClick={navegacionFilas.onSiguiente}
+                sx={{ p: 0.25 }}
+                aria-label="Fila siguiente"
+              >
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
         </Box>
 
         {/* Contenido */}

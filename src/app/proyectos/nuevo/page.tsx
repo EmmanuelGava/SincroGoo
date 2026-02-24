@@ -45,6 +45,11 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { EncabezadoSistema } from "@/componentes/EncabezadoSistema"
 import { PreviewPlantilla } from "@/app/editor-proyectos/plantilla/PreviewPlantilla"
 import { PLANTILLAS } from "@/app/editor-proyectos/plantilla/templates"
+import {
+  PersonalizacionPlantilla,
+  PERSONALIZACION_DEFAULT,
+  type PersonalizacionState
+} from "./PersonalizacionPlantilla"
 
 // Utilidad: auto-match de columnas con placeholders por similitud
 function autoMatchColumns(columnas: string[], placeholders: string[]): Record<string, string> {
@@ -102,12 +107,23 @@ export default function NuevoProyecto() {
   // Modo B: columnas detectadas del Sheet (primera fila)
   const [columnasDetectadas, setColumnasDetectadas] = useState<string[]>([])
   const [cargandoColumnas, setCargandoColumnas] = useState(false)
+
+  // Modo plantilla: tipo de fuente de datos
+  type TipoFuenteDatos = "sheets" | "excel" | "csv"
+  const [tipoFuenteDatos, setTipoFuenteDatos] = useState<TipoFuenteDatos>("sheets")
+  const [datosInlined, setDatosInlined] = useState<{ encabezados: string[]; filas: { indice: number; valores: { valor: unknown }[] }[] } | null>(null)
+  const [archivoSubido, setArchivoSubido] = useState<File | null>(null)
+  const [cargandoArchivo, setCargandoArchivo] = useState(false)
+  const [errorArchivo, setErrorArchivo] = useState<string | null>(null)
+  const [hojasExcel, setHojasExcel] = useState<string[]>([])
+  const [hojaExcelSeleccionada, setHojaExcelSeleccionada] = useState<string | null>(null)
   
   // Modo B: sub-pasos del flujo plantilla
-  const [pasoPlantilla, setPasoPlantilla] = useState<'sheet' | 'template' | 'mapping'>('sheet')
+  const [pasoPlantilla, setPasoPlantilla] = useState<'sheet' | 'template' | 'personalizacion' | 'mapping'>('sheet')
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState<string | null>(null)
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   const [limiteFilas, setLimiteFilas] = useState<number | null>(null) // null = todas
+  const [personalizacion, setPersonalizacion] = useState<PersonalizacionState>(PERSONALIZACION_DEFAULT)
   
   // Tipo de proyecto: ambos docs, solo hoja (generar presentación), solo presentación (generar hoja)
   const [tipoProyecto, setTipoProyecto] = useState<"ambos" | "solo_hoja" | "solo_presentacion">("ambos")
@@ -192,6 +208,47 @@ export default function NuevoProyecto() {
     }
   }
 
+  // Parsear archivo Excel o CSV
+  const parseArchivo = async (file: File, sheetName?: string) => {
+    setCargandoArchivo(true)
+    setErrorArchivo(null)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      if (sheetName) fd.append("sheetName", sheetName)
+      const res = await fetch("/api/datos/parse", { method: "POST", body: fd })
+      const data = await res.json()
+      if (!data.exito) {
+        setErrorArchivo(data.error || "Error al procesar el archivo")
+        return
+      }
+      const d = data.datos
+      if (d.requiereSeleccionHoja && d.sheetNames?.length) {
+        setHojasExcel(d.sheetNames)
+        setArchivoSubido(file)
+        setDatosInlined(null)
+        setHojaExcelSeleccionada(null)
+      } else {
+        setDatosInlined({ encabezados: d.encabezados || [], filas: d.filas || [] })
+        setArchivoSubido(file)
+        setHojasExcel([])
+        setHojaExcelSeleccionada(d.tituloHoja || null)
+      }
+    } catch (err) {
+      console.error("Error al parsear archivo:", err)
+      setErrorArchivo("Error al procesar el archivo")
+      toast.error("No se pudo procesar el archivo")
+    } finally {
+      setCargandoArchivo(false)
+    }
+  }
+
+  // Re-parsear Excel con hoja seleccionada
+  const parseArchivoConHoja = async (sn: string) => {
+    if (!archivoSubido) return
+    await parseArchivo(archivoSubido, sn)
+  }
+
   // Cargar documentos de Google cuando el usuario está autenticado
   useEffect(() => {
     if (status === "authenticated" && metodoSeleccion === "seleccionar") {
@@ -200,10 +257,34 @@ export default function NuevoProyecto() {
     }
   }, [status, metodoSeleccion, tipoProyecto, modoProyecto])
 
-  // Modo B: al seleccionar hoja, cargar columnas (primera fila)
+  // Reset al cambiar tipo de fuente
   useEffect(() => {
-    if (modoProyecto !== "plantilla" || !hojaSeleccionada) {
+    if (modoProyecto !== "plantilla") return
+    setColumnasDetectadas([])
+    setDatosInlined(null)
+    setArchivoSubido(null)
+    setHojasExcel([])
+    setHojaExcelSeleccionada(null)
+    setErrorArchivo(null)
+    if (tipoFuenteDatos === "sheets") {
+      setHojaSeleccionada("")
+    }
+  }, [modoProyecto, tipoFuenteDatos])
+
+  // Columnas desde datosInlined (Excel/CSV)
+  useEffect(() => {
+    if (modoProyecto !== "plantilla" || tipoFuenteDatos === "sheets") return
+    if (datosInlined?.encabezados) {
+      setColumnasDetectadas(datosInlined.encabezados.filter((h) => h && String(h).trim()))
+    } else {
       setColumnasDetectadas([])
+    }
+  }, [modoProyecto, tipoFuenteDatos, datosInlined])
+
+  // Modo B: al seleccionar hoja (Google Sheets), cargar columnas (primera fila)
+  useEffect(() => {
+    if (modoProyecto !== "plantilla" || tipoFuenteDatos !== "sheets" || !hojaSeleccionada) {
+      if (tipoFuenteDatos === "sheets") setColumnasDetectadas([])
       return
     }
     const cargarColumnas = async () => {
@@ -223,7 +304,7 @@ export default function NuevoProyecto() {
       }
     }
     cargarColumnas()
-  }, [modoProyecto, hojaSeleccionada])
+  }, [modoProyecto, tipoFuenteDatos, hojaSeleccionada])
 
   // Modo B: plantillas autoajustables — placeholders = columnas detectadas del usuario (mapeo 1:1)
   useEffect(() => {
@@ -234,9 +315,9 @@ export default function NuevoProyecto() {
     }
   }, [columnasDetectadas])
 
-  // Modo B: al entrar al paso 3 (pre-mapeo), cargar/recargar columnas del Sheet para que la plantilla se ajuste al documento del usuario
+  // Cargar columnas al entrar a personalizacion o mapping (Google Sheets)
   useEffect(() => {
-    if (modoProyecto !== "plantilla" || pasoPlantilla !== "mapping" || !hojaSeleccionada) return
+    if (modoProyecto !== "plantilla" || (pasoPlantilla !== "mapping" && pasoPlantilla !== "personalizacion") || tipoFuenteDatos !== "sheets" || !hojaSeleccionada) return
     const cargarColumnasMapping = async () => {
       setCargandoColumnas(true)
       try {
@@ -253,7 +334,23 @@ export default function NuevoProyecto() {
       }
     }
     cargarColumnasMapping()
-  }, [modoProyecto, pasoPlantilla, hojaSeleccionada])
+  }, [modoProyecto, pasoPlantilla, tipoFuenteDatos, hojaSeleccionada])
+
+  // Construir columnas y primeraFila para preview (personalizacion y mapping)
+  const columnasParaPreview = React.useMemo(() => {
+    return columnasDetectadas.map((titulo, i) => ({ id: `col_preview_${i}`, titulo }))
+  }, [columnasDetectadas])
+  const primeraFilaParaPreview = React.useMemo(() => {
+    if (!datosInlined?.filas?.[0]) {
+      return { id: "preview_1", numeroFila: 1, valores: columnasParaPreview.map((c) => ({ columnaId: c.id, valor: "Ejemplo" })) } as import("@/app/editor-proyectos/types").FilaHoja
+    }
+    const fila0 = datosInlined.filas[0]
+    const valores = (fila0.valores || []).slice(0, columnasParaPreview.length).map((v, i) => ({
+      columnaId: columnasParaPreview[i]?.id ?? `col_${i}`,
+      valor: v?.valor != null ? String(v.valor) : ""
+    }))
+    return { id: "preview_1", numeroFila: 1, valores } as import("@/app/editor-proyectos/types").FilaHoja
+  }, [datosInlined, columnasParaPreview])
 
   // Verificar estado de autenticación
   if (status === "loading") {
@@ -294,8 +391,12 @@ export default function NuevoProyecto() {
     }
   }
 
+  const tieneFuenteDatos = tipoFuenteDatos === "sheets"
+    ? !!hojaSeleccionada
+    : !!datosInlined
+
   const handleCrearPlantilla = async () => {
-    if (modoProyecto !== "plantilla" || !hojaSeleccionada || !titulo.trim()) return
+    if (modoProyecto !== "plantilla" || !tieneFuenteDatos || !titulo.trim()) return
     const templateId = plantillaSeleccionada || "blanco"
     try {
       setCargando(true)
@@ -338,12 +439,20 @@ export default function NuevoProyecto() {
           descripcion: descripcion.trim() || null,
           usuario_id,
           presentacion_id: idPresentacion,
-          hoja_calculo_id: hojaSeleccionada,
+          hoja_calculo_id: tipoFuenteDatos === "sheets" ? hojaSeleccionada : null,
           modo: "plantilla",
           metadata: {
             plantilla_template_id: templateId,
             column_mapping: columnMapping,
-            limite_filas: limiteFilas
+            limite_filas: limiteFilas,
+            personalizacion: {
+              fontFamily: personalizacion.fontFamily,
+              colores: personalizacion.colores,
+              logo: personalizacion.logo,
+              portada: personalizacion.portada,
+              ordenamiento: personalizacion.ordenamiento,
+              filtro: personalizacion.filtro
+            }
           }
         })
       })
@@ -353,16 +462,21 @@ export default function NuevoProyecto() {
       }
       const proyecto = await response.json()
       toast.info("Proyecto creado. Generando diapositivas...")
+      const personalizacionPayload = {
+        fontFamily: personalizacion.fontFamily,
+        colores: personalizacion.colores,
+        logo: personalizacion.logo,
+        portada: personalizacion.portada,
+        ordenamiento: personalizacion.ordenamiento,
+        filtro: personalizacion.filtro
+      }
+      const genBody = tipoFuenteDatos === "sheets"
+        ? { spreadsheetId: hojaSeleccionada, proyectoId: proyecto.id, templateType: templateId, columnMapping, tituloPresentacion: titulo.trim() || "Plantilla SincroGoo", personalizacion: personalizacionPayload }
+        : { datosInlined, proyectoId: proyecto.id, templateType: templateId, columnMapping, tituloPresentacion: titulo.trim() || "Plantilla SincroGoo", personalizacion: personalizacionPayload }
       const genRes = await fetch("/api/google/slides/plantilla/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          spreadsheetId: hojaSeleccionada,
-          proyectoId: proyecto.id,
-          templateType: templateId,
-          columnMapping,
-          tituloPresentacion: titulo.trim() || "Plantilla SincroGoo"
-        })
+        body: JSON.stringify(genBody)
       })
       const genData = await genRes.json()
       const jobId = genData.exito ? genData.datos?.job_id : null
@@ -806,7 +920,7 @@ export default function NuevoProyecto() {
 
             {pasoActual === "documentos" && modoProyecto === "plantilla" && (
               <Box sx={{ mt: 4 }}>
-                <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
+                <Stack direction="row" spacing={1} sx={{ mb: 3 }} flexWrap="wrap">
                   <Chip
                     label="1. Sheet"
                     color={pasoPlantilla === "sheet" ? "primary" : "default"}
@@ -820,7 +934,13 @@ export default function NuevoProyecto() {
                     size="small"
                   />
                   <Chip
-                    label="3. Mapeo"
+                    label="3. Personalizar"
+                    color={pasoPlantilla === "personalizacion" ? "primary" : "default"}
+                    variant={pasoPlantilla === "personalizacion" ? "filled" : "outlined"}
+                    size="small"
+                  />
+                  <Chip
+                    label="4. Mapeo"
                     color={pasoPlantilla === "mapping" ? "primary" : "default"}
                     variant={pasoPlantilla === "mapping" ? "filled" : "outlined"}
                     size="small"
@@ -829,11 +949,26 @@ export default function NuevoProyecto() {
                 <Typography variant="h6" sx={{ mb: 3 }}>
                   {pasoPlantilla === "sheet" && "Paso 1 — Seleccionar Sheet"}
                   {pasoPlantilla === "template" && "Paso 2 — Elegir plantilla visual"}
-                  {pasoPlantilla === "mapping" && "Paso 3 — Pre-mapeo de columnas"}
+                  {pasoPlantilla === "personalizacion" && "Paso 3 — Personalización"}
+                  {pasoPlantilla === "mapping" && "Paso 4 — Pre-mapeo de columnas"}
                 </Typography>
 
                 {pasoPlantilla === "sheet" && (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <FormControl component="fieldset" sx={{ mb: 1 }}>
+                      <FormLabel component="legend">Fuente de datos</FormLabel>
+                      <RadioGroup
+                        row
+                        value={tipoFuenteDatos}
+                        onChange={(e) => setTipoFuenteDatos(e.target.value as TipoFuenteDatos)}
+                      >
+                        <FormControlLabel value="sheets" control={<Radio />} label="Google Sheets" />
+                        <FormControlLabel value="excel" control={<Radio />} label="Excel (.xlsx, .xls)" />
+                        <FormControlLabel value="csv" control={<Radio />} label="CSV" />
+                      </RadioGroup>
+                    </FormControl>
+
+                    {tipoFuenteDatos === "sheets" && (
                     <Box>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
                         <SpreadsheetIcon />
@@ -876,7 +1011,81 @@ export default function NuevoProyecto() {
                         )}
                       </Box>
                     </Box>
-                    {hojaSeleccionada && (
+                    )}
+
+                    {(tipoFuenteDatos === "excel" || tipoFuenteDatos === "csv") && (
+                    <Box>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                        <CloudUploadIcon />
+                        <Typography variant="subtitle1">
+                          {tipoFuenteDatos === "excel" ? "Sube archivo Excel (.xlsx, .xls)" : "Sube archivo CSV"}
+                        </Typography>
+                      </Box>
+                      {hojasExcel.length > 0 ? (
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            El archivo tiene varias hojas. Selecciona cuál usar:
+                          </Typography>
+                          <Stack direction="row" flexWrap="wrap" gap={1}>
+                            {hojasExcel.map((nombre) => (
+                              <Chip
+                                key={nombre}
+                                label={nombre}
+                                onClick={() => parseArchivoConHoja(nombre)}
+                                color={hojaExcelSeleccionada === nombre ? "primary" : "default"}
+                                variant={hojaExcelSeleccionada === nombre ? "filled" : "outlined"}
+                                sx={{ cursor: "pointer" }}
+                              />
+                            ))}
+                          </Stack>
+                        </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            border: "2px dashed",
+                            borderColor: archivoSubido ? "success.main" : "divider",
+                            borderRadius: 2,
+                            p: 3,
+                            textAlign: "center",
+                            bgcolor: archivoSubido ? "action.hover" : "transparent",
+                            cursor: "pointer"
+                          }}
+                          component="label"
+                        >
+                          <input
+                            type="file"
+                            hidden
+                            accept={tipoFuenteDatos === "excel" ? ".xlsx,.xls" : ".csv"}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0]
+                              if (f) {
+                                if (f.size > 5 * 1024 * 1024) {
+                                  setErrorArchivo("El archivo no debe superar 5MB")
+                                  return
+                                }
+                                parseArchivo(f)
+                              }
+                            }}
+                          />
+                          {cargandoArchivo ? (
+                            <CircularProgress size={24} sx={{ display: "block", mx: "auto", mb: 1 }} />
+                          ) : (
+                            <CloudUploadIcon sx={{ fontSize: 40, color: "text.secondary", display: "block", mx: "auto", mb: 1 }} />
+                          )}
+                          <Typography variant="body2" color="text.secondary">
+                            {archivoSubido ? archivoSubido.name : "Haz clic o arrastra el archivo aquí (máx. 5MB)"}
+                          </Typography>
+                          {errorArchivo && (
+                            <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
+                              {errorArchivo}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                    )}
+
+                    {(hojaSeleccionada || datosInlined) && (
                       <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
                         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
                           Columnas detectadas:
@@ -913,6 +1122,17 @@ export default function NuevoProyecto() {
                       rows={2}
                     />
                   </Box>
+                )}
+
+                {pasoPlantilla === "personalizacion" && plantillaSeleccionada && (
+                  <PersonalizacionPlantilla
+                    templateType={plantillaSeleccionada}
+                    columnMapping={columnMapping}
+                    columnas={columnasParaPreview}
+                    primeraFila={primeraFilaParaPreview}
+                    personalizacion={personalizacion}
+                    onPersonalizacionChange={setPersonalizacion}
+                  />
                 )}
 
                 {pasoPlantilla === "template" && (
@@ -956,7 +1176,7 @@ export default function NuevoProyecto() {
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
                       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                        Columnas detectadas en tu documento (primera fila del Sheet)
+                        Columnas detectadas en tu documento (primera fila de los datos)
                       </Typography>
                       {cargandoColumnas ? (
                         <Skeleton variant="text" width="60%" />
@@ -967,7 +1187,7 @@ export default function NuevoProyecto() {
                           ))}
                         </Stack>
                       ) : (
-                        <Typography variant="caption" color="text.secondary">Sin columnas en la primera fila del Sheet</Typography>
+                        <Typography variant="caption" color="text.secondary">Sin columnas en la primera fila de los datos</Typography>
                       )}
                     </Box>
                     <Box>
@@ -1312,8 +1532,10 @@ export default function NuevoProyecto() {
                     } else if (pasoPlantilla === "template") {
                       setPasoPlantilla("sheet")
                       setPlantillaSeleccionada(null)
-                    } else {
+                    } else if (pasoPlantilla === "personalizacion") {
                       setPasoPlantilla("template")
+                    } else {
+                      setPasoPlantilla("personalizacion")
                     }
                   }}
                   sx={{ mr: 1 }}
@@ -1325,10 +1547,11 @@ export default function NuevoProyecto() {
                     variant="contained"
                     onClick={() => {
                       if (pasoPlantilla === "sheet") setPasoPlantilla("template")
+                      else if (pasoPlantilla === "template") setPasoPlantilla("personalizacion")
                       else setPasoPlantilla("mapping")
                     }}
                     disabled={
-                      pasoPlantilla === "sheet" ? (!hojaSeleccionada || !titulo.trim()) :
+                      pasoPlantilla === "sheet" ? (!tieneFuenteDatos || !titulo.trim()) :
                       pasoPlantilla === "template" ? !plantillaSeleccionada : false
                     }
                     endIcon={<ArrowForwardIcon />}
@@ -1339,7 +1562,7 @@ export default function NuevoProyecto() {
                   <Button
                     variant="contained"
                     onClick={handleCrearPlantilla}
-                    disabled={cargando || !hojaSeleccionada || !titulo.trim()}
+                    disabled={cargando || !tieneFuenteDatos || !titulo.trim()}
                     startIcon={cargando ? <CircularProgress size={20} /> : <AddIcon />}
                   >
                     Crear proyecto y generar plantilla

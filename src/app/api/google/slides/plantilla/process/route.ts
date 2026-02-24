@@ -3,6 +3,13 @@ import { SlidesService } from '@/app/servicios/google/slides/SlidesService';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { LAYOUTS, generarLayoutDinamico } from '@/app/servicios/google/slides/plantilla-layouts';
 
+interface PersonalizacionJob {
+  fontFamily?: string;
+  colores?: { fondo: string; texto: string; acento: string };
+  logo?: { url: string; posicion: string };
+  portada?: { activa?: boolean; titulo?: string; subtitulo?: string };
+}
+
 const DELAY_MS = 1500;
 const MAX_RETRIES_429 = 5;
 const RETRY_DELAY_429_MS = 60000;
@@ -99,6 +106,38 @@ export async function POST(request: NextRequest) {
       );
     }
     const slidesService = SlidesService.getInstance(accessToken);
+
+    let personalizacion: PersonalizacionJob | undefined;
+    const proyectoId = job.proyecto_id as string | null;
+    if (proyectoId) {
+      const { data: proy } = await supabase.from('proyectos').select('metadata').eq('id', proyectoId).single();
+      personalizacion = (proy?.metadata as Record<string, unknown>)?.personalizacion as PersonalizacionJob | undefined;
+    }
+
+    const persSlide = personalizacion ? {
+      fontFamily: personalizacion.fontFamily,
+      colores: personalizacion.colores,
+      logo: personalizacion.logo
+    } : undefined;
+
+    if (personalizacion?.portada?.activa && LAYOUTS.portada) {
+      const datosPortada = {
+        Título: personalizacion.portada.titulo ?? '',
+        Subtítulo: personalizacion.portada.subtitulo ?? ''
+      };
+      const resultPortada = await slidesService.crearSlideConDatos(
+        presentationId,
+        'portada',
+        datosPortada,
+        -1,
+        LAYOUTS.portada,
+        persSlide
+      );
+      if (!resultPortada.exito) {
+        console.warn('[plantilla/process] No se pudo crear slide portada:', resultPortada.error);
+      }
+    }
+
     const errores: { fila: number; error: string }[] = [];
     let filasProcesadas = 0;
     let filasError = 0;
@@ -142,7 +181,8 @@ export async function POST(request: NextRequest) {
             templateType || 'ficha_local',
             datos,
             item.fila_index,
-            layout
+            layout,
+            persSlide
           );
 
           if (!result.exito || !result.datos) {

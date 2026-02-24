@@ -507,6 +507,32 @@ export class SlidesService extends BaseGoogleService {
     }
   }
 
+  /**
+   * Exporta una presentación a PDF. Retorna el buffer y el nombre sugerido del archivo.
+   */
+  async exportarAPdf(
+    presentationId: string,
+    nombreSugerido?: string
+  ): Promise<ResultadoAPI<{ buffer: Buffer; nombreArchivo: string }>> {
+    try {
+      await rateLimiter.checkLimit('slides_export_pdf');
+      const api = await this.getGoogleAPI();
+      const driveApi = api.drive('v3');
+      const response = await driveApi.files.export(
+        { fileId: presentationId, mimeType: 'application/pdf', auth: this.oauth2Client },
+        { responseType: 'arraybuffer' }
+      );
+      const buffer = Buffer.from(response.data as ArrayBuffer);
+      const nombreArchivo = (nombreSugerido || 'presentacion').replace(/[^a-zA-Z0-9_\-\s.]/g, '_') + '.pdf';
+      return {
+        exito: true,
+        datos: { buffer, nombreArchivo }
+      };
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+
   async obtenerVistasPrevias(presentacionId: string): Promise<ResultadoAPI<VistaPreviaDiapositiva[]>> {
     try {
       const api = await this.getGoogleAPI();
@@ -704,7 +730,12 @@ export class SlidesService extends BaseGoogleService {
     templateType: string,
     datos: Record<string, string>,
     filaIndex: number,
-    layoutOverride?: import('./plantilla-layouts').LayoutElement[]
+    layoutOverride?: import('./plantilla-layouts').LayoutElement[],
+    personalizacion?: {
+      fontFamily?: string;
+      colores?: { fondo: string; texto: string; acento: string };
+      logo?: { url: string; posicion: string };
+    }
   ): Promise<ResultadoAPI<string>> {
     try {
       const layout = layoutOverride ?? LAYOUTS[templateType];
@@ -728,7 +759,8 @@ export class SlidesService extends BaseGoogleService {
         }
       });
 
-      const bgRgb = hexToRgb(plantilla.bgColor);
+      const bgColor = personalizacion?.colores?.fondo ?? plantilla.bgColor;
+      const bgRgb = hexToRgb(bgColor);
       requests.push({
         updatePageProperties: {
           objectId: slideId,
@@ -745,7 +777,8 @@ export class SlidesService extends BaseGoogleService {
         }
       });
 
-      const textRgb = hexToRgb(plantilla.textColor);
+      const textColor = personalizacion?.colores?.texto ?? plantilla.textColor;
+      const textRgb = hexToRgb(textColor);
       /** 1 PT = 12700 EMU (Slides API usa EMU para createImage) */
       const ptToEmu = (pt: number) => Math.round(pt * 12700);
 
@@ -816,12 +849,14 @@ export class SlidesService extends BaseGoogleService {
           });
         }
 
-        const hasTextStyle = el.fontSize !== undefined || el.fontFamily;
+        const fontFamilyOverride = personalizacion?.fontFamily ?? el.fontFamily;
+        const hasTextStyle = el.fontSize !== undefined || fontFamilyOverride || el.color;
         if (hasTextStyle) {
+          const colorRgb = el.color ? hexToRgb(el.color) : textRgb;
           const style: slides_v1.Schema$TextStyle = {
             foregroundColor: {
               opaqueColor: {
-                rgbColor: { red: textRgb.red, green: textRgb.green, blue: textRgb.blue }
+                rgbColor: { red: colorRgb.red, green: colorRgb.green, blue: colorRgb.blue }
               }
             },
             bold: el.bold ?? false
@@ -829,10 +864,10 @@ export class SlidesService extends BaseGoogleService {
           if (el.fontSize !== undefined) {
             style.fontSize = { magnitude: el.fontSize, unit: 'PT' };
           }
-          if (el.fontFamily) {
-            style.fontFamily = el.fontFamily;
+          if (fontFamilyOverride) {
+            style.fontFamily = fontFamilyOverride;
           }
-          const fields = ['foregroundColor', 'bold'];
+          const fields = ['foregroundColor', 'bold'] as string[];
           if (el.fontSize !== undefined) fields.push('fontSize');
           if (el.fontFamily) fields.push('fontFamily');
           requests.push({
@@ -861,6 +896,32 @@ export class SlidesService extends BaseGoogleService {
             }
           });
         }
+      }
+
+      const logoW = 80;
+      const logoH = 40;
+      const marginLogo = 20;
+      const slideW = 720;
+      const slideH = 405;
+      const logoPositions: Record<string, { x: number; y: number }> = {
+        superior_izquierda: { x: marginLogo, y: marginLogo },
+        superior_derecha: { x: slideW - marginLogo - logoW, y: marginLogo },
+        inferior_izquierda: { x: marginLogo, y: slideH - marginLogo - logoH },
+        inferior_derecha: { x: slideW - marginLogo - logoW, y: slideH - marginLogo - logoH }
+      };
+      if (personalizacion?.logo?.url && personalizacion.logo.url.startsWith('http')) {
+        const pos = logoPositions[personalizacion.logo.posicion] ?? logoPositions.superior_derecha;
+        requests.push({
+          createImage: {
+            objectId: `logo_${filaIndex}_${ts}`,
+            url: personalizacion.logo.url,
+            elementProperties: {
+              pageObjectId: slideId,
+              size: { width: { magnitude: ptToEmu(logoW), unit: 'EMU' as const }, height: { magnitude: ptToEmu(logoH), unit: 'EMU' as const } },
+              transform: { scaleX: 1, scaleY: 1, translateX: ptToEmu(pos.x), translateY: ptToEmu(pos.y), unit: 'EMU' as const }
+            }
+          }
+        });
       }
 
       this.logInfo(`[crearSlideConDatos] Fila ${filaIndex}: slideId=${slideId}, shapes=${layout.length}, requests=${requests.length}`);

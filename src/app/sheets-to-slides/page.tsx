@@ -31,6 +31,8 @@ import {
   Link as LinkIcon,
   OpenInNew as OpenInNewIcon,
   AutoAwesome as AutoAwesomeIcon,
+  PictureAsPdf as PdfIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
@@ -48,6 +50,8 @@ const pasos = [
 
 const SLIDES_EDIT_URL = (id: string) =>
   `https://docs.google.com/presentation/d/${id}/edit`;
+const SLIDES_VIEW_URL = (id: string) =>
+  `https://docs.google.com/presentation/d/${id}/view`;
 
 /** Extrae el spreadsheetId de una URL de Google Sheets */
 function extractSpreadsheetId(url: string): string | null {
@@ -463,15 +467,38 @@ export default function SheetsToSlidesPage() {
                     {resultado.fallidas} filas fallaron.
                   </Typography>
                 )}
-                <Button
-                  variant="contained"
-                  href={SLIDES_EDIT_URL(resultado.presentationId)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  startIcon={<OpenInNewIcon />}
-                >
-                  Abrir presentación en Google Slides
-                </Button>
+                <Stack direction="row" flexWrap="wrap" gap={1} justifyContent="center">
+                  <Button
+                    variant="contained"
+                    href={SLIDES_EDIT_URL(resultado.presentationId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<OpenInNewIcon />}
+                  >
+                    Abrir en Google Slides
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PdfIcon />}
+                    onClick={() => {
+                      const url = `/api/google/slides/export-pdf?presentationId=${resultado.presentationId}&nombre=presentacion`;
+                      window.open(url, '_blank');
+                    }}
+                  >
+                    Exportar a PDF
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => {
+                      const link = SLIDES_VIEW_URL(resultado.presentationId!);
+                      navigator.clipboard.writeText(link);
+                      toast.success('Enlace copiado al portapapeles');
+                    }}
+                  >
+                    Copiar enlace
+                  </Button>
+                </Stack>
                 {resultado.proyectoId && (
                   <Button
                     variant="outlined"
@@ -565,6 +592,32 @@ export default function SheetsToSlidesPage() {
                 startIcon={<OpenInNewIcon />}
               >
                 Abrir presentación
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<PdfIcon />}
+                onClick={() => {
+                  if (resultado?.presentationId) {
+                    window.open(
+                      `/api/google/slides/export-pdf?presentationId=${resultado.presentationId}&nombre=presentacion`,
+                      '_blank'
+                    );
+                  }
+                }}
+              >
+                Exportar PDF
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ContentCopyIcon />}
+                onClick={() => {
+                  if (resultado?.presentationId) {
+                    navigator.clipboard.writeText(SLIDES_VIEW_URL(resultado.presentationId));
+                    toast.success('Enlace copiado');
+                  }
+                }}
+              >
+                Copiar enlace
               </Button>
               <Button
                 onClick={() => {

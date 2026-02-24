@@ -16,7 +16,7 @@ import {
   InputAdornment,
   Tooltip
 } from "@mui/material"
-import { Search, Edit, Save, ChevronUp, ChevronDown, Link, Presentation, X as Close } from "lucide-react"
+import { Search, Edit, Save, ChevronUp, ChevronDown, Link, Presentation, X as Close, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { useSheets } from "../../contexts"
 import { useUI } from "../../contexts"
@@ -192,6 +192,105 @@ export function TablaHojas() {
     }
   }
 
+  // Índice de la fila seleccionada en filasFiltradas (para flechas de navegación)
+  const indiceFilaActual = filaParaSlides
+    ? filasFiltradas.findIndex((f) => f.id === filaParaSlides.id)
+    : -1
+  const puedeAnterior = indiceFilaActual > 0
+  const puedeSiguiente = indiceFilaActual >= 0 && indiceFilaActual < filasFiltradas.length - 1
+
+  const navegarFilaAnterior = () => {
+    if (!puedeAnterior) return
+    const fila = filasFiltradas[indiceFilaActual - 1]
+    if (fila) {
+      const sel: FilaSeleccionada = {
+        id: fila.id,
+        indice: fila.numeroFila ?? indiceFilaActual - 1,
+        valores: fila.valores,
+        numeroFila: fila.numeroFila,
+        ultimaActualizacion: fila.ultimaActualizacion
+      }
+      setFilaParaSlides(sel)
+      setFilaSeleccionada(sel)
+      const idxSlide = filas.findIndex((f) => f.id === fila.id)
+      if (idxSlide >= 0 && diapositivas[idxSlide]) {
+        manejarSeleccionDiapositiva(diapositivas[idxSlide].id, sel)
+      }
+    }
+  }
+
+  const navegarFilaSiguiente = () => {
+    if (!puedeSiguiente) return
+    const fila = filasFiltradas[indiceFilaActual + 1]
+    if (fila) {
+      const sel: FilaSeleccionada = {
+        id: fila.id,
+        indice: fila.numeroFila ?? indiceFilaActual + 1,
+        valores: fila.valores,
+        numeroFila: fila.numeroFila,
+        ultimaActualizacion: fila.ultimaActualizacion
+      }
+      setFilaParaSlides(sel)
+      setFilaSeleccionada(sel)
+      const idxSlide = filas.findIndex((f) => f.id === fila.id)
+      if (idxSlide >= 0 && diapositivas[idxSlide]) {
+        manejarSeleccionDiapositiva(diapositivas[idxSlide].id, sel)
+      }
+    }
+  }
+
+  // Índice de la diapositiva seleccionada (para navegación con teclado)
+  const idxSlideActual = diapositivaSeleccionada
+    ? diapositivas.findIndex((d) => d.id === diapositivaSeleccionada.id)
+    : -1
+  const puedeSlideAnterior = idxSlideActual > 0
+  const puedeSlideSiguiente = idxSlideActual >= 0 && idxSlideActual < diapositivas.length - 1
+
+  const navegarSlideAnterior = () => {
+    if (!puedeSlideAnterior || !filaParaSlides) return
+    const slide = diapositivas[idxSlideActual - 1]
+    if (slide) manejarSeleccionDiapositiva(slide.id, filaParaSlides)
+  }
+  const navegarSlideSiguiente = () => {
+    if (!puedeSlideSiguiente || !filaParaSlides) return
+    const slide = diapositivas[idxSlideActual + 1]
+    if (slide) manejarSeleccionDiapositiva(slide.id, filaParaSlides)
+  }
+
+  // Navegación con flechas del teclado (filas ↑↓, slides ←→)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const esInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+      if (esInput) return
+      if (!sidebarAbierto || !filaParaSlides) return
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        navegarFilaAnterior()
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        navegarFilaSiguiente()
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        navegarSlideAnterior()
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        navegarSlideSiguiente()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    sidebarAbierto,
+    filaParaSlides,
+    editandoFila,
+    navegarFilaAnterior,
+    navegarFilaSiguiente,
+    navegarSlideAnterior,
+    navegarSlideSiguiente
+  ])
+
   // Verificar si una celda está enlazada
   const estaCeldaEnlazada = (filaId: string, columnaId: string): boolean => {
     return elementosActuales.some(elemento => 
@@ -238,6 +337,12 @@ export function TablaHojas() {
           onChange={(e: ChangeEvent<HTMLInputElement>) =>
             actualizarValorEditado(columna.id, e.target.value)
           }
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              guardarCambios(fila)
+            }
+          }}
           onClick={(e) => e.stopPropagation()}
           sx={{ minWidth: 80, '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' } }}
         />
@@ -425,6 +530,18 @@ export function TablaHojas() {
         sidebarAbierto={sidebarAbierto}
         setSidebarAbierto={setSidebarAbierto}
         onDiapositivaSeleccionada={handleDiapositivaSeleccionada}
+        navegacionFilas={
+          filaParaSlides && filasFiltradas.length > 1
+            ? {
+                indiceActual: indiceFilaActual + 1,
+                total: filasFiltradas.length,
+                onAnterior: navegarFilaAnterior,
+                onSiguiente: navegarFilaSiguiente,
+                puedeAnterior,
+                puedeSiguiente
+              }
+            : undefined
+        }
       />
     </Box>
   )

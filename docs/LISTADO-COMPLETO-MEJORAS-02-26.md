@@ -34,16 +34,16 @@ LISTADO COMPLETO DE MEJORAS — SINCROGOO
 ## MÓDULO SINCRONIZACIONES — mejoras
 
 [x] Selector de fila activa en editor (flechas ← →) para navegar entre registros sin regenerar — HECHO (EditorPlantilla + TablaPlantillaSheet)
-[ ] Mapeo automático por nombre de placeholder
+[x] Mapeo automático por nombre de placeholder
     (columna "Nombre" → {{Nombre}} automático)
-[ ] Sync programada automática (Vercel Cron, solo Pro/Business)
-[ ] Actualización parcial por rango de filas
-    (ej: "regenerar solo filas 10 a 20")
+[ ] Sync programada automática (Vercel Cron, solo Pro/Business) por ahora no , usamos el de supabase
+[x] Actualización parcial por rango de filas
+    (ej: "regenerar solo filas 10 a 20") lo hacemos cuando craeamos el proyecto
 [ ] Re-sincronizar slides existentes sin regenerar todo
-[ ] Link público siempre actualizado de la presentación
+[x] Link para compartir (copiar enlace de vista) — HECHO
 [x] Soporte de imágenes en plantillas (createImage vs TEXT_BOX) — HECHO (tipo imagen en layout, createImage, retry sin imagen)
 [ ] Preview de todas las slides generadas (carrusel de miniaturas)
-[ ] Exportar presentación generada a PDF directo
+[x] Exportar presentación generada a PDF directo — HECHO
 [ ] Notificación push/email cuando termina generación larga
 [ ] Historial de generaciones por proyecto
 [ ] Modo "enriquecimiento": actualizar slides existentes
@@ -51,8 +51,9 @@ LISTADO COMPLETO DE MEJORAS — SINCROGOO
 
 ## MÓDULO EDITOR DE PLANTILLAS
 
-[ ] Fase 1 — Embeber Google Slides nativo (rápido, ya casi está)
-[ ] Fase 2 — Editor visual propio con Fabric.js:
+[x] Vista embebida de Slides (iframe /embed) — HECHO. El editor de edición NO se puede embeber (Google bloquea /edit en iframe).
+[ ] **Prioridad: Mejores diseños de plantillas** — Plantillas atractivas para que el usuario no necesite salir a Google Slides salvo personalización avanzada. Ver `docs/PLAN-EDITOR-PLANTILLAS-EMBED.md` (sección "Estrategia alternativa").
+[ ] Fase 2 — Editor visual propio con Fabric.js (largo plazo):
     - Canvas drag & drop de bloques de texto e imagen
     - Paleta de colores y tipografías
     - Insertar placeholders desde chips clicables

@@ -1,4 +1,4 @@
-import { supabase, getSupabaseClient, getSupabaseAdmin } from '../client';
+import { getSupabaseAdmin } from '../client';
 import { handleError, formatErrorResponse } from '../utils/error-handler';
 import type { 
   Project, 
@@ -7,7 +7,6 @@ import type {
   ProjectWithRelations,
   ProjectListOptions 
 } from '../types/projects';
-import type { PostgrestError } from '@supabase/supabase-js';
 import { Sheet } from '../types/sheets';
 
 /**
@@ -36,6 +35,7 @@ export class ProjectsService {
     try {
       if (!email) return { data: null, error: new Error('Email no proporcionado') };
       
+      const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
@@ -53,6 +53,7 @@ export class ProjectsService {
    */
   async getProyectosPorUsuarioId(userId: string) {
     try {
+      const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('proyectos')
         .select('*')
@@ -80,7 +81,7 @@ export class ProjectsService {
         porPagina = 20
       } = options;
       
-      const { supabase } = await getSupabaseClient();
+      const supabase = getSupabaseAdmin();
       let query = supabase.from('proyectos').select('*');
       
       // Aplicar filtros
@@ -145,6 +146,7 @@ export class ProjectsService {
    */
   async getProjectById(id: string): Promise<Project | null> {
     try {
+      const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('proyectos')
         .select('*')
@@ -179,12 +181,22 @@ export class ProjectsService {
   }
 
   /**
+   * Obtiene un proyecto solo si pertenece al usuario. Null si no existe o no es dueño.
+   */
+  async getProjectOwnedBy(projectId: string, usuarioId: string): Promise<Project | null> {
+    const project = await this.getProjectById(projectId);
+    if (!project || project.usuario_id !== usuarioId) return null;
+    return project;
+  }
+
+  /**
    * Obtiene un proyecto con sus relaciones cargadas
    * @param id ID del proyecto
    * @returns El proyecto con sus relaciones o null si no existe
    */
   async getProjectWithRelations(id: string): Promise<ProjectWithRelations | null> {
     try {
+      const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('proyectos')
         .select(`
@@ -247,6 +259,7 @@ export class ProjectsService {
    */
   async getSheetsByProjectId(proyectoId: string): Promise<Sheet[]> {
     try {
+      const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('sheets')
         .select('*')
@@ -320,7 +333,7 @@ export class ProjectsService {
         throw new Error('ID de proyecto no proporcionado');
       }
       
-      const { supabase } = await getSupabaseClient();
+      const supabase = getSupabaseAdmin();
       
       // Preparar datos para actualización
       const updateData: Record<string, any> = {
@@ -433,6 +446,7 @@ export class ProjectsService {
     try {
       const { usuario_id, busqueda } = options;
       
+      const supabase = getSupabaseAdmin();
       let query = supabase
         .from('proyectos')
         .select('*', { count: 'exact', head: true });
@@ -463,6 +477,7 @@ export class ProjectsService {
    */
   async getProjectsByUserId(userId: string): Promise<Project[]> {
     try {
+      const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from('proyectos')
         .select('*')

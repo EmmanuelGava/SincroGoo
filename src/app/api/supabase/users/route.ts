@@ -1,48 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin } from '../../../../lib/supabase/client';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
 
 /**
  * GET /api/supabase/users
- * Obtiene un usuario de la tabla `usuarios` basado en su `auth_id` (ID del proveedor de OAuth).
- * Utiliza el cliente administrativo para realizar la búsqueda.
+ * Devuelve el perfil del usuario de la sesión. Ignora auth_id del query.
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const auth_id = searchParams.get('auth_id');
-    
-    console.log('🔍 [API Users] Buscando usuario con auth_id:', auth_id);
-    
-    if (!auth_id) {
-      return NextResponse.json(
-        { error: 'El parámetro `auth_id` es requerido' }, 
-        { status: 400 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
-    
+
     const supabaseAdmin = getSupabaseAdmin();
-    
     const { data: user, error } = await supabaseAdmin
       .from('usuarios')
       .select('id, email, nombre, auth_id')
-      .eq('auth_id', auth_id)
+      .eq('auth_id', session.user.id)
       .single();
-    
+
     if (error) {
-      if (error.code === 'PGRST116') { // "No rows found"
-        console.warn('⚠️ [API Users] No se encontró usuario para auth_id:', auth_id);
+      if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
       }
       throw error;
     }
-    
-    console.log(`✅ [API Users] Usuario encontrado: ${user.id}`);
-    return NextResponse.json({ user });
 
+    return NextResponse.json({ user });
   } catch (error) {
-    console.error('❌ [API Users] Error general:', error);
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });
   }
-} 
+}

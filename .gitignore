@@ -79,3 +79,4 @@ auth_info_baileys/
 creds.json
 auth_info.json
 session.json
+.env*

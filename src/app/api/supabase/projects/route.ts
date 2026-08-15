@@ -1,45 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProjectsService } from '../../../../lib/supabase/services/projects';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
+import { jsonAuthError, requireUsuarioId } from '@/lib/auth/requireUsuario';
 
-// Crear una instancia del servicio
 const projectsService = new ProjectsService();
 
 /**
  * GET /api/supabase/projects
- * Obtiene los proyectos del usuario actual
+ * Obtiene los proyectos del usuario de la sesión (ignora usuario_id del query).
  */
 export async function GET(request: NextRequest) {
   try {
-    // Obtener parámetros de consulta
+    const usuario_id = await requireUsuarioId();
     const searchParams = request.nextUrl.searchParams;
-    const usuario_id = searchParams.get('usuario_id');
-    const busqueda = searchParams.get('busqueda') || undefined;
-    const ordenPor = (searchParams.get('ordenPor') || 'created_at') as 'created_at' | 'updated_at' | 'nombre';
-    const orden = (searchParams.get('orden') || 'desc') as 'asc' | 'desc';
-    const pagina = searchParams.has('pagina') ? parseInt(searchParams.get('pagina')!) : 1;
-    const porPagina = searchParams.has('porPagina') ? parseInt(searchParams.get('porPagina')!) : 20;
-    
-    // Validar que hay un usuario_id (requerido)
-    if (!usuario_id) {
-      return NextResponse.json(
-        { error: 'Se requiere el ID del usuario' }, 
-        { status: 400 }
-      );
-    }
-    
-    // Consultar proyectos
     const projects = await projectsService.listProjects({
       usuario_id,
-      busqueda,
-      ordenPor,
-      orden,
-      pagina,
-      porPagina
+      busqueda: searchParams.get('busqueda') || undefined,
+      ordenPor: (searchParams.get('ordenPor') || 'created_at') as 'created_at' | 'updated_at' | 'nombre',
+      orden: (searchParams.get('orden') || 'desc') as 'asc' | 'desc',
+      pagina: searchParams.has('pagina') ? parseInt(searchParams.get('pagina')!) : 1,
+      porPagina: searchParams.has('porPagina') ? parseInt(searchParams.get('porPagina')!) : 20,
     });
-    
     return NextResponse.json({ projects });
   } catch (error) {
+    const auth = jsonAuthError(error);
+    if (auth) return NextResponse.json(auth.body, { status: auth.status });
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });
   }
@@ -47,42 +32,42 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/supabase/projects
- * Crea un nuevo proyecto
+ * Crea un nuevo proyecto para el usuario de la sesión.
  */
 export async function POST(request: NextRequest) {
   try {
-    // Obtener datos de la solicitud
+    const usuario_id = await requireUsuarioId();
     const data = await request.json();
-    
-    // Validar datos mínimos requeridos
-    if (!data.nombre || !data.usuario_id) {
+
+    if (!data.nombre) {
       return NextResponse.json(
-        { error: 'Se requiere nombre y usuario_id' }, 
+        { error: 'Se requiere nombre' },
         { status: 400 }
       );
     }
-    
-    // Crear proyecto
+
     const projectId = await projectsService.createProject({
       nombre: data.nombre,
       descripcion: data.descripcion,
-      usuario_id: data.usuario_id,
+      usuario_id,
       presentacion_id: data.presentacion_id,
       hoja_calculo_id: data.hoja_calculo_id,
       modo: data.modo,
-      metadata: data.metadata
+      metadata: data.metadata,
     });
-    
+
     if (!projectId) {
       return NextResponse.json(
-        { error: 'No se pudo crear el proyecto' }, 
+        { error: 'No se pudo crear el proyecto' },
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json({ id: projectId });
   } catch (error) {
+    const auth = jsonAuthError(error);
+    if (auth) return NextResponse.json(auth.body, { status: auth.status });
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });
   }
-} 
+}

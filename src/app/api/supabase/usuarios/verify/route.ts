@@ -1,31 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '../../../../../lib/supabase/client';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getSupabaseAdmin } from '../../../../../lib/supabase/client';
 import { formatErrorResponse } from '../../../../../lib/supabase/utils/error-handler';
 
 /**
  * GET /api/supabase/usuarios/verify
- * Verifica si existe un usuario, y si no, lo crea
+ * Verifica si existe un usuario, y si no, lo crea.
+ * Identidad siempre de la sesión; ignora auth_id/email/nombre del query.
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    // Obtener parámetros de consulta
-    const searchParams = request.nextUrl.searchParams;
-    const auth_id = searchParams.get('auth_id');
-    const email = searchParams.get('email');
-    const nombre = searchParams.get('nombre');
-    
-    console.log('🔍 [API Users Verify] Verificando usuario:', { auth_id, email });
-    
-    // Validar que hay auth_id y email (requeridos)
-    if (!auth_id || !email) {
-      console.error('❌ [API Users Verify] Parámetros incompletos:', { auth_id, email });
-      return NextResponse.json(
-        { error: 'Se requiere auth_id y email' }, 
-        { status: 400 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || !session.user.email) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
-    
-    const { supabase } = await getSupabaseClient();
+    const auth_id = session.user.id;
+    const email = session.user.email;
+    const nombre = session.user.name ?? email;
+
+    console.log('🔍 [API Users Verify] Verificando usuario:', { auth_id, email });
+
+    const supabase = getSupabaseAdmin();
     
     // Buscar si el usuario ya existe
     // eslint-disable-next-line prefer-const

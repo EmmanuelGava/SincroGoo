@@ -38,6 +38,8 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
       platform: data.platform,
       timestamp: data.timestamp || new Date(),
       usuarioId: data.metadata?.userId,
+      remoteJid: data.metadata?.remote_jid,
+      phoneNumber: data.metadata?.phone_number || (data.platform === 'whatsapp' ? remitente : undefined),
     });
 
     // 2. Guardar el mensaje
@@ -96,22 +98,62 @@ async function findOrCreateConversation(supabase: any, data: {
   platform: string;
   timestamp: Date;
   usuarioId?: string;
+  remoteJid?: string;
+  phoneNumber?: string;
 }) {
-  // Buscar conversación existente
-  const { data: existingConversation } = await supabase
+  const remitente = data.phoneNumber || data.remitente;
+
+  let existingConversation: { id: string; metadata?: Record<string, unknown> } | null = null;
+
+  const byPhone = await supabase
     .from('conversaciones')
-    .select('id')
-    .eq('remitente', data.remitente)
+    .select('id, metadata')
+    .eq('remitente', remitente)
     .eq('servicio_origen', data.platform)
     .order('fecha_mensaje', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
+
+  existingConversation = byPhone.data;
+
+  if (!existingConversation && data.remoteJid) {
+    const byJid = await supabase
+      .from('conversaciones')
+      .select('id, metadata')
+      .eq('servicio_origen', data.platform)
+      .filter('metadata->>remote_jid', 'eq', data.remoteJid)
+      .order('fecha_mensaje', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    existingConversation = byJid.data;
+  }
+
+  if (!existingConversation && data.remoteJid && data.remoteJid.includes('@lid')) {
+    const lidDigits = data.remoteJid.split('@')[0].split(':')[0];
+    const byLid = await supabase
+      .from('conversaciones')
+      .select('id, metadata')
+      .eq('remitente', lidDigits)
+      .eq('servicio_origen', data.platform)
+      .order('fecha_mensaje', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    existingConversation = byLid.data;
+  }
 
   if (existingConversation) {
-    // Actualizar fecha del último mensaje
+    const nextMetadata = {
+      ...(existingConversation.metadata || {}),
+      ...(data.remoteJid ? { remote_jid: data.remoteJid } : {}),
+      ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
+    };
     await supabase
       .from('conversaciones')
-      .update({ fecha_mensaje: data.timestamp.toISOString() })
+      .update({
+        remitente,
+        fecha_mensaje: data.timestamp.toISOString(),
+        metadata: nextMetadata,
+      })
       .eq('id', existingConversation.id);
     
     return existingConversation.id;
@@ -125,12 +167,14 @@ async function findOrCreateConversation(supabase: any, data: {
       lead_id: null,
       servicio_origen: data.platform,
       tipo: 'entrante',
-      remitente: data.remitente,
+      remitente: data.phoneNumber || data.remitente,
       fecha_mensaje: data.timestamp.toISOString(),
       usuario_id: data.usuarioId || null,
       metadata: {
         platform: data.platform,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        ...(data.remoteJid ? { remote_jid: data.remoteJid } : {}),
+        ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
       }
     })
     .select('id')

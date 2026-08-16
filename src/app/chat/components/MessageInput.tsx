@@ -117,7 +117,8 @@ export default function MessageInput({
       sx={{
         p: 2,
         bgcolor: 'background.paper',
-        borderTop: '1px solid #232323'
+        borderTop: 1,
+        borderColor: 'divider',
       }}
     >
       <Box sx={{ 
@@ -152,7 +153,7 @@ export default function MessageInput({
               borderRadius: 3,
               bgcolor: 'background.default',
               '& fieldset': {
-                borderColor: '#232323',
+                borderColor: 'divider',
               },
               '&:hover fieldset': {
                 borderColor: 'primary.main',

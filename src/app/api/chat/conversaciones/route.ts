@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         fecha_mensaje,
         lead_id,
         metadata,
-        mensajes_conversacion!inner (
+        mensajes_conversacion (
           contenido,
           fecha_mensaje
         )

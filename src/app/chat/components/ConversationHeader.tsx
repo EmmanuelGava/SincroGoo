@@ -81,7 +81,8 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
       display: 'flex',
       alignItems: 'center',
       gap: 2,
-      borderBottom: '1px solid #232323'
+      borderBottom: 1,
+      borderColor: 'divider',
     }}>
       {/* Avatar con indicador de servicio */}
       <Box sx={{ position: 'relative' }}>

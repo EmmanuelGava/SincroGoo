@@ -92,7 +92,8 @@ export default function ChatSidebar({
     return (
       <Box sx={{ 
         width: 350, 
-        borderRight: '1px solid #232323', 
+        borderRight: 1,
+        borderColor: 'divider', 
         bgcolor: 'background.paper',
         p: 2
       }}>
@@ -106,7 +107,8 @@ export default function ChatSidebar({
   return (
     <Box sx={{ 
       width: 350, 
-      borderRight: '1px solid #232323', 
+      borderRight: 1,
+      borderColor: 'divider',
       bgcolor: 'background.paper',
       height: '100%',
       display: 'flex',
@@ -115,7 +117,8 @@ export default function ChatSidebar({
       {/* Header */}
       <Box sx={{ 
         p: 2, 
-        borderBottom: '1px solid #232323',
+        borderBottom: 1,
+        borderColor: 'divider',
         bgcolor: 'background.default'
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -181,7 +184,8 @@ export default function ChatSidebar({
                   sx={{
                     py: 1.5,
                     px: 2,
-                    borderBottom: '1px solid #232323',
+                    borderBottom: 1,
+                    borderColor: 'divider',
                     '&.Mui-selected': {
                       bgcolor: 'primary.main',
                       '&:hover': {

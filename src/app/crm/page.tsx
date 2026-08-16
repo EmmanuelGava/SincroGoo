@@ -15,7 +15,7 @@ export default function CrmPage() {
     <>
       <EncabezadoSistema />
       <LeadsKanbanProvider>
-        <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'row', bgcolor: 'background.default' }}>
+        <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'row', bgcolor: 'background.default', pt: '70px' }}>
           <SidebarMensajesEntrantes />
           <Box sx={{ flexGrow: 1, minWidth: 0, overflow: 'auto' }}>
             <Container maxWidth="xl" sx={{ mt: 4 }}>

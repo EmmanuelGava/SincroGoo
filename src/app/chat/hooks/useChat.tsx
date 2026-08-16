@@ -64,6 +64,9 @@ export function useChat() {
       
       setConversaciones(data.conversaciones || []);
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
       console.error('Error fetching conversaciones:', error);
       setError(error instanceof Error ? error.message : 'Error desconocido');
       setConversaciones([]);
@@ -120,8 +123,12 @@ export function useChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          platform: conversacionActiva.servicio_origen,
-          to: conversacionActiva.remitente,
+          platform: conversacionActiva.servicio_origen === 'whatsapp-lite'
+            ? 'whatsapp'
+            : conversacionActiva.servicio_origen,
+          to: conversacionActiva.metadata?.phone_number
+            || conversacionActiva.metadata?.remote_jid
+            || conversacionActiva.remitente,
           message: contenido.trim(),
           messageType: 'text',
           metadata: {

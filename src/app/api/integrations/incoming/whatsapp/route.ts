@@ -54,6 +54,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
+function parseIncomingTimestamp(value: unknown): Date {
+  if (!value) return new Date();
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  const n = Number(value);
+  if (Number.isFinite(n) && n > 0) {
+    return new Date(n > 1e12 ? n : n * 1000);
+  }
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 function determineMessageType(body: any): 'business' | 'lite' | 'unknown' {
   // WhatsApp Business tiene estructura específica de Meta
   if (body.object === 'whatsapp_business_account' && body.entry) {
@@ -97,21 +108,26 @@ async function handleLiteMessage(body: any) {
   });
 
   // Usar la función central para procesar el mensaje
+  const remoteJid = body.fromJid || (String(body.from || '').includes('@') ? body.from : undefined);
+  const phone = body.phone || (remoteJid?.endsWith('@s.whatsapp.net') ? String(body.from).replace(/[^\d]/g, '') : undefined);
+
   await handleIncomingMessage({
     platform: 'whatsapp',
     message: body.message,
     contact: {
-      id: body.from,
-      phone: body.from,
+      id: phone || body.from,
+      phone: phone || body.from,
       name: body.contact_name
     },
-    timestamp: body.timestamp ? new Date(body.timestamp) : new Date(),
+    timestamp: parseIncomingTimestamp(body.timestamp),
     messageType: body.type || 'text',
     metadata: {
       source: 'whatsapp-lite',
       tipo_conexion: 'lite',
       platform: body.platform || 'whatsapp-lite-baileys',
       userId: body.userId,
+      remote_jid: remoteJid,
+      phone_number: phone,
     }
   });
 

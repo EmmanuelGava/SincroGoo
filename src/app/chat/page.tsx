@@ -24,8 +24,8 @@ export default function ChatPage() {
         width: '100vw', 
         height: '100vh', 
         display: 'flex', 
-        bgcolor: '#181818',
-        pt: '64px' // Espacio para el header
+        bgcolor: 'background.default',
+        pt: '70px',
       }}>
         {/* Sidebar de conversaciones */}
         <ChatSidebar

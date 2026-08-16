@@ -194,14 +194,23 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req);
       const to = String(body.to || '');
       const message = String(body.message || '');
+      const userId = String(body.userId || req.headers['x-user-id'] || '');
       if (!to || !message) {
         json(res, 400, { success: false, error: 'to y message requeridos' });
+        return;
+      }
+      if (!whatsappLiteService.hasLiveSocket() && userId) {
+        await whatsappLiteService.connect(userId);
+        await whatsappLiteService.waitUntilConnected(25000);
+      }
+      if (!whatsappLiteService.hasLiveSocket()) {
+        json(res, 503, { success: false, error: 'WhatsApp Lite no está conectado' });
         return;
       }
       const success = await whatsappLiteService.sendMessage(to, message);
       json(res, success ? 200 : 503, {
         success,
-        error: success ? undefined : 'WhatsApp Lite no está conectado',
+        error: success ? undefined : 'No se pudo enviar el mensaje',
       });
       return;
     }
@@ -245,4 +254,7 @@ server.listen(PORT, '0.0.0.0', () => {
   if (!APP_URL) {
     console.warn('APP_URL no está definida: los mensajes entrantes no se reenviarán a Vercel');
   }
+  whatsappLiteService.restoreConnectedSessions().catch((error) => {
+    console.error('❌ Error restaurando sesiones Lite al arrancar:', error);
+  });
 });

@@ -375,7 +375,7 @@ export class DatabaseManager {
 
       let query = supabase
         .from('whatsapp_lite_sessions')
-        .select('baileys_credentials, session_id, last_activity')
+        .select('baileys_credentials, session_id, last_activity, status, phone_number')
         .not('baileys_credentials', 'is', null)
         .order('last_activity', { ascending: false })
         .limit(1);
@@ -394,9 +394,8 @@ export class DatabaseManager {
         console.log('📥 [DatabaseManager] Credenciales encontradas en Supabase');
         
         // CRÍTICO: sin `me` el emparejamiento nunca arrancó → QR nuevo.
-        // Con `me` pero `registered: false` es el estado NORMAL justo después de escanear
-        // (antes del restart 515). Hay que DEVOLVER esas credenciales, no borrarlas.
-        // Si quedaron colgadas más de 10 minutos (sesión rota), recién ahí pedir QR nuevo.
+        // Con `me` hay que DEVOLVER las credenciales. `registered: false` es normal
+        // después del scan y a veces queda persistido aunque la sesión ya esté connected.
         const creds = session.baileys_credentials;
         const meOk = !!creds.me && creds.me !== null;
         if (!meOk) {
@@ -409,11 +408,8 @@ export class DatabaseManager {
         const minutesSinceActivity = lastActivity
           ? (Date.now() - lastActivity.getTime()) / (1000 * 60)
           : Number.POSITIVE_INFINITY;
-        if (creds.registered !== true && minutesSinceActivity > 10) {
-          console.log('⚠️ Emparejamiento incompleto y viejo (>10 min) - forzar QR nuevo');
-          await this.deleteIncompleteCredentials(session.session_id);
-          return null;
-        }
+        // `registered: false` es normal después del scan (515) y a veces queda guardado
+        // aunque status=connected. No borrar esas credenciales.
         
         // Verificar que las credenciales no estén expiradas (más de 7 días)
         if (minutesSinceActivity > 7 * 24 * 60) {
@@ -767,6 +763,38 @@ export class DatabaseManager {
       }
     } catch (error) {
       console.error('❌ Error en saveLiteMessagingConfig:', error);
+    }
+  }
+
+  /**
+   * Owners (auth_id / usuario_id) con sesión Lite marcada como conectada.
+   */
+  async listConnectedSessionOwners(): Promise<string[]> {
+    try {
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .from('whatsapp_lite_sessions')
+        .select('usuario_id, metadata, status')
+        .eq('status', 'connected')
+        .not('baileys_credentials', 'is', null);
+
+      if (error) {
+        console.error('❌ Error listando sesiones conectadas:', error);
+        return [];
+      }
+
+      const owners = new Set<string>();
+      for (const row of data || []) {
+        const authId = row.metadata && typeof row.metadata === 'object'
+          ? (row.metadata as { auth_id?: string }).auth_id
+          : undefined;
+        if (authId) owners.add(String(authId));
+        else if (row.usuario_id) owners.add(String(row.usuario_id));
+      }
+      return [...owners];
+    } catch (error) {
+      console.error('❌ Error en listConnectedSessionOwners:', error);
+      return [];
     }
   }
 

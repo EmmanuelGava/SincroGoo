@@ -258,14 +258,19 @@ export class EventManager {
         const text = extractIncomingText(message.message);
         if (!text) continue;
 
-        const from = jid.replace(/@s\.whatsapp\.net$/, '').replace(/@lid$/, '');
-        console.log('📨 Procesando mensaje de:', from);
+        const { resolveWhatsAppPeer } = await import('@/lib/whatsapp/peerIdentity');
+        const key = message.key as { remoteJid?: string | null; remoteJidAlt?: string | null };
+        const peer = await resolveWhatsAppPeer(socket, jid, { remoteJidAlt: key.remoteJidAlt });
+        const timestampMs = toWhatsAppTimestampMs(message.messageTimestamp);
+        console.log('📨 Procesando mensaje de:', peer.phone, jid, peer.resolved ? 'teléfono' : 'sin resolver');
         await forwardIncomingToApp({
-          from,
+          from: peer.phone,
+          fromJid: peer.sendJid,
+          phone: peer.resolved ? peer.phone : undefined,
           message: text,
           contactName: message.pushName,
           userId,
-          timestamp: message.messageTimestamp,
+          timestamp: timestampMs,
         });
       }
     });
@@ -615,6 +620,8 @@ function extractIncomingText(message: any): string | null {
 
 async function forwardIncomingToApp(payload: {
   from: string;
+  fromJid?: string;
+  phone?: string;
   message: string;
   contactName?: string | null;
   userId: string;
@@ -635,6 +642,8 @@ async function forwardIncomingToApp(payload: {
       },
       body: JSON.stringify({
         from: payload.from,
+        fromJid: payload.fromJid,
+        phone: payload.phone,
         message: payload.message,
         type: 'text',
         platform: 'whatsapp-lite-baileys',
@@ -649,4 +658,10 @@ async function forwardIncomingToApp(payload: {
   } catch (error) {
     console.error('❌ Error reenviando mensaje al inbox:', error);
   }
+}
+
+function toWhatsAppTimestampMs(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return Date.now();
+  return n > 1e12 ? n : n * 1000;
 }

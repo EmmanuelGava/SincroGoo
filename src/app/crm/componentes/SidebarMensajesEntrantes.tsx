@@ -192,7 +192,7 @@ export default function SidebarMensajesEntrantes() {
 
   if (!abierto) {
     return (
-      <Box sx={{ width: 48, height: '100vh', bgcolor: 'background.paper', borderRight: '1px solid #232323', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ width: 48, height: '100%', bgcolor: 'background.paper', borderRight: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Tooltip title="Abrir mensajes entrantes">
           <IconButton onClick={() => setAbierto(true)} size="large" color="primary">
             <MenuIcon />
@@ -203,7 +203,7 @@ export default function SidebarMensajesEntrantes() {
   }
 
   return (
-    <Box sx={{ width: 320, borderRight: '1px solid #232323', bgcolor: 'background.paper', height: '100vh', overflowY: 'auto', p: 0, boxShadow: 2, position: 'relative' }}>
+    <Box sx={{ width: 320, borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper', height: '100%', overflowY: 'auto', p: 0, boxShadow: 2, position: 'relative' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, pb: 1, bgcolor: 'background.default' }}>
         <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 700, letterSpacing: 0.5 }}>
           Mensajes entrantes

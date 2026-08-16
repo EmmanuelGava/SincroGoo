@@ -119,7 +119,7 @@ export function DashboardLayout({ user, preferences, children }: DashboardLayout
   // =====================================================
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', pt: '70px' }}>
       {/* Header unificado del sistema */}
       <EncabezadoSistema />
 

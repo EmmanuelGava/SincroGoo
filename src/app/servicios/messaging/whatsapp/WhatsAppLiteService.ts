@@ -197,23 +197,51 @@ export class WhatsAppLiteService {
    */
   async sendMessage(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<boolean> {
     try {
-      if (!this.state.socket || !this.state.isConnected) {
+      if (!this.hasLiveSocket()) {
         console.log('❌ WhatsApp Lite no está conectado');
         return false;
       }
 
-      const jid = `${phoneNumber}@s.whatsapp.net`;
+      const jid = toWhatsAppJid(phoneNumber);
       
-      await this.state.socket.sendMessage(jid, {
+      await this.state.socket!.sendMessage(jid, {
         text: message
       });
 
-      console.log(`✅ Mensaje enviado a ${phoneNumber}`);
+      console.log(`✅ Mensaje enviado a ${jid}`);
       return true;
 
     } catch (error) {
       console.error('❌ Error enviando mensaje:', error);
       return false;
+    }
+  }
+
+  hasLiveSocket(): boolean {
+    return Boolean(this.state.socket && this.state.isConnected);
+  }
+
+  async waitUntilConnected(timeoutMs = 25000): Promise<boolean> {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      if (this.hasLiveSocket()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+    return this.hasLiveSocket();
+  }
+
+  async restoreConnectedSessions(): Promise<void> {
+    const owners = await this.databaseManager.listConnectedSessionOwners();
+    console.log('🔄 Restaurando sesiones Lite conectadas:', owners.length);
+    for (const userId of owners) {
+      try {
+        if (this.hasLiveSocket() && this.state.userId === userId) continue;
+        await this.connect(userId);
+        const ok = await this.waitUntilConnected(25000);
+        console.log(ok ? '✅ Sesión restaurada' : '⚠️ Sesión no abrió a tiempo', userId);
+      } catch (error) {
+        console.error('❌ Error restaurando sesión Lite:', userId, error);
+      }
     }
   }
 
@@ -610,4 +638,11 @@ export class WhatsAppLiteService {
 }
 
 // Exportar instancia singleton por defecto
-export const whatsappLiteService = WhatsAppLiteService.getInstance(); 
+export const whatsappLiteService = WhatsAppLiteService.getInstance();
+
+function toWhatsAppJid(to: string): string {
+  const trimmed = to.trim();
+  if (trimmed.includes('@')) return trimmed;
+  const user = trimmed.replace(/[^\d]/g, '');
+  return `${user}@s.whatsapp.net`;
+} 

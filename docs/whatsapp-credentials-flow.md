@@ -1,5 +1,7 @@
 # Flujo de Credenciales de WhatsApp - Propuesta de Mejora
 
+> **Obsoleto (agosto 2026).** Ver el flujo actual en [`docs/MENSAJERIA-WHATSAPP-FLUJO.md`](./MENSAJERIA-WHATSAPP-FLUJO.md).
+
 ## Problema Actual
 Las credenciales se guardan en 3 lugares diferentes:
 1. `temp_auth_sessions/[session-id]/creds.json` (archivos temporales)

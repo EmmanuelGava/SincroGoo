@@ -1,5 +1,9 @@
 # Flujo de Conexión con WhatsApp Lite - Documentación Completa
 
+> **Obsoleto (agosto 2026).** Baileys ya no corre dentro de Next.js: el socket vive en Railway y la app en Vercel.  
+> Fuente de verdad: [`docs/MENSAJERIA-WHATSAPP-FLUJO.md`](./MENSAJERIA-WHATSAPP-FLUJO.md).  
+> Este archivo se deja como historial de la etapa anterior.
+
 ## 📋 Tabla de Contenidos
 
 1. [Visión General](#visión-general)

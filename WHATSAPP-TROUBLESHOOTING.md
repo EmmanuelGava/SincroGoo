@@ -1,5 +1,7 @@
 # WhatsApp Lite - Solución de Problemas
 
+> **Obsoleto (agosto 2026).** Checklist y errores reales (428, session_id, LID, live chat) están en [`docs/MENSAJERIA-WHATSAPP-FLUJO.md`](./docs/MENSAJERIA-WHATSAPP-FLUJO.md).
+
 ## Problemas Comunes y Soluciones
 
 ### 1. Pérdida de Sesión de Baileys

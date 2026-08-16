@@ -1,5 +1,7 @@
 # Solución: Múltiples Sender Keys de Baileys
 
+> **Obsoleto (agosto 2026).** Ver el flujo actual (Railway + `session_id` reutilizado) en [`docs/MENSAJERIA-WHATSAPP-FLUJO.md`](./MENSAJERIA-WHATSAPP-FLUJO.md).
+
 ## Problema Identificado
 
 El sistema estaba generando múltiples sender keys de Baileys cuando deberían manejarse desde la base de datos de Supabase. Esto causaba:

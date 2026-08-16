@@ -23,6 +23,7 @@ export interface WhatsAppState {
 
 export class EventManager {
   private databaseManager: DatabaseManager;
+  private attachedSockets = new WeakSet<WASocket>();
   private connectionCallbacks: ConnectionCallback[] = [];
   private lastSaveTime: number = 0;
   private saveDebounceMs: number = 2000; // Evitar guardados múltiples en 2 segundos
@@ -66,6 +67,11 @@ export class EventManager {
     state: WhatsAppState
   ): void {
     console.log('🔧 Configurando event listeners de Baileys (versión optimizada)...');
+    if (this.attachedSockets.has(socket)) {
+      console.log('⏭️ Listeners ya estaban en este socket, no se duplican');
+      return;
+    }
+    this.attachedSockets.add(socket);
 
     // Event listener para credenciales
     socket.ev.on('creds.update', async () => {

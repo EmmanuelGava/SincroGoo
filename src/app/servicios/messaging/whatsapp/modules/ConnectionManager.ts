@@ -111,9 +111,18 @@ export class ConnectionManager {
     console.log('🔧 Creando socket de Baileys...');
     
     // ✅ SOLUCIÓN: Verificar si ya hay un socket activo
-    if (this.existingSocket && this.existingSocket.user) {
-      console.log('✅ Reutilizando socket existente');
-      return this.existingSocket;
+    if (this.existingSocket) {
+      const ws = this.existingSocket.ws as { readyState?: number; isOpen?: boolean } | undefined;
+      const open =
+        typeof ws?.isOpen === 'boolean'
+          ? ws.isOpen
+          : ws?.readyState === 1;
+      if (this.existingSocket.user && open) {
+        console.log('✅ Reutilizando socket existente con usuario', this.existingSocket.user.id);
+        return this.existingSocket;
+      }
+      console.log('⚠️ Socket previo no está abierto, se crea uno nuevo');
+      this.existingSocket = null;
     }
 
     // Obtener la última versión de WhatsApp Web para evitar el error 405.

@@ -154,11 +154,29 @@ export class WhatsAppLiteService {
       this.state.socket = await this.connectionManager.createSocket(authState);
       console.log('🔌 [WhatsAppLiteService] Socket de Baileys creado');
 
-      // Configurar eventos
       this.eventManager.setupEventListeners(this.state.socket, authState.saveCreds, userId, this.state);
       console.log('📡 [WhatsAppLiteService] Eventos configurados');
 
-      // Emitir evento de estado inicial via Socket.IO
+      if (this.applyLiveUserFromSocket()) {
+        try {
+          await this.state.socket.sendPresenceUpdate('available');
+        } catch {
+          // presencia no bloquea
+        }
+        this.eventManager.notifyConnectionCallbacks(this.state);
+        console.log('✅ [WhatsAppLiteService] Socket ya autenticado:', this.state.phoneNumber);
+        return {
+          success: true,
+          data: {
+            connected: true,
+            message: 'Ya conectado',
+            sessionId,
+            phoneNumber: this.state.phoneNumber,
+          },
+          sessionId,
+        };
+      }
+
       this.eventManager.notifyConnectionCallbacks(this.state);
 
       console.log('✅ [WhatsAppLiteService] Conexión iniciada exitosamente');
@@ -218,7 +236,30 @@ export class WhatsAppLiteService {
   }
 
   hasLiveSocket(): boolean {
-    return Boolean(this.state.socket && this.state.isConnected);
+    this.applyLiveUserFromSocket();
+    return Boolean(this.state.socket && this.state.isConnected && this.state.phoneNumber);
+  }
+
+  private applyLiveUserFromSocket(): boolean {
+    const user = this.state.socket?.user;
+    if (!user?.id) return false;
+    const phone = String(user.id).split('@')[0].split(':')[0];
+    if (!phone || phone.length < 8) return false;
+    this.state.isConnected = true;
+    this.state.phoneNumber = phone;
+    this.state.currentQR = null;
+    this.state.lastActivity = this.state.lastActivity || new Date();
+    return true;
+  }
+
+  getConnectionStatus(): ConnectionStatus {
+    this.applyLiveUserFromSocket();
+    const connected = Boolean(this.state.isConnected && this.state.phoneNumber);
+    return {
+      connected,
+      phoneNumber: connected ? (this.state.phoneNumber || undefined) : undefined,
+      lastActivity: this.state.lastActivity || undefined
+    };
   }
 
   async waitUntilConnected(timeoutMs = 25000): Promise<boolean> {
@@ -243,18 +284,6 @@ export class WhatsAppLiteService {
         console.error('❌ Error restaurando sesión Lite:', userId, error);
       }
     }
-  }
-
-  /**
-   * Obtener estado de conexión (verifica BD y estado local)
-   */
-  getConnectionStatus(): ConnectionStatus {
-    const connected = Boolean(this.state.isConnected && this.state.phoneNumber);
-    return {
-      connected,
-      phoneNumber: connected ? (this.state.phoneNumber || undefined) : undefined,
-      lastActivity: this.state.lastActivity || undefined
-    };
   }
 
   /**

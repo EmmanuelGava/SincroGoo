@@ -7,6 +7,8 @@ import { inboxChannelName } from '@/lib/chat/inboxChannel';
 interface Conversacion {
   id: string;
   remitente: string;
+  display_name?: string;
+  display_phone?: string | null;
   servicio_origen: string;
   fecha_mensaje: string;
   lead_id?: string;

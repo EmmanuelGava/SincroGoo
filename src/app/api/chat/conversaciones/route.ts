@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
-import { conversationDisplayName, conversationIdentityKey } from '@/lib/chat/conversationIdentity';
+import { conversationDisplayName, conversationIdentityKey, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
         metadata,
         mensajes_conversacion (
           contenido,
-          fecha_mensaje
+          fecha_mensaje,
+          metadata
         )
       `)
       .order('fecha_mensaje', { ascending: false });
@@ -41,15 +42,32 @@ export async function GET(req: NextRequest) {
       const ultimoMensaje = mensajes.length > 0 
         ? mensajes.sort((a, b) => new Date(b.fecha_mensaje).getTime() - new Date(a.fecha_mensaje).getTime())[0]
         : null;
+      const named = [...mensajes]
+        .sort((a, b) => new Date(b.fecha_mensaje).getTime() - new Date(a.fecha_mensaje).getTime())
+        .find((m) => {
+          const meta = m.metadata && typeof m.metadata === 'object' ? m.metadata as Record<string, unknown> : {};
+          return String(meta.contact_name || '').trim();
+        });
+      const namedMeta = named?.metadata && typeof named.metadata === 'object'
+        ? named.metadata as Record<string, unknown>
+        : {};
+      const metadata = {
+        ...(conv.metadata && typeof conv.metadata === 'object' ? conv.metadata : {}),
+        ...(namedMeta.contact_name && !(conv.metadata as Record<string, unknown> | null)?.contact_name
+          ? { contact_name: namedMeta.contact_name }
+          : {}),
+      };
+      const view = { ...conv, metadata };
 
       return {
         id: conv.id,
         remitente: conv.remitente,
-        display_name: conversationDisplayName(conv),
+        display_name: conversationDisplayName(view),
+        display_phone: conversationRealPhone(view),
         servicio_origen: conv.servicio_origen,
         fecha_mensaje: conv.fecha_mensaje,
         lead_id: conv.lead_id,
-        metadata: conv.metadata,
+        metadata,
         ultimo_mensaje: ultimoMensaje?.contenido || null
       };
     }) || [];
@@ -59,10 +77,7 @@ export async function GET(req: NextRequest) {
       const key = conversationIdentityKey(conv);
       const current = merged.get(key);
       if (!current || new Date(conv.fecha_mensaje).getTime() > new Date(current.fecha_mensaje).getTime()) {
-        merged.set(key, {
-          ...conv,
-          remitente: conv.display_name || conv.remitente,
-        });
+        merged.set(key, conv);
       }
     }
 

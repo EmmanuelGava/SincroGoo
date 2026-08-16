@@ -3,7 +3,6 @@ import { Box, Tooltip, CircularProgress } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import ScheduleIcon from '@mui/icons-material/Schedule';
 
 interface MessageStatusProps {
   estado?: string;
@@ -18,6 +17,7 @@ export default function MessageStatus({ estado, error, isOwn }: MessageStatusPro
   const getStatusIcon = () => {
     switch (estado) {
       case 'enviando':
+      case 'pendiente':
         return (
           <Tooltip title="Enviando...">
             <CircularProgress size={12} sx={{ color: 'rgba(255,255,255,0.5)' }} />
@@ -25,6 +25,8 @@ export default function MessageStatus({ estado, error, isOwn }: MessageStatusPro
         );
       
       case 'enviado':
+      case undefined:
+      case '':
         return (
           <Tooltip title="Enviado">
             <CheckIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }} />
@@ -47,8 +49,8 @@ export default function MessageStatus({ estado, error, isOwn }: MessageStatusPro
       
       default:
         return (
-          <Tooltip title="Pendiente">
-            <ScheduleIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }} />
+          <Tooltip title="Enviado">
+            <CheckIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }} />
           </Tooltip>
         );
     }

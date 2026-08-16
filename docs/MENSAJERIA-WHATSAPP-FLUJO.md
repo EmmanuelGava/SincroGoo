@@ -169,9 +169,9 @@ Nunca mandar un LID como si fuera `@s.whatsapp.net`. El contacto puede ser `9614
 - `useChat` es la fuente de mensajes en vivo.
 - `ChatWindow` **tiene que recibir `mensajes` del hook**. Si carga los suyos, el live no se ve hasta F5 (bug que ya pasó).
 - Envío optimistic: el mensaje propio se pinta al toque; no bloquear el input.
-- No mostrar “escribiendo” cuando escribe el usuario de KloSync.
-- Burbuja propia: texto + hora + tilde. Sin chip “Tú” ni avatar tapando el texto.
-- Lista: agrupar por teléfono real (`conversationIdentityKey`). Un LID no es un teléfono: no fusionar dos LID distintos hasta tener `phone_number` de 8–15 dígitos.
+- Tilde: `enviando` = spinner; al persistir, `estado_envio: enviado` = un check. Sin estado en un mensaje propio **no** es pendiente (el reloj era un bug).
+- Sidebar y header: `conversationDisplayName` (nombre de agenda/pushName) o teléfono real. Nunca el LID.
+- Lista: agrupar por teléfono real (`conversationIdentityKey`). Un LID no es un teléfono: no fusionar dos LID distintos hasta tener `phone_number` de 8–15 dígitos distinto del LID.
 
 `isOwn` en la burbuja: `usuario_id` o `metadata.direction === 'outgoing'` o id `temp-*`.
 
@@ -231,7 +231,15 @@ No volver a enganchar `postgres_changes` hasta migrar a Supabase Auth.
 
 **Causa:** WhatsApp multi-device identifica contactos con `@lid`. `205613590122651` es el LID **propio** (`me.lid`). Guardar el LID como `phone_number` es mentira.
 
-**Regla:** guardar `remote_jid` real. Enviar a ese JID. `phone_number` solo si parece teléfono (8–15 dígitos). No fusionar dos LID distintos. Resolver LID→teléfono con USync y timeout corto; si falla, seguir con el JID.
+**Regla:** guardar `remote_jid` real. Enviar a ese JID. `phone_number` solo si es un teléfono resuelto, distinto del LID. El título del chat es `contact_name` (agenda de WhatsApp o pushName) o el teléfono formateado. Si solo hay LID, mostrar “Contacto WhatsApp”, no el id numérico. El nombre a veces llega en el mensaje y no en `conversaciones.metadata`: el GET de conversaciones lo copia del último mensaje con `contact_name`.
+
+### 9.11 Tilde de pendiente en mensajes ya enviados
+
+**Síntoma:** el texto salía al toque, WhatsApp lo entregaba, pero en KloSync quedaba el reloj de pendiente.
+
+**Causa:** `MessageStatus` trataba `estado_envio` vacío como pendiente. `saveOutgoingMessage` no guardaba `estado_envio`. Al llegar el mensaje real desde la BD, reemplazaba el optimistic (que sí decía `enviado`) y volvía el reloj.
+
+**Regla:** persistir `estado_envio: enviado`. En la UI, mensaje propio sin estado = enviado (un check). Reloj/spinner solo con `enviando`.
 
 ### 9.6 Chat en vivo no se actualizaba (hacía falta F5)
 

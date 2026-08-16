@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
-import { looksLikePhoneNumber } from '@/lib/chat/conversationIdentity';
+import { looksLikePhoneNumber, onlyDigits } from '@/lib/chat/conversationIdentity';
 
 export interface IncomingMessageData {
   platform: 'whatsapp' | 'telegram' | 'email';
@@ -34,10 +34,14 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
     const remitente = normalizeContactId(data.platform, data.contact);
     
     // 1. Buscar o crear conversación
-    const phoneNumber = data.metadata?.phone_number
-      && looksLikePhoneNumber(data.metadata.phone_number)
-      ? String(data.metadata.phone_number)
-      : (data.platform === 'whatsapp' && looksLikePhoneNumber(remitente) ? remitente : undefined);
+    const remoteJid = String(data.metadata?.remote_jid || '');
+    const rawPhone = data.metadata?.phone_number ? String(data.metadata.phone_number) : '';
+    const lidDigits = remoteJid.includes('@lid') ? onlyDigits(remoteJid) : '';
+    const phoneNumber = looksLikePhoneNumber(rawPhone) && (!lidDigits || onlyDigits(rawPhone) !== lidDigits)
+      ? rawPhone
+      : (data.platform === 'whatsapp' && looksLikePhoneNumber(remitente) && !remoteJid.includes('@lid')
+        ? remitente
+        : undefined);
 
     const conversacionId = await findOrCreateConversation(supabase, {
       remitente,

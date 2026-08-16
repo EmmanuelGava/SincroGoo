@@ -35,6 +35,7 @@ export class EventManager {
   private saveDebounceMs: number = 2000; // Evitar guardados múltiples en 2 segundos
   private isProcessingAuth: boolean = false; // Evitar procesamiento múltiple de autenticación
   private reconnectHandler: ((userId: string) => Promise<void>) | null = null;
+  private contactBook = new Map<string, { name?: string; notify?: string }>();
 
   setReconnectHandler(handler: (userId: string) => Promise<void>): void {
     this.reconnectHandler = handler;
@@ -63,6 +64,32 @@ export class EventManager {
     this.databaseManager = databaseManager;
   }
 
+  private rememberContacts(contacts: Array<{ id?: string; name?: string; notify?: string; verifiedName?: string }> | undefined) {
+    if (!Array.isArray(contacts)) return;
+    for (const contact of contacts) {
+      if (!contact?.id) continue;
+      const previous = this.contactBook.get(contact.id) || {};
+      this.contactBook.set(contact.id, {
+        name: contact.name || previous.name,
+        notify: contact.notify || contact.verifiedName || previous.notify,
+      });
+      const digits = contact.id.split('@')[0];
+      if (digits && digits !== contact.id) {
+        this.contactBook.set(digits, this.contactBook.get(contact.id)!);
+      }
+    }
+  }
+
+  private contactLabel(jid: string, sendJid?: string, pushName?: string | null): string | undefined {
+    const fromBook =
+      this.contactBook.get(jid)
+      || this.contactBook.get(jid.split('@')[0])
+      || (sendJid ? this.contactBook.get(sendJid) : undefined)
+      || (sendJid ? this.contactBook.get(sendJid.split('@')[0]) : undefined);
+    const label = (fromBook?.name || fromBook?.notify || pushName || '').trim();
+    return label || undefined;
+  }
+
   /**
    * Configurar event listeners de Baileys (versión optimizada)
    */
@@ -78,6 +105,13 @@ export class EventManager {
       return;
     }
     this.attachedSockets.add(socket);
+
+    socket.ev.on('contacts.upsert', (contacts) => {
+      this.rememberContacts(contacts);
+    });
+    socket.ev.on('contacts.update', (contacts) => {
+      this.rememberContacts(contacts);
+    });
 
     // Event listener para credenciales
     socket.ev.on('creds.update', async () => {
@@ -265,13 +299,14 @@ export class EventManager {
         const key = message.key as { remoteJid?: string | null; remoteJidAlt?: string | null };
         const peer = await resolveWhatsAppPeer(socket, jid, { remoteJidAlt: key.remoteJidAlt });
         const timestampMs = toWhatsAppTimestampMs(message.messageTimestamp);
-        console.log('📨 Procesando mensaje de:', peer.phone, jid, peer.resolved ? 'teléfono' : 'sin resolver');
+        const contactName = this.contactLabel(jid, peer.sendJid, message.pushName);
+        console.log('📨 Procesando mensaje de:', peer.phone, jid, peer.resolved ? 'teléfono' : 'sin resolver', contactName);
         await forwardIncomingToApp({
-          from: peer.phone,
+          from: peer.resolved ? peer.phone : (jid.split('@')[0] || peer.phone),
           fromJid: peer.sendJid,
           phone: peer.resolved ? peer.phone : undefined,
           message: text,
-          contactName: message.pushName,
+          contactName,
           userId,
           timestamp: timestampMs,
         });

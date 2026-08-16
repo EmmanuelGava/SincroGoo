@@ -15,11 +15,13 @@ import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import LeadProfileModal from './LeadProfileModal';
-import { conversationDisplayName } from '@/lib/chat/conversationIdentity';
+import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 
 interface Conversacion {
   id: string;
   remitente: string;
+  display_name?: string;
+  display_phone?: string | null;
   servicio_origen: string;
   fecha_mensaje: string;
   lead_id?: string;
@@ -56,6 +58,7 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   
   const displayName = conversationDisplayName(conversacion);
+  const displayPhone = conversacion.display_phone || conversationRealPhone(conversacion);
   const IconComponent = servicioIcons[conversacion.servicio_origen] || SmsIcon;
   const servicioColor = servicioColors[conversacion.servicio_origen] || '#90caf9';
   const servicioName = servicioNames[conversacion.servicio_origen] || conversacion.servicio_origen;
@@ -148,6 +151,7 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
         <Typography variant="body2" sx={{ 
           color: 'text.secondary'
         }}>
+          {displayPhone && displayPhone !== displayName ? `${displayPhone} · ` : ''}
           {getLastSeenText()}
         </Typography>
       </Box>

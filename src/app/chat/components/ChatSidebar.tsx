@@ -22,10 +22,13 @@ import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import NewConversationModal from './NewConversationModal';
 import MessagingStatusIndicator from './MessagingStatusIndicator';
+import { conversationDisplayName } from '@/lib/chat/conversationIdentity';
 
 interface Conversacion {
   id: string;
   remitente: string;
+  display_name?: string;
+  display_phone?: string | null;
   servicio_origen: string;
   fecha_mensaje: string;
   lead_id?: string;
@@ -175,7 +178,9 @@ export default function ChatSidebar({
           </Box>
         ) : (
           <List sx={{ p: 0 }}>
-            {conversaciones.map((conversacion) => (
+            {conversaciones.map((conversacion) => {
+              const displayName = conversationDisplayName(conversacion);
+              return (
               <ListItem key={conversacion.id} disablePadding>
                 <ListItemButton
                   selected={conversacionActiva?.id === conversacion.id}
@@ -200,7 +205,7 @@ export default function ChatSidebar({
                         width: 40,
                         height: 40
                       }}>
-                        {conversacion.remitente.charAt(0).toUpperCase()}
+                        {displayName.charAt(0).toUpperCase()}
                       </Avatar>
                       <Box sx={{
                         position: 'absolute',
@@ -231,7 +236,7 @@ export default function ChatSidebar({
                           whiteSpace: 'nowrap',
                           fontSize: '0.875rem'
                         }}>
-                          {conversacion.remitente}
+                          {displayName}
                         </Box>
                         {conversacion.lead_id && (
                           <Chip 
@@ -266,7 +271,8 @@ export default function ChatSidebar({
                   />
                 </ListItemButton>
               </ListItem>
-            ))}
+              );
+            })}
           </List>
         )}
       </Box>

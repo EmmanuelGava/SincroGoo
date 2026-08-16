@@ -326,7 +326,8 @@ async function saveOutgoingMessage(data: SendMessageData, platformDetails: strin
           platform: data.platform,
           platform_details: platformDetails,
           direction: 'outgoing',
-          user_id: data.userId
+          user_id: data.userId,
+          estado_envio: 'enviado',
         },
         usuario_id: data.userId || null
       });

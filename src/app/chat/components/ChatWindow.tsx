@@ -15,6 +15,8 @@ import ErrorMessage from './ErrorMessage';
 interface Conversacion {
   id: string;
   remitente: string;
+  display_name?: string;
+  display_phone?: string | null;
   servicio_origen: string;
   fecha_mensaje: string;
   lead_id?: string;

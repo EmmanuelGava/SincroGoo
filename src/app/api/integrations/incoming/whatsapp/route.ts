@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleIncomingMessage } from '@/lib/chat/handleIncomingMessage';
+import { looksLikePhoneNumber } from '@/lib/chat/conversationIdentity';
 
 /**
  * Endpoint unificado para mensajes entrantes de WhatsApp
@@ -109,15 +110,17 @@ async function handleLiteMessage(body: any) {
 
   // Usar la función central para procesar el mensaje
   const remoteJid = body.fromJid || (String(body.from || '').includes('@') ? body.from : undefined);
-  const phone = body.phone || (remoteJid?.endsWith('@s.whatsapp.net') ? String(body.from).replace(/[^\d]/g, '') : undefined);
+  const phone = body.phone && looksLikePhoneNumber(String(body.phone))
+    ? String(body.phone).replace(/[^\d]/g, '')
+    : undefined;
 
   await handleIncomingMessage({
     platform: 'whatsapp',
     message: body.message,
     contact: {
       id: phone || body.from,
-      phone: phone || body.from,
-      name: body.contact_name
+      phone,
+      name: body.contact_name || undefined
     },
     timestamp: parseIncomingTimestamp(body.timestamp),
     messageType: body.type || 'text',

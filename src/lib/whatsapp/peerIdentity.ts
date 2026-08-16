@@ -34,18 +34,25 @@ export async function resolveWhatsAppPeer(
 
   if (isLidUser(remoteJid) && socket) {
     try {
-      const result = await socket.executeUSyncQuery(
-        new USyncQuery()
-          .withContactProtocol()
-          .withLIDProtocol()
-          .withUser(new USyncUser().withId(remoteJid).withLid(remoteJid))
-      );
-      const row = result?.list?.[0] as { id?: string; lid?: string } | undefined;
-      const candidate = typeof row?.id === 'string' ? row.id : '';
-      const phone = digitsFromJid(candidate);
-      const lidDigits = digitsFromJid(remoteJid);
-      if (phone && phone !== lidDigits && (isJidUser(candidate) || looksLikePhoneNumber(phone))) {
-        return { phone, sendJid, resolved: true, kind: 'lid' };
+      const result = await Promise.race([
+        socket.executeUSyncQuery(
+          new USyncQuery()
+            .withContactProtocol()
+            .withLIDProtocol()
+            .withUser(new USyncUser().withId(remoteJid).withLid(remoteJid))
+        ),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+      ]);
+      if (!result) {
+        console.warn('⚠️ Timeout resolviendo LID a teléfono, se usa el JID original');
+      } else {
+        const row = result.list?.[0] as { id?: string; lid?: string } | undefined;
+        const candidate = typeof row?.id === 'string' ? row.id : '';
+        const phone = digitsFromJid(candidate);
+        const lidDigits = digitsFromJid(remoteJid);
+        if (phone && phone !== lidDigits && (isJidUser(candidate) || looksLikePhoneNumber(phone))) {
+          return { phone, sendJid, resolved: true, kind: 'lid' };
+        }
       }
     } catch (error) {
       console.warn('⚠️ No se pudo resolver LID a teléfono:', remoteJid, error);

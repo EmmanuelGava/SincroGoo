@@ -140,7 +140,9 @@ export function shouldInitializeSocket(): boolean {
   const currentPath = window.location.pathname;
   const isWhatsAppPage =
     currentPath.includes('/configuracion/mensajeria') ||
-    currentPath.includes('/onboarding');
+    currentPath.includes('/onboarding') ||
+    currentPath.includes('/chat') ||
+    currentPath.includes('/crm');
 
   console.log('🔍 Verificando si se debe inicializar Socket.IO:', {
     currentPath,

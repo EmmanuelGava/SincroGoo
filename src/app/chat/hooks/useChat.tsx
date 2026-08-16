@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { initSocket, shouldInitializeSocket } from '@/lib/socket';
 import { supabase } from '@/lib/supabase/browserClient';
+import { inboxChannelName } from '@/lib/chat/inboxChannel';
 
 interface Conversacion {
   id: string;
@@ -32,9 +34,10 @@ export function useChat() {
   const [loadingMensajes, setLoadingMensajes] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Refs para funciones estables en realtime
+  // Refs para funciones estables en live/poll
   const fetchConversacionesRef = useRef<() => Promise<void>>();
   const fetchMensajesRef = useRef<(id: string) => Promise<void>>();
+  const conversacionActivaRef = useRef<Conversacion | null>(null);
 
   // Fetch conversaciones
   const fetchConversaciones = useCallback(async () => {
@@ -170,61 +173,63 @@ export function useChat() {
     setMensajes([]);
   }, []);
 
+  useEffect(() => {
+    conversacionActivaRef.current = conversacionActiva;
+  }, [conversacionActiva]);
+
   // Efecto inicial para cargar conversaciones
   useEffect(() => {
     fetchConversaciones();
   }, [fetchConversaciones]);
 
-  // Suscripción a tiempo real - solo se configura una vez
-  useEffect(() => {
-    if (!supabase || status !== 'authenticated') {
-      return;
+  const refreshLive = useCallback(() => {
+    fetchConversacionesRef.current?.();
+    const activeId = conversacionActivaRef.current?.id;
+    if (activeId) {
+      fetchMensajesRef.current?.(activeId);
     }
+  }, []);
 
-    console.log('Configurando suscripción realtime para chat...');
-    
+  useEffect(() => {
+    if (status !== 'authenticated' || !session?.user?.id || !supabase) return;
+
     const channel = supabase
-      .channel('chat_realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
-        (payload) => {
-          console.log('Nuevo mensaje recibido en chat:', payload);
-          
-          // Usar refs para evitar dependencias
-          if (fetchConversacionesRef.current) {
-            fetchConversacionesRef.current();
-          }
-          
-          // Si el mensaje es de la conversación activa, refrescar mensajes
-          const conversacionId = payload.new?.conversacion_id;
-          setConversacionActiva(current => {
-            if (current && current.id === conversacionId && fetchMensajesRef.current) {
-              fetchMensajesRef.current(conversacionId);
-            }
-            return current;
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversaciones' },
-        (payload) => {
-          console.log('Conversación actualizada:', payload);
-          if (fetchConversacionesRef.current) {
-            fetchConversacionesRef.current();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Estado de suscripción realtime chat:', status);
+      .channel(inboxChannelName(session.user.id))
+      .on('broadcast', { event: 'new_message' }, () => {
+        refreshLive();
+      })
+      .subscribe((subStatus) => {
+        console.log('Realtime inbox chat:', subStatus);
       });
 
     return () => {
-      console.log('Limpiando suscripción realtime chat...');
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [status]); // Solo depende del status de autenticación
+  }, [status, session?.user?.id, refreshLive]);
+
+  // Respaldo por si el broadcast se pierde (pestaña en segundo plano, etc.)
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const id = setInterval(refreshLive, 10000);
+    return () => clearInterval(id);
+  }, [status, refreshLive]);
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !session?.user?.id) return;
+    if (typeof window !== 'undefined' && !shouldInitializeSocket()) return;
+
+    const socket = initSocket();
+    const onMessage = () => refreshLive();
+    const join = () => socket.emit('join-user-room', session.user.id);
+    socket.on('whatsapp-message', onMessage);
+    socket.on('connect', join);
+    if (socket.connected) join();
+
+    return () => {
+      socket.off('whatsapp-message', onMessage);
+      socket.off('connect', join);
+    };
+  }, [status, session?.user?.id, refreshLive]);
 
   return {
     // Estado

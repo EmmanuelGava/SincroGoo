@@ -230,13 +230,14 @@ export class EventManager {
         this.notifyConnectionUpdate(state);
       }
 
-      // ✅ SOLUCIÓN: Manejar reconexión
+      // Reconexiones internas de Baileys: no marcar desconectado si ya hay sesión viva.
       if (update.connection === 'connecting') {
         console.log('🔄 Reconectando...');
-        state.isConnected = false;
-        // NO generar nuevo QR si ya tenemos uno válido
-        if (!state.currentQR) {
-          this.notifyConnectionUpdate(state);
+        if (!state.phoneNumber) {
+          state.isConnected = false;
+          if (!state.currentQR) {
+            this.notifyConnectionUpdate(state);
+          }
         }
       }
 
@@ -256,7 +257,10 @@ export class EventManager {
         if (jid.endsWith('@g.us') || jid === 'status@broadcast') continue;
 
         const text = extractIncomingText(message.message);
-        if (!text) continue;
+        if (!text) {
+          console.log('📨 Mensaje sin texto usable, se omite:', jid, Object.keys(message.message || {}));
+          continue;
+        }
 
         const { resolveWhatsAppPeer } = await import('@/lib/whatsapp/peerIdentity');
         const key = message.key as { remoteJid?: string | null; remoteJidAlt?: string | null };
@@ -272,6 +276,13 @@ export class EventManager {
           userId,
           timestamp: timestampMs,
         });
+        if (typeof global !== 'undefined' && (global as any).emitToUser) {
+          (global as any).emitToUser(userId, 'whatsapp-message', {
+            from: peer.phone,
+            fromJid: peer.sendJid,
+            message: text,
+          });
+        }
       }
     });
 
@@ -330,6 +341,13 @@ export class EventManager {
       state.currentQR = null;
       state.lastActivity = new Date();
       state.isReconnecting = false;
+
+      try {
+        await socket.sendPresenceUpdate('available');
+        console.log('🟢 [EventManager] Presencia available enviada');
+      } catch (error) {
+        console.warn('⚠️ [EventManager] No se pudo marcar presencia online:', error);
+      }
       
       console.log('✅ [EventManager] Estado actualizado después de autenticación:', {
         isConnected: state.isConnected,
@@ -608,12 +626,25 @@ export class EventManager {
 
 function extractIncomingText(message: any): string | null {
   if (!message) return null;
+  const nested =
+    message.ephemeralMessage?.message ||
+    message.viewOnceMessage?.message ||
+    message.viewOnceMessageV2?.message ||
+    message.viewOnceMessageV2Extension?.message ||
+    message.documentWithCaptionMessage?.message ||
+    message.editedMessage?.message;
+  if (nested) {
+    return extractIncomingText(nested);
+  }
   return (
     message.conversation ||
     message.extendedTextMessage?.text ||
     message.imageMessage?.caption ||
     message.videoMessage?.caption ||
     message.documentMessage?.caption ||
+    message.buttonsResponseMessage?.selectedDisplayText ||
+    message.listResponseMessage?.title ||
+    message.templateButtonReplyMessage?.selectedDisplayText ||
     null
   );
 }

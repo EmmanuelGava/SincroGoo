@@ -19,7 +19,7 @@ export const BAILEYS_CONFIG = {
   defaultQueryTimeoutMs: 90_000,
   retryRequestDelayMs: 2000, // Más tiempo entre reintentos
   maxMsgRetryCount: 8, // Más reintentos para superar error 515
-  markOnlineOnConnect: false,
+  markOnlineOnConnect: true,
   keepAliveIntervalMs: 20_000, // Keep alive más frecuente
   emitOwnEvents: false,
   shouldSyncFullHistory: false,

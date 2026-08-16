@@ -298,6 +298,8 @@ async function saveOutgoingMessage(data: SendMessageData, platformDetails: strin
     }
     
     console.log('✅ Mensaje saliente guardado exitosamente');
+    const { notifyInboxRealtime } = await import('@/lib/chat/notifyInbox');
+    await notifyInboxRealtime(data.userId, { conversacionId, platform: data.platform });
   } catch (error) {
     console.error('❌ Error guardando mensaje saliente:', error);
     // No lanzar error para no interrumpir el envío

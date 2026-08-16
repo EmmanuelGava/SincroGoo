@@ -62,7 +62,7 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
     console.log(`✅ Mensaje de ${data.platform} procesado correctamente`);
     
     // 3. Emitir evento para actualización en tiempo real
-    await emitRealtimeUpdate(conversacionId, data.platform);
+    await emitRealtimeUpdate(conversacionId, data.platform, data.metadata?.userId);
 
     return { success: true, conversacionId };
   } catch (error) {
@@ -223,12 +223,7 @@ async function saveMessage(supabase: any, data: {
 /**
  * Emitir actualización en tiempo real
  */
-async function emitRealtimeUpdate(conversacionId: string, platform: string) {
-  try {
-    // Aquí puedes implementar la lógica para emitir eventos en tiempo real
-    // Por ejemplo, usando Supabase Realtime o WebSockets
-    console.log(`🔄 Emitiendo actualización para conversación ${conversacionId} en ${platform}`);
-  } catch (error) {
-    console.error('Error emitiendo actualización en tiempo real:', error);
-  }
+async function emitRealtimeUpdate(conversacionId: string, platform: string, userId?: string) {
+  const { notifyInboxRealtime } = await import('@/lib/chat/notifyInbox');
+  await notifyInboxRealtime(userId, { conversacionId, platform });
 } 

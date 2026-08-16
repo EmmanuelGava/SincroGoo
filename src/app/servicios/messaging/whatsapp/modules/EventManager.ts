@@ -177,9 +177,12 @@ export class EventManager {
         state.currentQR = null;
 
         if (isPermanentDisconnect(statusCode)) {
-          console.log('❌ [EventManager] Desconexión permanente, no se reconecta');
+          console.log('❌ [EventManager] Desconexión permanente, hay que escanear el QR de nuevo');
           state.phoneNumber = null;
           await this.databaseManager.saveConnectionState(state);
+          if (state.sessionId) {
+            await this.databaseManager.invalidateSessionCredentials(state.sessionId);
+          }
           this.notifyConnectionUpdate(state);
           return;
         }

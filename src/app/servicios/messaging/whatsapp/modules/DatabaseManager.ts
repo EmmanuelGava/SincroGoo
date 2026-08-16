@@ -476,6 +476,28 @@ export class DatabaseManager {
   }
 
   /**
+   * Invalidar credenciales de una sesión cerrada por WhatsApp (401/500):
+   * ya no sirven y reintentarlas al arrancar deja el worker en bucle.
+   */
+  async invalidateSessionCredentials(sessionId: string): Promise<void> {
+    try {
+      const supabase = getSupabaseAdmin();
+      const { error } = await supabase
+        .from('whatsapp_lite_sessions')
+        .update({ baileys_credentials: null, status: 'disconnected', phone_number: null })
+        .eq('session_id', sessionId);
+
+      if (error) {
+        console.error('❌ Error invalidando credenciales de sesión:', error);
+      } else {
+        console.log('🗑️ Credenciales invalidadas, hace falta escanear el QR de nuevo:', sessionId);
+      }
+    } catch (error) {
+      console.error('❌ Error en invalidateSessionCredentials:', error);
+    }
+  }
+
+  /**
    * Eliminar credenciales incompletas de una sesión específica
    */
   async deleteIncompleteCredentials(sessionId: string): Promise<void> {

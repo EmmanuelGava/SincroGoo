@@ -1,9 +1,31 @@
-import { WASocket, makeWASocket } from 'baileys';
+import { WASocket, makeWASocket, fetchLatestBaileysVersion } from 'baileys';
 import { isJidBroadcast } from 'baileys';
 import QRCode from 'qrcode';
 import type { BaileysAuthState } from './AuthManager';
 import { BAILEYS_CONFIG } from './BaileysConfig';
 import { EventManager } from './EventManager';
+
+// Cache de la versión de WhatsApp Web. Usar la última evita el error 405 "Connection Failure".
+let cachedWaVersion: [number, number, number] | undefined;
+let waVersionPromise: Promise<[number, number, number] | undefined> | undefined;
+
+async function resolveWaVersion(): Promise<[number, number, number] | undefined> {
+  if (cachedWaVersion) return cachedWaVersion;
+  if (!waVersionPromise) {
+    waVersionPromise = fetchLatestBaileysVersion()
+      .then(({ version }) => {
+        cachedWaVersion = version as [number, number, number];
+        console.log('🌐 [ConnectionManager] Versión WA Web resuelta:', cachedWaVersion);
+        return cachedWaVersion;
+      })
+      .catch((error) => {
+        console.warn('⚠️ [ConnectionManager] No se pudo obtener la versión WA Web, usando default:', error?.message);
+        waVersionPromise = undefined;
+        return undefined;
+      });
+  }
+  return waVersionPromise;
+}
 
 export interface QRCodeData {
   qrCode: string;
@@ -78,7 +100,7 @@ export class ConnectionManager {
   /**
    * Crear socket de Baileys con AuthState personalizado
    */
-  createSocket(authState: BaileysAuthState): WASocket {
+  async createSocket(authState: BaileysAuthState): Promise<WASocket> {
     console.log('🔧 Creando socket de Baileys...');
     
     // ✅ SOLUCIÓN: Verificar si ya hay un socket activo
@@ -86,6 +108,9 @@ export class ConnectionManager {
       console.log('✅ Reutilizando socket existente');
       return this.existingSocket;
     }
+
+    // Obtener la última versión de WhatsApp Web para evitar el error 405.
+    const waVersion = await resolveWaVersion();
     
     console.log('🔧 AuthState recibido:', {
       hasState: !!authState.state,
@@ -130,6 +155,7 @@ export class ConnectionManager {
       const socketConfig = {
         auth: authState.state,
         browser: BAILEYS_CONFIG.browser,
+        ...(waVersion ? { version: waVersion } : {}),
         // ✅ SOLUCIÓN: Configuración para manejar errores 515
         connectTimeoutMs: 120000, // 2 minutos
         qrTimeout: 180000, // 3 minutos

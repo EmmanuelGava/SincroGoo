@@ -134,7 +134,7 @@ export class WhatsAppLiteService {
       });
 
       // Inicializar socket de Baileys
-      this.state.socket = this.connectionManager.createSocket(authState);
+      this.state.socket = await this.connectionManager.createSocket(authState);
       console.log('🔌 [WhatsAppLiteService] Socket de Baileys creado');
 
       // Configurar eventos

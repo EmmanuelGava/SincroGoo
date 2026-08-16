@@ -22,7 +22,8 @@ export class AuthManager {
   async createInMemoryAuthState(
     existingCredentials?: any,
     userId?: string,
-    sessionId?: string
+    sessionId?: string,
+    preserveTempDir = false
   ): Promise<{ state: any; saveCreds: () => Promise<void> }> {
     console.log('🧠 Creando auth state híbrido (BD + archivos temporales)...');
     
@@ -33,26 +34,29 @@ export class AuthManager {
       
       console.log('📁 Directorio de autenticación temporal:', authDir);
       
-      // ✅ SOLUCIÓN: Limpiar directorio SIEMPRE antes de crear
-      if (fs.existsSync(authDir)) {
-        console.log('🧹 Limpiando directorio existente...');
-        fs.rmSync(authDir, { recursive: true, force: true });
-      }
-      
-      // ✅ SOLUCIÓN: Crear directorio sin timestamp para acceso consistente
-      fs.mkdirSync(authDir, { recursive: true });
-      console.log('📁 Directorio temporal creado:', authDir);
-      
-      // Si hay credenciales existentes, restaurarlas a archivos
-      if (existingCredentials && Object.keys(existingCredentials).length > 0) {
-        console.log('📥 Restaurando credenciales existentes desde BD...');
-        try {
-          const credsPath = path.join(authDir, 'creds.json');
-          fs.writeFileSync(credsPath, JSON.stringify(existingCredentials, null, 2));
-          console.log('✅ Credenciales restauradas exitosamente');
-        } catch (error) {
-          console.error('❌ Error restaurando credenciales:', error);
-          // Continuar sin credenciales existentes
+      // En reconexión tras 515 preservamos el directorio (ya tiene las credenciales del escaneo).
+      // En conexión normal lo limpiamos para arrancar desde cero.
+      if (preserveTempDir && fs.existsSync(authDir)) {
+        console.log('♻️ Preservando directorio existente (reconexión 515):', fs.readdirSync(authDir).length, 'archivos');
+      } else {
+        if (fs.existsSync(authDir)) {
+          console.log('🧹 Limpiando directorio existente...');
+          fs.rmSync(authDir, { recursive: true, force: true });
+        }
+        fs.mkdirSync(authDir, { recursive: true });
+        console.log('📁 Directorio temporal creado:', authDir);
+
+        // Si hay credenciales existentes en BD, restaurarlas a archivos
+        if (existingCredentials && Object.keys(existingCredentials).length > 0) {
+          console.log('📥 Restaurando credenciales existentes desde BD...');
+          try {
+            const credsPath = path.join(authDir, 'creds.json');
+            fs.writeFileSync(credsPath, JSON.stringify(existingCredentials, null, 2));
+            console.log('✅ Credenciales restauradas exitosamente');
+          } catch (error) {
+            console.error('❌ Error restaurando credenciales:', error);
+            // Continuar sin credenciales existentes
+          }
         }
       }
       

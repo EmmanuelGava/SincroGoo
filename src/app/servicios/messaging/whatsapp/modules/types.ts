@@ -32,6 +32,9 @@ export interface WhatsAppLiteState {
   currentQR: string | null;
   userId: string | null;
   isReconnecting: boolean;
+  lastError?: any;
+  /** Cuando es true, el próximo connect() preserva el directorio temporal (reconexión tras 515). */
+  preserve515?: boolean;
 }
 
 export interface AuthFileInfo {

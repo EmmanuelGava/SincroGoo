@@ -102,6 +102,10 @@ export class WhatsAppLiteService {
         restoredFromDb: Boolean(existingCredentials),
       });
 
+      // Reconexión tras error 515: preservar el directorio temporal (ya tiene las credenciales del escaneo)
+      const preserveTempDir = this.state.preserve515 === true;
+      this.state.preserve515 = false;
+
       let authState;
       if (typeof window !== 'undefined') {
         const { BrowserAuthManager } = await import('./modules/BrowserAuthManager');
@@ -112,10 +116,12 @@ export class WhatsAppLiteService {
         authState = await authManager.createInMemoryAuthState(
           existingCredentials || undefined,
           userId,
-          sessionId
+          sessionId,
+          preserveTempDir
         );
         console.log('🌐 [WhatsAppLiteService] Auth state con archivos creado', {
           restoredFromDb: Boolean(existingCredentials),
+          preserveTempDir,
         });
       }
 

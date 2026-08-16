@@ -17,6 +17,8 @@ export interface WhatsAppState {
   socket: WASocket | null;
   isReconnecting: boolean;
   lastError?: any;
+  /** Cuando es true, el próximo connect() preserva el directorio temporal (reconexión tras 515). */
+  preserve515?: boolean;
 }
 
 export class EventManager {
@@ -389,86 +391,53 @@ export class EventManager {
    * Reconexión específica para error 515
    */
   private async attemptReconnectionAfter515(userId: string, state: WhatsAppState): Promise<void> {
-    console.log('🔄 [EventManager] Iniciando reconexión inteligente después de error 515...');
-    
+    console.log('🔄 [EventManager] Iniciando reconexión después de error 515...');
+
     try {
       state.isReconnecting = true;
-      
-      // ✅ SOLUCIÓN: Esperar más tiempo para que las credenciales se procesen
-      console.log('⏳ [EventManager] Esperando procesamiento de credenciales...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Verificar si el socket ahora tiene usuario después del procesamiento
-      if (state.socket && state.socket.user && state.socket.user.id) {
-        console.log('✅ [EventManager] Usuario encontrado después de espera:', state.socket.user.id);
-        await this.verifyRealAuthentication(state.socket, state, userId);
+
+      // El error 515 ("restart required") es NORMAL tras escanear el QR: WhatsApp corta el
+      // stream y exige recrear el socket. Baileys NO se reconecta solo; hay que crear un
+      // socket nuevo reutilizando las credenciales ya guardadas (que ahora incluyen `me`).
+      //
+      // Las credenciales se persistieron vía useMultiFileAuthState en el directorio temporal
+      // de la sesión, así que reconectamos con el MISMO sessionId para reutilizarlas.
+
+      // Dar tiempo a que saveCreds termine de escribir en disco.
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      if (!state.sessionId) {
+        console.log('⚠️ [EventManager] Sin sessionId; no se puede reconectar tras 515');
+        state.isReconnecting = false;
         return;
       }
-      
-      // Si aún no hay usuario, intentar recargar credenciales
-      console.log('🔄 [EventManager] Recargando credenciales en socket existente...');
-      
-      // Verificar si hay credenciales guardadas
-      if (!state.sessionId) return;
+
+      // CRÍTICO: limpiar lastError para que connect() NO borre los archivos de sesión
+      // (el cleanup solo debe correr ante sesión corrupta, no ante un 515 normal).
+      state.lastError = undefined;
+      // El 515 dejó el socket muerto; marcar como no conectado antes de recrear.
+      state.isConnected = false;
+      state.socket = null;
+      // Preservar el directorio temporal: ya contiene las credenciales del escaneo (me),
+      // necesarias para que Baileys complete el registro en la reconexión.
+      state.preserve515 = true;
+
       const tempDir = process.env.TEMP || process.env.TMP || os.tmpdir();
       const authDir = path.join(tempDir, 'whatsapp_auth', state.sessionId);
-      
-      console.log('🔍 [EventManager] Verificando directorio de credenciales:', authDir);
-      
       if (fs.existsSync(authDir)) {
-        const files = fs.readdirSync(authDir);
-        console.log('📁 [EventManager] Credenciales encontradas:', files.length, 'archivos');
-        console.log('📄 [EventManager] Archivos:', files.join(', '));
-        console.log('📁 [EventManager] Esperando reconexión automática...');
-        
-        // ✅ SOLUCIÓN: Esperar reconexión automática del socket original
-        console.log('⏳ [EventManager] Esperando reconexión automática después de error 515...');
-        
-        // El error 515 es temporal, Baileys debería reconectarse automáticamente
-        // Esperar más tiempo para que el socket se estabilice
-        let attempts = 0;
-        const maxAttempts = 60; // Esperar hasta 60 segundos
-        
-        const checkReconnection = setInterval(async () => {
-          attempts++;
-          console.log(`🔍 [EventManager] Esperando reconexión automática (${attempts}/${maxAttempts})...`);
-          
-          // Verificar si el socket original ahora tiene usuario
-          if (state.socket && state.socket.user && state.socket.user.id) {
-            console.log('✅ [EventManager] Reconexión automática exitosa:', state.socket.user.id);
-            clearInterval(checkReconnection);
-            state.isReconnecting = false;
-            await this.verifyRealAuthentication(state.socket, state, userId);
-          } else if (attempts >= maxAttempts) {
-            console.log('⚠️ [EventManager] Timeout esperando reconexión automática');
-            clearInterval(checkReconnection);
-            state.isReconnecting = false;
-            
-            // Mantener QR activo para intento manual
-            state.isConnected = false;
-            state.phoneNumber = null;
-            this.notifyConnectionUpdate(state);
-          }
-        }, 1000); // Verificar cada segundo
-        
+        console.log('📁 [EventManager] Reutilizando credenciales de:', authDir, '→', fs.readdirSync(authDir).length, 'archivos');
       } else {
-        console.log('❌ [EventManager] No se encontraron credenciales guardadas en:', authDir);
-        
-        // Verificar si existe el directorio padre
-        const parentDir = path.dirname(authDir);
-        if (fs.existsSync(parentDir)) {
-          const parentFiles = fs.readdirSync(parentDir);
-          console.log('📂 [EventManager] Directorio padre existe con:', parentFiles.length, 'elementos');
-          console.log('📄 [EventManager] Elementos:', parentFiles.join(', '));
-        } else {
-          console.log('📂 [EventManager] Directorio padre no existe:', parentDir);
-        }
-        
-        state.isReconnecting = false;
+        console.log('⚠️ [EventManager] No hay directorio temporal de sesión; reconectando de todos modos');
       }
-      
+
+      console.log('🔄 [EventManager] Recreando socket con credenciales de la sesión', state.sessionId);
+      const { whatsappLiteService } = await import('@/app/servicios/messaging/whatsapp/WhatsAppLiteService');
+      await whatsappLiteService.connect(userId);
+      console.log('✅ [EventManager] Reconexión tras 515 lanzada (esperando connection: open)');
+
     } catch (error) {
       console.error('❌ [EventManager] Error en reconexión después de error 515:', error);
+    } finally {
       state.isReconnecting = false;
     }
   }

@@ -123,4 +123,14 @@ export class AuthManager {
       return null;
     }
   }
+
+  /** Credenciales junto al sessionId guardado, para reconectar sobre la misma fila. */
+  async loadSessionFromDatabase(userId: string): Promise<{ credentials: any; sessionId: string } | null> {
+    try {
+      return await this.databaseManager.loadBaileysSession(userId);
+    } catch (error) {
+      console.error('❌ Error cargando sesión desde BD:', error);
+      return null;
+    }
+  }
 } 

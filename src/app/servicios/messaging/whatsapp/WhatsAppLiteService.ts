@@ -133,11 +133,12 @@ export class WhatsAppLiteService {
       const { AuthManager } = await import('./modules/AuthManager');
       const authManager = new AuthManager(this.databaseManager);
       // Tras 515 no toques la BD: las credenciales (me, registered=false) están en el dir temporal.
-      const existingCredentials = preserveTempDir
-        ? null
-        : await authManager.loadCredentialsFromDatabase(userId);
+      const savedSession = preserveTempDir ? null : await authManager.loadSessionFromDatabase(userId);
+      const existingCredentials = savedSession?.credentials ?? null;
 
-      const sessionId = this.state.sessionId || uuidv4();
+      // Reutilizar el sessionId guardado evita crear filas nuevas sin credenciales
+      // en cada arranque del worker.
+      const sessionId = this.state.sessionId || savedSession?.sessionId || uuidv4();
       this.state.userId = userId;
       this.state.sessionId = sessionId;
 
@@ -145,6 +146,7 @@ export class WhatsAppLiteService {
         userId: this.state.userId,
         sessionId: this.state.sessionId,
         restoredFromDb: Boolean(existingCredentials),
+        reusedSessionId: savedSession?.sessionId === sessionId,
         preserveTempDir,
       });
 

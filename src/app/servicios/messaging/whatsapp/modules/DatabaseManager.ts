@@ -195,6 +195,25 @@ export class DatabaseManager {
         }
       };
 
+      // Una desconexión nunca debe crear una fila nueva: dejaría una sesión sin
+      // credenciales que después se restaura vacía.
+      if (!state.isConnected) {
+        const { data, error } = await supabase
+          .from('whatsapp_lite_sessions')
+          .update(connectionData)
+          .eq('session_id', state.sessionId)
+          .select('session_id');
+
+        if (error) {
+          console.error('❌ Error actualizando estado de conexión:', error);
+        } else if (!data?.length) {
+          console.log('ℹ️ Sesión sin fila en BD, no se crea al desconectar:', state.sessionId);
+        } else {
+          console.log('✅ Estado de conexión actualizado en BD');
+        }
+        return;
+      }
+
       const { error } = await supabase
         .from('whatsapp_lite_sessions')
         .upsert(connectionData, { onConflict: 'session_id' });
@@ -364,6 +383,14 @@ export class DatabaseManager {
    * Cargar credenciales de Baileys desde la base de datos
    */
   async loadBaileysCredentials(userId: string): Promise<any | null> {
+    const session = await this.loadBaileysSession(userId);
+    return session?.credentials ?? null;
+  }
+
+  /**
+   * Credenciales + sessionId de origen, para reconectar sobre la MISMA fila.
+   */
+  async loadBaileysSession(userId: string): Promise<{ credentials: any; sessionId: string } | null> {
     try {
       console.log('📥 [DatabaseManager] Intentando cargar credenciales de Supabase...');
       console.log('📥 [DatabaseManager] userId:', userId);
@@ -434,8 +461,9 @@ export class DatabaseManager {
           meValue: validatedCredentials?.me,
           noiseKeyValue: validatedCredentials?.noiseKey
         });
-        
-        return validatedCredentials;
+
+        if (!validatedCredentials) return null;
+        return { credentials: validatedCredentials, sessionId: session.session_id };
       }
 
       console.log('📭 [DatabaseManager] No se encontraron credenciales en Supabase');

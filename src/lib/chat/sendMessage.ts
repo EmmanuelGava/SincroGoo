@@ -73,6 +73,29 @@ export async function sendMessage(data: SendMessageData) {
   }
 }
 
+async function resolveWhatsAppSendJid(data: SendMessageData): Promise<string> {
+  const conversacionId = data.metadata?.conversacion_id;
+  if (conversacionId) {
+    const supabase = getSupabaseAdmin();
+    const { data: conv } = await supabase
+      .from('conversaciones')
+      .select('remitente, metadata')
+      .eq('id', conversacionId)
+      .maybeSingle();
+    const remote = conv?.metadata && typeof conv.metadata === 'object'
+      ? (conv.metadata as { remote_jid?: string; phone_number?: string }).remote_jid
+      : undefined;
+    if (remote && remote.includes('@')) return remote;
+    const phone = conv?.metadata && typeof conv.metadata === 'object'
+      ? (conv.metadata as { phone_number?: string }).phone_number
+      : undefined;
+    if (phone) return `${String(phone).replace(/[^\d]/g, '')}@s.whatsapp.net`;
+  }
+  const trimmed = String(data.to || '').trim();
+  if (trimmed.includes('@')) return trimmed;
+  return `${trimmed.replace(/[^\d]/g, '')}@s.whatsapp.net`;
+}
+
 /**
  * Enviar mensaje via WhatsApp (detecta automáticamente Lite o Business)
  */
@@ -88,12 +111,15 @@ async function sendViaWhatsApp(data: SendMessageData) {
     // En el futuro, aquí puedes implementar lógica para detectar
     // si usar Lite o Business basado en configuración del usuario
     
+    const sendJid = await resolveWhatsAppSendJid(data);
+    console.log('📱 JID de envío WhatsApp:', sendJid, 'to original:', data.to);
+
     const { liteSend, isWhatsAppWorkerConfigured, shouldUseLocalLite } = await import(
       '@/lib/whatsapp/workerClient'
     );
 
     if (isWhatsAppWorkerConfigured() || !shouldUseLocalLite()) {
-      const result = await liteSend(data.userId || '', data.to, data.message);
+      const result = await liteSend(data.userId || '', sendJid, data.message);
       return {
         success: Boolean(result.body.success),
         platformDetails: 'whatsapp-lite-baileys',
@@ -126,7 +152,7 @@ async function sendViaWhatsApp(data: SendMessageData) {
     }
     
     const success = await whatsappLiteService.sendMessage(
-      data.to,
+      sendJid,
       data.message,
       {
         type: data.messageType || 'text',

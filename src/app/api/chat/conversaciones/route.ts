@@ -55,7 +55,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ 
       conversaciones: conversacionesConUltimoMensaje 
-    }, { status: 200 });
+    }, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store' },
+    });
 
   } catch (error) {
     console.error('Error fetching conversaciones:', error);

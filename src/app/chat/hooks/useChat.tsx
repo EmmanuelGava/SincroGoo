@@ -36,7 +36,7 @@ export function useChat() {
 
   // Refs para funciones estables en live/poll
   const fetchConversacionesRef = useRef<() => Promise<void>>();
-  const fetchMensajesRef = useRef<(id: string) => Promise<void>>();
+  const fetchMensajesRef = useRef<(id: string, options?: { silent?: boolean }) => Promise<void>>();
   const conversacionActivaRef = useRef<Conversacion | null>(null);
 
   // Fetch conversaciones
@@ -55,7 +55,7 @@ export function useChat() {
     try {
       setError(null);
       
-      const res = await fetch('/api/chat/conversaciones');
+      const res = await fetch('/api/chat/conversaciones', { cache: 'no-store' });
       const data = await res.json();
       
       if (!res.ok) {
@@ -65,7 +65,12 @@ export function useChat() {
         throw new Error(data.error || 'Error fetching conversaciones');
       }
       
-      setConversaciones(data.conversaciones || []);
+      const next = data.conversaciones || [];
+      setConversaciones(next);
+      setConversacionActiva((prev) => {
+        if (!prev) return prev;
+        return next.find((c: Conversacion) => c.id === prev.id) || prev;
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return;
@@ -84,13 +89,15 @@ export function useChat() {
   }, [fetchConversaciones]);
 
   // Fetch mensajes de una conversación específica
-  const fetchMensajes = useCallback(async (conversacionId: string) => {
+  const fetchMensajes = useCallback(async (conversacionId: string, options?: { silent?: boolean }) => {
     if (!conversacionId) return;
     
-    setLoadingMensajes(true);
+    if (!options?.silent) setLoadingMensajes(true);
     try {
       setError(null);
-      const res = await fetch(`/api/chat/mensajes?conversacionId=${conversacionId}`);
+      const res = await fetch(`/api/chat/mensajes?conversacionId=${conversacionId}`, {
+        cache: 'no-store',
+      });
       const data = await res.json();
       
       if (!res.ok) {
@@ -103,7 +110,7 @@ export function useChat() {
       setError(error instanceof Error ? error.message : 'Error desconocido');
       setMensajes([]);
     } finally {
-      setLoadingMensajes(false);
+      if (!options?.silent) setLoadingMensajes(false);
     }
   }, []);
 
@@ -186,7 +193,7 @@ export function useChat() {
     fetchConversacionesRef.current?.();
     const activeId = conversacionActivaRef.current?.id;
     if (activeId) {
-      fetchMensajesRef.current?.(activeId);
+      fetchMensajesRef.current?.(activeId, { silent: true });
     }
   }, []);
 
@@ -211,7 +218,7 @@ export function useChat() {
   // Respaldo por si el broadcast se pierde (pestaña en segundo plano, etc.)
   useEffect(() => {
     if (status !== 'authenticated') return;
-    const id = setInterval(refreshLive, 10000);
+    const id = setInterval(refreshLive, 3000);
     return () => clearInterval(id);
   }, [status, refreshLive]);
 

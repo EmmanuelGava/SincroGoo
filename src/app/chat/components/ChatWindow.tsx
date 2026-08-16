@@ -36,7 +36,9 @@ interface Mensaje {
 
 interface ChatWindowProps {
   conversacion: Conversacion | null;
+  mensajes?: Mensaje[];
   onRefreshConversaciones: () => void;
+  onRefreshMensajes?: () => void;
 }
 
 const servicioColors: Record<string, string> = {
@@ -46,8 +48,13 @@ const servicioColors: Record<string, string> = {
   sms: '#FF9800',
 };
 
-export default function ChatWindow({ conversacion, onRefreshConversaciones }: ChatWindowProps) {
-  const [mensajes, setMensajes] = useState<Mensaje[]>([]);
+export default function ChatWindow({
+  conversacion,
+  mensajes: mensajesLive,
+  onRefreshConversaciones,
+  onRefreshMensajes,
+}: ChatWindowProps) {
+  const [mensajesLocal, setMensajes] = useState<Mensaje[]>([]);
   const [loading, setLoading] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
@@ -64,10 +71,16 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
 
   const fetchMensajes = async () => {
     if (!conversacion) return;
+    if (onRefreshMensajes) {
+      onRefreshMensajes();
+      return;
+    }
     
     setLoading(true);
     try {
-      const res = await fetch(`/api/chat/mensajes?conversacionId=${conversacion.id}`);
+      const res = await fetch(`/api/chat/mensajes?conversacionId=${conversacion.id}`, {
+        cache: 'no-store',
+      });
       const data = await res.json();
       setMensajes(data.mensajes || []);
     } catch (error) {
@@ -78,13 +91,16 @@ export default function ChatWindow({ conversacion, onRefreshConversaciones }: Ch
     }
   };
 
+  const mensajes = mensajesLive ?? mensajesLocal;
+
   useEffect(() => {
+    if (mensajesLive) return;
     if (conversacion) {
       fetchMensajes();
     } else {
       setMensajes([]);
     }
-  }, [conversacion]);
+  }, [conversacion?.id]);
 
   useEffect(() => {
     scrollToBottom();

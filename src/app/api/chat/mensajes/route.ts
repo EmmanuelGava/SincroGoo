@@ -44,7 +44,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ 
       mensajes: mensajes || [] 
-    }, { status: 200 });
+    }, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store' },
+    });
 
   } catch (error) {
     console.error('Error fetching mensajes:', error);

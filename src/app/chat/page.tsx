@@ -14,7 +14,9 @@ export default function ChatPage() {
     loading,
     error,
     seleccionarConversacion,
-    fetchConversaciones
+    fetchConversaciones,
+    fetchMensajes,
+    mensajes,
   } = useChat();
 
   return (
@@ -40,7 +42,11 @@ export default function ChatPage() {
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <ChatWindow
             conversacion={conversacionActiva}
+            mensajes={mensajes}
             onRefreshConversaciones={fetchConversaciones}
+            onRefreshMensajes={() => {
+              if (conversacionActiva) fetchMensajes(conversacionActiva.id, { silent: true });
+            }}
           />
         </Box>
       </Box>

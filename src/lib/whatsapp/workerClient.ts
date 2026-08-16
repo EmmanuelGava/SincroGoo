@@ -1,18 +1,18 @@
 const WORKER_URL = process.env.WHATSAPP_WORKER_URL;
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
 
-function useRemoteWorker(): boolean {
+function isRemoteWorkerEnabled(): boolean {
   if (process.env.USE_WHATSAPP_WORKER === 'true') return Boolean(WORKER_URL);
   if (process.env.NODE_ENV === 'development') return false;
   return Boolean(WORKER_URL);
 }
 
 export function isWhatsAppWorkerConfigured(): boolean {
-  return useRemoteWorker();
+  return isRemoteWorkerEnabled();
 }
 
 export function shouldUseLocalLite(): boolean {
-  return !process.env.VERCEL && !useRemoteWorker();
+  return !process.env.VERCEL && !isRemoteWorkerEnabled();
 }
 
 export async function callWhatsAppWorker(

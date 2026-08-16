@@ -373,12 +373,19 @@ export class DatabaseManager {
       if (session?.baileys_credentials) {
         console.log('📥 [DatabaseManager] Credenciales encontradas en Supabase');
         
-        // CRÍTICO: Verificar que las credenciales estén COMPLETAS (tengan 'me' con datos)
-        if (!session.baileys_credentials.me || session.baileys_credentials.me === null) {
-          console.log('⚠️ Credenciales encontradas pero INCOMPLETAS (me: null) - La sesión nunca se autenticó completamente');
-          console.log('🗑️ Eliminando credenciales incompletas y empezando desde cero...');
-          
-          // Eliminar las credenciales incompletas
+        // CRÍTICO: Verificar que las credenciales estén COMPLETAS.
+        // Requiere `me` (identidad) Y `registered === true` (emparejamiento finalizado).
+        // Si el emparejamiento se cortó a la mitad (p.ej. reinicio del worker), registered queda false
+        // y hay que descartar y pedir un QR nuevo en lugar de intentar restaurar una sesión rota.
+        const creds = session.baileys_credentials;
+        const meOk = !!creds.me && creds.me !== null;
+        const registeredOk = creds.registered === true;
+        if (!meOk || !registeredOk) {
+          console.log('⚠️ Credenciales INCOMPLETAS (me o registered inválidos) - el emparejamiento no se completó', {
+            meOk,
+            registered: creds.registered
+          });
+          console.log('🗑️ Eliminando credenciales incompletas para forzar un QR nuevo...');
           await this.deleteIncompleteCredentials(session.session_id);
           return null;
         }

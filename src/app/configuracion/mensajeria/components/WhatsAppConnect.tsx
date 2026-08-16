@@ -243,6 +243,14 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
         const data = await response.json();
         const connected = Boolean(data?.data?.connected || data?.connected);
         const phoneNumber = data?.data?.phoneNumber || data?.phoneNumber;
+        if (!connected) {
+          setConnectionStatus((prev: { connected?: boolean } | null) =>
+            prev?.connected
+              ? { connected: false, phoneNumber: null, lastActivity: null }
+              : prev
+          );
+          return;
+        }
         if (connected && phoneNumber && !notifiedConnected.current) {
           notifiedConnected.current = true;
           setConnectionStatus({
@@ -654,8 +662,18 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
         throw new Error(errorData.error || 'Error desconectando WhatsApp Lite');
       }
 
-      const data = await response.json();
-      setConnectionStatus(null);
+      await response.json();
+      notifiedConnected.current = false;
+      try {
+        localStorage.removeItem('whatsapp_credentials');
+      } catch {
+        // ignore
+      }
+      setConnectionStatus({
+        connected: false,
+        phoneNumber: null,
+        lastActivity: null,
+      });
       setQrCode(null);
       setShowQRDialog(false);
       setStep(0);
@@ -811,53 +829,24 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
 
   const handleReconnect = async () => {
     try {
-      console.log('🔄 Reconectando WhatsApp...');
-      
-      const response = await fetch('/api/whatsapp/reconnect', {
+      console.log('🔄 Reconectando WhatsApp (sesión nueva + QR)...');
+      await fetch('/api/whatsapp', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disconnect', type: 'lite' }),
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Reconexión iniciada:', data);
-        
-        // Mostrar notificación de éxito
-        toast({
-          title: "Reconexión iniciada",
-          description: "Se está intentando reconectar WhatsApp. Revisa el QR code.",
-        });
-        
-        // ✅ SOLUCIÓN: Actualizar estado local con verificación de null
-        if (data.status) {
-          setConnectionStatus(data.status);
-        } else {
-          // Si no hay status, establecer un estado por defecto
-          setConnectionStatus({
-            connected: false,
-            phoneNumber: null,
-            lastActivity: null
-          });
-        }
-        
-      } else {
-        const errorData = await response.json();
-        console.error('❌ Error en reconexión:', errorData);
-        
-        toast({
-          title: "Error en reconexión",
-          description: errorData.details || "Error reconectando WhatsApp",
-          variant: "destructive",
-        });
-      }
+      notifiedConnected.current = false;
+      setConnectionStatus({
+        connected: false,
+        phoneNumber: null,
+        lastActivity: null,
+      });
+      await handleLiteConnect();
     } catch (error) {
-      console.error('❌ Error en handleReconnect:', error);
-      
+      console.error('❌ Error en reconexión:', error);
       toast({
-        title: "Error en reconexión",
-        description: "Error inesperado reconectando WhatsApp",
+        title: "Error de reconexión",
+        description: error instanceof Error ? error.message : "No se pudo iniciar la reconexión",
         variant: "destructive",
       });
     }
@@ -1255,12 +1244,20 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
 
           <Button
             variant="outlined"
+            color="error"
+            startIcon={<CancelIcon />}
+            onClick={handleDisconnect}
+          >
+            Desvincular WhatsApp
+          </Button>
+
+          <Button
+            variant="outlined"
             color="primary"
             startIcon={<SendIcon />}
             onClick={handleReconnect}
-            disabled={connectionStatus.connected}
           >
-            Reconectar WhatsApp
+            Vincular de nuevo (QR)
           </Button>
 
           <Button

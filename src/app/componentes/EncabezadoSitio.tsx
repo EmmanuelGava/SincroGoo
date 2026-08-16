@@ -145,6 +145,8 @@ export function EncabezadoSitio() {
       await signOut({ callbackUrl: "/" });
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
+    } finally {
+      window.location.assign("/");
     }
   }
 

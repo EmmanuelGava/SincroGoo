@@ -185,7 +185,12 @@ export function EncabezadoSistema() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => signOut({ redirect: true, callbackUrl: "/" })}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void signOut({ callbackUrl: "/" }).finally(() => {
+                      window.location.assign("/");
+                    });
+                  }}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   Cerrar sesión

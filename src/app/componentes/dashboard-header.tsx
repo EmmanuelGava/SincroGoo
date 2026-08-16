@@ -17,10 +17,11 @@ export function DashboardHeader({ userName }: DashboardHeaderProps) {
     try {
       await signOut({ redirect: false })
       toast.success("Sesión cerrada correctamente")
-      router.push("/")
     } catch (error) {
       console.error("Error al cerrar sesión:", error)
       toast.error("Error al cerrar sesión")
+    } finally {
+      window.location.assign("/")
     }
   }
 

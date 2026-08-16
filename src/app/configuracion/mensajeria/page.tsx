@@ -222,8 +222,26 @@ export default function ConfiguracionMensajeriaPage() {
   // Debounce para evitar llamadas múltiples
   const [isProcessingConnection, setIsProcessingConnection] = useState(false);
 
+  const handlePlatformDisconnected = async (plataforma: Plataforma) => {
+    const toDelete = configuraciones.filter((c) => {
+      if ((plataforma === 'whatsapp-lite' || plataforma === 'whatsapp-business') && c.plataforma === 'whatsapp') {
+        return true;
+      }
+      return c.plataforma === plataforma;
+    });
+    for (const config of toDelete) {
+      await fetch(`/api/configuracion/mensajeria/${config.id}`, { method: 'DELETE' });
+    }
+    await fetchConfiguraciones();
+  };
+
   const handlePlatformConnected = async (plataforma: Plataforma, config: any) => {
     console.log('🔄 handlePlatformConnected llamado:', { plataforma, config });
+
+    if (config?.status === 'disconnected' || config?.estado_conexion === 'disconnected') {
+      await handlePlatformDisconnected(plataforma);
+      return;
+    }
     
     // Evitar procesamiento múltiple con debounce más agresivo
     if (isProcessingConnection) {

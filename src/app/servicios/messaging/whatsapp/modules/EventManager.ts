@@ -27,6 +27,11 @@ export class EventManager {
   private lastSaveTime: number = 0;
   private saveDebounceMs: number = 2000; // Evitar guardados múltiples en 2 segundos
   private isProcessingAuth: boolean = false; // Evitar procesamiento múltiple de autenticación
+  private reconnectHandler: ((userId: string) => Promise<void>) | null = null;
+
+  setReconnectHandler(handler: (userId: string) => Promise<void>): void {
+    this.reconnectHandler = handler;
+  }
 
   /**
    * Guardar estado de conexión con debounce para evitar duplicados
@@ -103,12 +108,7 @@ export class EventManager {
             } else if (attempts >= maxAttempts) {
               console.log('⚠️ [EventManager] No se encontró usuario autenticado después de', maxAttempts, 'intentos');
               clearInterval(checkInterval);
-              
-              // Como último recurso, intentar reconexión
-              if (!state.isReconnecting) {
-                console.log('🔄 [EventManager] Intentando reconexión como último recurso...');
-                await this.attemptReconnectionAfter515(userId, state);
-              }
+              // No reconectar acá: si fue un 515, attemptReconnectionAfter515 ya se ocupó.
             }
           }, 500); // Verificar cada 500ms (más frecuente)
         }
@@ -431,8 +431,10 @@ export class EventManager {
       }
 
       console.log('🔄 [EventManager] Recreando socket con credenciales de la sesión', state.sessionId);
-      const { whatsappLiteService } = await import('@/app/servicios/messaging/whatsapp/WhatsAppLiteService');
-      await whatsappLiteService.connect(userId);
+      if (!this.reconnectHandler) {
+        throw new Error('No hay handler de reconexión: no se puede recrear el socket tras 515');
+      }
+      await this.reconnectHandler(userId);
       console.log('✅ [EventManager] Reconexión tras 515 lanzada (esperando connection: open)');
 
     } catch (error) {
@@ -452,9 +454,10 @@ export class EventManager {
     
     try {
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const { whatsappLiteService } = await import('@/app/servicios/messaging/whatsapp/WhatsAppLiteService');
-      await whatsappLiteService.connect(userId);
+
+      if (this.reconnectHandler) {
+        await this.reconnectHandler(userId);
+      }
       
       console.log('✅ Reconexión exitosa');
     } catch (error) {

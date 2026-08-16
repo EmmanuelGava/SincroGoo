@@ -50,7 +50,10 @@ export class WhatsAppLiteService {
     this.eventManager = new EventManager(this.databaseManager);
     this.connectionManager = new ConnectionManager(this.eventManager);
     this.cleanupManager = CleanupManager.getInstance();
-    
+    this.eventManager.setReconnectHandler(async (uid) => {
+      await this.connect(uid);
+    });
+
     console.log('🎯 WhatsApp Lite Service Refactorizado inicializado');
   }
 
@@ -88,9 +91,15 @@ export class WhatsAppLiteService {
       
       console.log('🔄 [WhatsAppLiteService] Preparando conexión (preservando auth si existe)');
 
+      const preserveTempDir = this.state.preserve515 === true;
+      this.state.preserve515 = false;
+
       const { AuthManager } = await import('./modules/AuthManager');
       const authManager = new AuthManager(this.databaseManager);
-      const existingCredentials = await authManager.loadCredentialsFromDatabase(userId);
+      // Tras 515 no toques la BD: las credenciales (me, registered=false) están en el dir temporal.
+      const existingCredentials = preserveTempDir
+        ? null
+        : await authManager.loadCredentialsFromDatabase(userId);
 
       const sessionId = this.state.sessionId || uuidv4();
       this.state.userId = userId;
@@ -100,11 +109,8 @@ export class WhatsAppLiteService {
         userId: this.state.userId,
         sessionId: this.state.sessionId,
         restoredFromDb: Boolean(existingCredentials),
+        preserveTempDir,
       });
-
-      // Reconexión tras error 515: preservar el directorio temporal (ya tiene las credenciales del escaneo)
-      const preserveTempDir = this.state.preserve515 === true;
-      this.state.preserve515 = false;
 
       let authState;
       if (typeof window !== 'undefined') {
@@ -138,6 +144,11 @@ export class WhatsAppLiteService {
         stateMe: authState.state.creds?.me,
         stateRegistrationId: authState.state.creds?.registrationId
       });
+
+      // Tras 515 el socket viejo está muerto: soltar referencia para crear uno nuevo.
+      if (preserveTempDir) {
+        this.connectionManager.releaseExistingSocket();
+      }
 
       // Inicializar socket de Baileys
       this.state.socket = await this.connectionManager.createSocket(authState);

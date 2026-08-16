@@ -373,29 +373,30 @@ export class DatabaseManager {
       if (session?.baileys_credentials) {
         console.log('📥 [DatabaseManager] Credenciales encontradas en Supabase');
         
-        // CRÍTICO: Verificar que las credenciales estén COMPLETAS.
-        // Requiere `me` (identidad) Y `registered === true` (emparejamiento finalizado).
-        // Si el emparejamiento se cortó a la mitad (p.ej. reinicio del worker), registered queda false
-        // y hay que descartar y pedir un QR nuevo en lugar de intentar restaurar una sesión rota.
+        // CRÍTICO: sin `me` el emparejamiento nunca arrancó → QR nuevo.
+        // Con `me` pero `registered: false` es el estado NORMAL justo después de escanear
+        // (antes del restart 515). Hay que DEVOLVER esas credenciales, no borrarlas.
+        // Si quedaron colgadas más de 10 minutos (sesión rota), recién ahí pedir QR nuevo.
         const creds = session.baileys_credentials;
         const meOk = !!creds.me && creds.me !== null;
-        const registeredOk = creds.registered === true;
-        if (!meOk || !registeredOk) {
-          console.log('⚠️ Credenciales INCOMPLETAS (me o registered inválidos) - el emparejamiento no se completó', {
-            meOk,
-            registered: creds.registered
-          });
-          console.log('🗑️ Eliminando credenciales incompletas para forzar un QR nuevo...');
+        if (!meOk) {
+          console.log('⚠️ Credenciales INCOMPLETAS (me: null) - empezando desde cero');
+          await this.deleteIncompleteCredentials(session.session_id);
+          return null;
+        }
+
+        const lastActivity = session.last_activity ? new Date(session.last_activity) : null;
+        const minutesSinceActivity = lastActivity
+          ? (Date.now() - lastActivity.getTime()) / (1000 * 60)
+          : Number.POSITIVE_INFINITY;
+        if (creds.registered !== true && minutesSinceActivity > 10) {
+          console.log('⚠️ Emparejamiento incompleto y viejo (>10 min) - forzar QR nuevo');
           await this.deleteIncompleteCredentials(session.session_id);
           return null;
         }
         
         // Verificar que las credenciales no estén expiradas (más de 7 días)
-        const lastActivity = new Date(session.last_activity);
-        const now = new Date();
-        const daysDiff = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24);
-
-        if (daysDiff > 7) {
+        if (minutesSinceActivity > 7 * 24 * 60) {
           console.log('⚠️ Credenciales de Baileys expiradas (más de 7 días), no se cargarán');
           return null;
         }

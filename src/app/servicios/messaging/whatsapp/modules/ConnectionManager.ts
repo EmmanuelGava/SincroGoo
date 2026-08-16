@@ -91,6 +91,13 @@ export class ConnectionManager {
   }
 
   /**
+   * Suelta la referencia al socket muerto (p.ej. tras 515) sin cerrarlo de nuevo.
+   */
+  releaseExistingSocket(): void {
+    this.existingSocket = null;
+  }
+
+  /**
    * Obtener socket existente
    */
   getExistingSocket(): WASocket | null {

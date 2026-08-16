@@ -1,4 +1,5 @@
 # Railway corre el worker Baileys, no Next.js (eso está en Vercel).
+# Baileys exige Node 20; Nixpacks defaulted a 18.
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install"

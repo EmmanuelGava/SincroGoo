@@ -14,7 +14,8 @@ const publicRoutes = [
   '/auth/callback',
   '/privacy-policy',
   '/terms-of-service',
-  '/data-deletion'
+  '/data-deletion',
+  '/api/integrations/incoming',
 ]
 
 export async function middleware(request: NextRequest) {

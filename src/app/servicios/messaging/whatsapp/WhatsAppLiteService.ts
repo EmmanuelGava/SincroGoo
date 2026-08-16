@@ -88,30 +88,35 @@ export class WhatsAppLiteService {
       
       console.log('🔄 [WhatsAppLiteService] Preparando conexión (preservando auth si existe)');
 
-      // ✅ SOLUCIÓN: Establecer userId y sessionId ANTES de crear el socket
-      const sessionId = uuidv4();
+      const { AuthManager } = await import('./modules/AuthManager');
+      const authManager = new AuthManager(this.databaseManager);
+      const existingCredentials = await authManager.loadCredentialsFromDatabase(userId);
+
+      const sessionId = this.state.sessionId || uuidv4();
       this.state.userId = userId;
       this.state.sessionId = sessionId;
-      
+
       console.log('👤 [WhatsAppLiteService] Estado actualizado:', {
         userId: this.state.userId,
-        sessionId: this.state.sessionId
+        sessionId: this.state.sessionId,
+        restoredFromDb: Boolean(existingCredentials),
       });
 
-      // Crear auth state apropiado según el entorno
       let authState;
       if (typeof window !== 'undefined') {
-        // Cliente: usar localStorage
         const { BrowserAuthManager } = await import('./modules/BrowserAuthManager');
         const browserAuthManager = new BrowserAuthManager(userId, sessionId);
         authState = await browserAuthManager.createBrowserAuthState();
         console.log('🌐 [WhatsAppLiteService] Auth state con localStorage creado');
       } else {
-        // Servidor: usar archivos
-        const { AuthManager } = await import('./modules/AuthManager');
-        const authManager = new AuthManager(this.databaseManager);
-        authState = await authManager.createInMemoryAuthState(undefined, userId, sessionId);
-        console.log('🌐 [WhatsAppLiteService] Auth state con archivos creado');
+        authState = await authManager.createInMemoryAuthState(
+          existingCredentials || undefined,
+          userId,
+          sessionId
+        );
+        console.log('🌐 [WhatsAppLiteService] Auth state con archivos creado', {
+          restoredFromDb: Boolean(existingCredentials),
+        });
       }
 
       // Validar auth state antes de crear socket

@@ -395,6 +395,11 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
         })
       });
 
+      if (statusResponse.status === 503) {
+        const statusData = await statusResponse.json().catch(() => ({}));
+        throw new Error(statusData.error || 'Worker de WhatsApp no disponible. En producción Railway tiene que estar encendido.');
+      }
+
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
         console.log('📊 Estado actual:', statusData);

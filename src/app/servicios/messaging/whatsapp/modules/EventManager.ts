@@ -245,17 +245,26 @@ export class EventManager {
       });
     });
 
-    // Event listener para mensajes
     socket.ev.on('messages.upsert', async (m) => {
       console.log('📨 Mensaje recibido:', m.messages.length, 'mensajes');
-      
+
       for (const message of m.messages) {
         if (message.key.fromMe) continue;
-        
-        console.log('📨 Procesando mensaje de:', message.key.remoteJid);
-        
-        // Procesar mensaje aquí
-        // TODO: Implementar lógica de procesamiento de mensajes
+        const jid = message.key.remoteJid || '';
+        if (jid.endsWith('@g.us') || jid === 'status@broadcast') continue;
+
+        const text = extractIncomingText(message.message);
+        if (!text) continue;
+
+        const from = jid.replace(/@s\.whatsapp\.net$/, '').replace(/@lid$/, '');
+        console.log('📨 Procesando mensaje de:', from);
+        await forwardIncomingToApp({
+          from,
+          message: text,
+          contactName: message.pushName,
+          userId,
+          timestamp: message.messageTimestamp,
+        });
       }
     });
 
@@ -613,5 +622,55 @@ export class EventManager {
     } catch (error) {
       console.error('❌ Error emitiendo evento:', error);
     }
+  }
+}
+
+function extractIncomingText(message: any): string | null {
+  if (!message) return null;
+  return (
+    message.conversation ||
+    message.extendedTextMessage?.text ||
+    message.imageMessage?.caption ||
+    message.videoMessage?.caption ||
+    message.documentMessage?.caption ||
+    null
+  );
+}
+
+async function forwardIncomingToApp(payload: {
+  from: string;
+  message: string;
+  contactName?: string | null;
+  userId: string;
+  timestamp?: unknown;
+}) {
+  const appUrl = (process.env.APP_URL || process.env.NEXTAUTH_URL || '').replace(/\/$/, '');
+  if (!appUrl) {
+    console.warn('⚠️ APP_URL/NEXTAUTH_URL no definida: no se reenvía el mensaje al inbox');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${appUrl}/api/integrations/incoming/whatsapp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-worker-secret': process.env.WORKER_SECRET || '',
+      },
+      body: JSON.stringify({
+        from: payload.from,
+        message: payload.message,
+        type: 'text',
+        platform: 'whatsapp-lite-baileys',
+        contact_name: payload.contactName,
+        timestamp: payload.timestamp,
+        userId: payload.userId,
+      }),
+    });
+    if (!response.ok) {
+      console.error('❌ Error reenviando mensaje al inbox:', response.status, await response.text());
+    }
+  } catch (error) {
+    console.error('❌ Error reenviando mensaje al inbox:', error);
   }
 }

@@ -630,7 +630,8 @@ function PriorityConversationsSkeleton() {
   );
 }
 
-function PriorityConversationsEmpty({ onRefresh }: { onRefresh: () => void }) {
+function PriorityConversationsEmpty({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
+  const router = useRouter();
   return (
     <Box sx={{ textAlign: 'center', py: 6 }}>
       <Box
@@ -649,17 +650,17 @@ function PriorityConversationsEmpty({ onRefresh }: { onRefresh: () => void }) {
         <Box sx={{ color: 'text.disabled', fontSize: 32 }}>💬</Box>
       </Box>
       <Typography variant="h6" fontWeight="medium" color="text.primary" mb={1}>
-        No hay conversaciones prioritarias
+        Todavía no hay conversaciones
       </Typography>
       <Typography variant="body2" color="text.secondary" mb={3}>
-        Las conversaciones aparecerán aquí cuando tengas mensajes pendientes o leads importantes
+        Conectá WhatsApp personal y el primer mensaje aparece acá y en el Kanban.
       </Typography>
       <Button
-        onClick={onRefresh}
+        onClick={() => router.push('/onboarding')}
         variant="contained"
         color="primary"
       >
-        Actualizar
+        Conectar WhatsApp
       </Button>
     </Box>
   );

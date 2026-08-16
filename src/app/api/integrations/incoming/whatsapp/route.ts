@@ -11,6 +11,13 @@ export async function POST(request: NextRequest) {
     
     // Determinar el tipo de mensaje basado en la estructura
     const messageType = determineMessageType(body);
+
+    if (messageType === 'lite') {
+      const workerSecret = process.env.WORKER_SECRET;
+      if (workerSecret && request.headers.get('x-worker-secret') !== workerSecret) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      }
+    }
     
     if (messageType === 'business') {
       return await handleBusinessMessage(body);
@@ -103,7 +110,8 @@ async function handleLiteMessage(body: any) {
     metadata: {
       source: 'whatsapp-lite',
       tipo_conexion: 'lite',
-      platform: body.platform || 'whatsapp-lite-baileys'
+      platform: body.platform || 'whatsapp-lite-baileys',
+      userId: body.userId,
     }
   });
 

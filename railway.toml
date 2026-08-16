@@ -1,0 +1,9 @@
+# Railway corre el worker Baileys, no Next.js (eso está en Vercel).
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install"
+
+[deploy]
+startCommand = "npx tsx worker/whatsapp.ts"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

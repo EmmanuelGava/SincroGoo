@@ -199,9 +199,17 @@ export default function ListaProyectos({ proyectos, cargando, busqueda }: ListaP
           ))
         ) : (
           <Grid item xs={12}>
-            <Typography variant="body1" color="text.secondary" align="center">
-              No se encontraron proyectos
-            </Typography>
+            <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Todavía no hay proyectos
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Las herramientas de Sheets y Slides viven acá. El día a día de KloSync es el chat y el Kanban de leads.
+              </Typography>
+              <Button variant="outlined" onClick={() => router.push('/onboarding')}>
+                Ir al inicio
+              </Button>
+            </Box>
           </Grid>
         )}
       </Grid>

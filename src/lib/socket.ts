@@ -22,7 +22,10 @@ export function initSocket(): Socket {
     console.log('🔍 Stack trace de inicialización de Socket.IO:', new Error().stack);
   }
 
-  const socketUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const socketUrl =
+    process.env.NEXT_PUBLIC_SOCKET_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    'http://localhost:3000';
   console.log('🔌 URL del Socket.IO:', socketUrl);
 
   socket = io(socketUrl, {
@@ -133,7 +136,9 @@ export function shouldInitializeSocket(): boolean {
   if (typeof window === 'undefined') return false;
 
   const currentPath = window.location.pathname;
-  const isWhatsAppPage = currentPath.includes('/configuracion/mensajeria');
+  const isWhatsAppPage =
+    currentPath.includes('/configuracion/mensajeria') ||
+    currentPath.includes('/onboarding');
 
   console.log('🔍 Verificando si se debe inicializar Socket.IO:', {
     currentPath,

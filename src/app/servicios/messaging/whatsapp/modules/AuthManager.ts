@@ -78,24 +78,14 @@ export class AuthManager {
       const wrappedSaveCreds = async () => {
         try {
           console.log('💾 Guardando credenciales...');
-          
-          // Guardar en archivos temporales
           await saveCreds();
-          console.log('✅ Credenciales guardadas en archivos temporales');
-          
-          // ✅ SOLUCIÓN: Limpiar archivos temporales después de guardar en BD
-          // Aumentar tiempo a 5 minutos para evitar problemas durante autenticación
-          setTimeout(() => {
-            try {
-              if (fs.existsSync(authDir)) {
-                fs.rmSync(authDir, { recursive: true, force: true });
-                console.log('🧹 Archivos temporales limpiados después de 5 minutos');
-              }
-            } catch (cleanupError) {
-              console.error('❌ Error limpiando archivos temporales:', cleanupError);
-            }
-          }, 300000); // Limpiar después de 5 minutos
-          
+
+          const credsPath = path.join(authDir, 'creds.json');
+          if (userId && sessionId && fs.existsSync(credsPath)) {
+            const credentials = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+            await this.databaseManager.saveBaileysCredentials(userId, sessionId, credentials);
+            console.log('✅ Credenciales persistidas en whatsapp_lite_sessions');
+          }
         } catch (error) {
           console.error('❌ Error en wrappedSaveCreds:', error);
           throw error;

@@ -14,8 +14,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.email) {
-      console.log('✅ Usuario autenticado con datos completos, redirigiendo a dashboard');
-      router.push('/dashboard');
+      console.log('✅ Usuario autenticado con datos completos, redirigiendo a onboarding');
+      router.push('/onboarding');
     }
   }, [status, session, router]);
 
@@ -25,7 +25,7 @@ export default function LoginPage() {
       console.log('🔄 Iniciando proceso de login...');
 
       const result = await signIn('google', {
-        callbackUrl: '/dashboard',
+        callbackUrl: '/onboarding',
         redirect: false
       });
 

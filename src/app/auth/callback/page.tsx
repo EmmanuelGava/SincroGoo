@@ -19,7 +19,7 @@ export default function AuthCallback() {
     }
 
     // Si no hay error, redirigir al dashboard
-    router.push("/dashboard")
+    router.push("/onboarding")
   }, [router, searchParams])
 
   return (

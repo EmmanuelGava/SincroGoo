@@ -156,19 +156,19 @@ export default function ChatSidebar({
         {conversaciones.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography sx={{ color: 'text.secondary', mb: 2 }}>
-              No hay conversaciones activas
+              Todavía no hay conversaciones
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-              Configura tus plataformas de mensajería para comenzar
+              Conectá tu WhatsApp personal para que los mensajes de leads aparezcan acá.
             </Typography>
             <Button
               variant="outlined"
               size="small"
               startIcon={<SettingsIcon />}
-              onClick={() => window.open('/configuracion/mensajeria', '_blank')}
+              onClick={() => window.location.assign('/onboarding')}
               sx={{ fontSize: '0.8rem' }}
             >
-              Configurar Mensajería
+              Conectar WhatsApp
             </Button>
           </Box>
         ) : (

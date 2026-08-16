@@ -40,7 +40,7 @@ export default function SignIn() {
       
       // Incluir los scopes necesarios para Google Sheets y Drive
       await signIn('google', { 
-        callbackUrl: '/',
+        callbackUrl: '/onboarding',
         redirect: true,
         scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file'
       });
@@ -70,7 +70,7 @@ export default function SignIn() {
       console.error('Credentials sign-in error from next-auth:', result.error);
       setError(result.error === 'CredentialsSignin' ? 'Email o contraseña incorrectos.' : result.error || 'Error desconocido al iniciar sesión.');
     } else if (result?.ok) {
-      window.location.href = searchParams?.get('callbackUrl') || '/';
+      window.location.href = searchParams?.get('callbackUrl') || '/onboarding';
     }
   };
 

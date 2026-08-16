@@ -88,6 +88,21 @@ async function sendViaWhatsApp(data: SendMessageData) {
     // En el futuro, aquí puedes implementar lógica para detectar
     // si usar Lite o Business basado en configuración del usuario
     
+    const { liteSend, isWhatsAppWorkerConfigured, shouldUseLocalLite } = await import(
+      '@/lib/whatsapp/workerClient'
+    );
+
+    if (isWhatsAppWorkerConfigured() || !shouldUseLocalLite()) {
+      const result = await liteSend(data.userId || '', data.to, data.message);
+      return {
+        success: Boolean(result.body.success),
+        platformDetails: 'whatsapp-lite-baileys',
+        error: result.body.success
+          ? undefined
+          : String(result.body.error || 'WhatsApp Lite no está conectado'),
+      };
+    }
+
     const { whatsappLiteService } = await import('@/app/servicios/messaging/whatsapp/WhatsAppLiteService');
     
     console.log('📱 WhatsApp Lite Service importado correctamente');
@@ -103,72 +118,11 @@ async function sendViaWhatsApp(data: SendMessageData) {
     
     if (!connectionStatus.connected) {
       console.log('❌ WhatsApp Lite no está conectado');
-      console.log('⚠️ Reconexión automática DESHABILITADA temporalmente para debugging');
-      
-      // TEMPORALMENTE DESHABILITADO
       return { 
         success: false, 
         platformDetails: 'whatsapp-lite-baileys',
-        error: 'WhatsApp Lite no está conectado. Ve a Configuración > Mensajería para conectar.'
+        error: 'WhatsApp Lite no está conectado. Conectalo desde el onboarding o Mensajería.'
       };
-      
-      // CÓDIGO ORIGINAL COMENTADO
-      /*
-      console.log('❌ WhatsApp Lite no está conectado, intentando reconectar...');
-      
-      try {
-        // Intentar reconectar automáticamente
-        const reconnectResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/whatsapp/check-and-reconnect`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (reconnectResponse.ok) {
-          const reconnectData = await reconnectResponse.json();
-          console.log('🔄 Resultado de reconexión:', reconnectData);
-          
-          if (reconnectData.action === 'reconnected') {
-            console.log('✅ WhatsApp Lite reconectado exitosamente');
-            // Verificar estado nuevamente
-            const newStatus = whatsappLiteService.getConnectionStatus();
-            if (newStatus.connected) {
-              // Continuar con el envío
-            } else {
-              return { 
-                success: false, 
-                platformDetails: 'whatsapp-lite-baileys',
-                error: 'WhatsApp Lite no se pudo reconectar automáticamente'
-              };
-            }
-          } else if (reconnectData.action === 'qr_needed') {
-            return { 
-              success: false, 
-              platformDetails: 'whatsapp-lite-baileys',
-              error: 'WhatsApp Lite necesita reconexión manual. Ve a Configuración > Mensajería para escanear el QR.'
-            };
-          } else {
-            return { 
-              success: false, 
-              platformDetails: 'whatsapp-lite-baileys',
-              error: 'WhatsApp Lite no está conectado y no se pudo reconectar'
-            };
-          }
-        } else {
-          return { 
-            success: false, 
-            platformDetails: 'whatsapp-lite-baileys',
-            error: 'WhatsApp Lite no está conectado'
-          };
-        }
-      } catch (error) {
-        console.error('❌ Error en reconexión automática:', error);
-        return { 
-          success: false, 
-          platformDetails: 'whatsapp-lite-baileys',
-          error: 'WhatsApp Lite no está conectado'
-        };
-      }
-      */
     }
     
     const success = await whatsappLiteService.sendMessage(

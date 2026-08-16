@@ -36,7 +36,8 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
     const conversacionId = await findOrCreateConversation(supabase, {
       remitente,
       platform: data.platform,
-      timestamp: data.timestamp || new Date()
+      timestamp: data.timestamp || new Date(),
+      usuarioId: data.metadata?.userId,
     });
 
     // 2. Guardar el mensaje
@@ -94,6 +95,7 @@ async function findOrCreateConversation(supabase: any, data: {
   remitente: string;
   platform: string;
   timestamp: Date;
+  usuarioId?: string;
 }) {
   // Buscar conversación existente
   const { data: existingConversation } = await supabase
@@ -125,6 +127,7 @@ async function findOrCreateConversation(supabase: any, data: {
       tipo: 'entrante',
       remitente: data.remitente,
       fecha_mensaje: data.timestamp.toISOString(),
+      usuario_id: data.usuarioId || null,
       metadata: {
         platform: data.platform,
         created_at: new Date().toISOString()

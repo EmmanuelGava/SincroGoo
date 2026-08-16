@@ -25,6 +25,9 @@ export default function CrmPage() {
               <Typography variant="subtitle1" gutterBottom>
                 Gestiona tus oportunidades y leads de manera visual. Arrastra y suelta para mover entre etapas.
               </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Si todavía no hay leads, conectá WhatsApp y el primer mensaje crea la conversación. Podés crear un lead a mano cuando quieras.
+              </Typography>
               <Box sx={{ mt: 4 }}>
                 <KanbanLeads />
               </Box>

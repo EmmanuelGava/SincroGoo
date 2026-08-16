@@ -1,86 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { WhatsAppLiteService } from '@/app/servicios/messaging/whatsapp/WhatsAppLiteService';
+import { liteConnect, liteStatus } from '@/lib/whatsapp/workerClient';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 [API] Iniciando reconexión de WhatsApp...');
-    
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    console.log('👤 [API] Usuario autenticado:', session.user.id);
-
-    // Obtener instancia del WhatsAppLiteService
-    const whatsappService = WhatsAppLiteService.getInstance();
-    
-    // Verificar estado actual
-    const currentStatus = whatsappService.getConnectionStatus();
-    console.log('📊 [API] Estado actual:', currentStatus);
-    
-    if (currentStatus.connected) {
-      return NextResponse.json({ 
-        success: true, 
+    const status = await liteStatus(session.user.id);
+    const data = (status.body.data || {}) as { connected?: boolean };
+    if (data.connected) {
+      return NextResponse.json({
+        success: true,
         message: 'Ya está conectado',
-        status: currentStatus
+        status: data,
       });
     }
-    
-    // Intentar reconectar
-    console.log('🔄 [API] Intentando reconectar...');
-    const qrData = await whatsappService.connect(session.user.id);
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    const qrData = await liteConnect(session.user.id);
+    return NextResponse.json({
+      success: qrData.body.success !== false,
       message: 'Reconexión iniciada',
-      qrData,
-      status: whatsappService.getConnectionStatus()
-    });
-    
+      qrData: qrData.body.data,
+      status: (qrData.body.data || {}) as Record<string, unknown>,
+      error: qrData.body.error,
+    }, { status: qrData.status });
   } catch (error) {
     console.error('❌ [API] Error en reconexión:', error);
-    
-    return NextResponse.json({ 
-      success: false, 
+    return NextResponse.json({
+      success: false,
       error: 'Error en reconexión',
-      details: error instanceof Error ? error.message : 'Error desconocido'
+      details: error instanceof Error ? error.message : 'Error desconocido',
     }, { status: 500 });
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    console.log('📊 [API] Obteniendo estado de conexión...');
-    
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Obtener instancia del WhatsAppLiteService
-    const whatsappService = WhatsAppLiteService.getInstance();
-    
-    // Obtener estado actual
-    const status = whatsappService.getConnectionStatus();
-    
-    return NextResponse.json({ 
-      success: true, 
-      status,
-      needsReconnection: !status.connected
+    const result = await liteStatus(session.user.id);
+    const data = (result.body.data || {}) as { connected?: boolean };
+    return NextResponse.json({
+      success: true,
+      status: data,
+      needsReconnection: !data.connected,
     });
-    
   } catch (error) {
     console.error('❌ [API] Error obteniendo estado:', error);
-    
-    return NextResponse.json({ 
-      success: false, 
+    return NextResponse.json({
+      success: false,
       error: 'Error obteniendo estado',
-      details: error instanceof Error ? error.message : 'Error desconocido'
     }, { status: 500 });
   }
-} 
+}

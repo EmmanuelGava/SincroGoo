@@ -466,6 +466,8 @@ export class WhatsAppLiteService {
       await this.cleanupManager.cleanupSessionFiles(sessionId);
     }
 
+    await this.databaseManager.clearLiteMessagingConfig(userId);
+
     this.state = {
       isConnected: false,
       currentQR: null,

@@ -476,6 +476,47 @@ export class DatabaseManager {
   }
 
   /**
+   * Dejar la configuración de mensajería como desconectada: si queda en
+   * 'connected' la UI muestra el número viejo y no ofrece escanear otro QR.
+   */
+  async clearLiteMessagingConfig(userId: string): Promise<void> {
+    try {
+      const usuarioId = await this.resolveOrCreateUsuarioId(userId);
+      if (!usuarioId) return;
+
+      const supabase = getSupabaseAdmin();
+      const { data: existing } = await supabase
+        .from('configuracion_mensajeria_usuario')
+        .select('id, configuracion')
+        .eq('usuario_id', usuarioId)
+        .eq('plataforma', 'whatsapp')
+        .limit(1);
+
+      const row = existing?.[0];
+      if (!row?.id) return;
+
+      const configuracion = { ...(row.configuracion || {}) };
+      delete configuracion.phone_number;
+      delete configuracion.session_id;
+      configuracion.status = 'disconnected';
+      configuracion.estado_conexion = 'disconnected';
+
+      await supabase
+        .from('configuracion_mensajeria_usuario')
+        .update({
+          activa: false,
+          configuracion,
+          fecha_actualizacion: new Date().toISOString(),
+        })
+        .eq('id', row.id);
+
+      console.log('✅ Config de mensajería WhatsApp marcada como desconectada');
+    } catch (error) {
+      console.error('❌ Error en clearLiteMessagingConfig:', error);
+    }
+  }
+
+  /**
    * Borrar todas las sesiones de un usuario para poder vincular de cero.
    */
   async deleteSessionsForUser(userId: string): Promise<string[]> {

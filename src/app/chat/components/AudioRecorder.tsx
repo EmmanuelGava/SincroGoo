@@ -48,10 +48,10 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      const mime = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-        ? 'audio/ogg;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
+      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+          ? 'audio/ogg;codecs=opus'
           : 'audio/webm';
       const mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
       mediaRecorderRef.current = mediaRecorder;

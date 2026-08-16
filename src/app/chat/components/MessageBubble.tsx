@@ -59,6 +59,19 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
     });
   };
 
+  const fileUrl = mensaje.metadata?.file_url as string | undefined;
+  const fileType = String(mensaje.metadata?.file_type || mensaje.tipo || '');
+  const fileName = String(mensaje.metadata?.file_name || '');
+  const duration = Number(mensaje.metadata?.duration || 0);
+  const caption = String(mensaje.contenido || '').trim();
+  const redundantCaption =
+    !!fileUrl && (
+      caption === fileName
+      || /^Audio\s*\(/i.test(caption)
+      || caption.startsWith('📎 ')
+      || caption.startsWith('🎤 ')
+    );
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -81,8 +94,8 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
       <Paper
         elevation={0}
         sx={{
-          px: 1.5,
-          py: 1,
+          px: fileUrl && fileType === 'image' ? 0.5 : 1.5,
+          py: fileUrl && fileType === 'image' ? 0.5 : 1,
           maxWidth: '75%',
           bgcolor: isOwn ? 'primary.main' : 'background.paper',
           color: isOwn ? 'white' : 'text.primary',
@@ -91,26 +104,28 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
           borderTopRightRadius: isOwn ? 0.5 : 2,
           border: isOwn ? 'none' : '1px solid',
           borderColor: 'divider',
+          overflow: 'hidden',
         }}
       >
-        {mensaje.metadata?.file_url && (
-          <Box sx={{ mb: mensaje.contenido ? 1 : 0 }}>
+        {fileUrl && (
+          <Box sx={{ mb: !redundantCaption && caption ? 1 : 0 }}>
             <FileAttachment
-              url={mensaje.metadata.file_url}
-              fileName={mensaje.metadata.file_name || 'Archivo'}
-              fileType={mensaje.metadata.file_type || 'unknown'}
-              fileSize={mensaje.metadata.file_size}
+              url={fileUrl}
+              fileName={fileName || 'Archivo'}
+              fileType={fileType || 'unknown'}
+              fileSize={mensaje.metadata?.file_size}
+              duration={duration}
               isOwn={isOwn}
             />
           </Box>
         )}
 
-        {mensaje.contenido && (
+        {caption && !redundantCaption && (
           <Typography variant="body2" sx={{ 
             wordBreak: 'break-word',
             whiteSpace: 'pre-wrap'
           }}>
-            {mensaje.contenido}
+            {caption}
           </Typography>
         )}
 

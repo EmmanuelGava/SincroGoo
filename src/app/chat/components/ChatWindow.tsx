@@ -10,7 +10,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import ConversationHeader from './ConversationHeader';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
-import TypingIndicator from './TypingIndicator';
 import ErrorMessage from './ErrorMessage';
 
 interface Conversacion {
@@ -41,13 +40,6 @@ interface ChatWindowProps {
   onRefreshMensajes?: () => void;
 }
 
-const servicioColors: Record<string, string> = {
-  telegram: '#229ED9',
-  whatsapp: '#25D366',
-  email: '#D44638',
-  sms: '#FF9800',
-};
-
 export default function ChatWindow({
   conversacion,
   mensajes: mensajesLive,
@@ -58,12 +50,8 @@ export default function ChatWindow({
   const [loading, setLoading] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const [optimistic, setOptimistic] = useState<Mensaje[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const getServicioColor = (servicio: string) => {
-    return servicioColors[servicio] || '#90caf9';
-  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -91,7 +79,17 @@ export default function ChatWindow({
     }
   };
 
-  const mensajes = mensajesLive ?? mensajesLocal;
+  const mensajesBase = mensajesLive ?? mensajesLocal;
+  const mensajes = [
+    ...mensajesBase,
+    ...optimistic.filter(
+      (pending) => !mensajesBase.some((m) => m.contenido === pending.contenido && m.usuario_id)
+    ),
+  ];
+
+  useEffect(() => {
+    setOptimistic([]);
+  }, [conversacion?.id]);
 
   useEffect(() => {
     if (mensajesLive) return;
@@ -107,20 +105,33 @@ export default function ChatWindow({
   }, [mensajes]);
 
   const handleSendMessage = async (contenido: string) => {
-    if (!conversacion || !contenido.trim() || enviando) return;
+    if (!conversacion || !contenido.trim()) return;
 
-    setEnviando(true);
+    const texto = contenido.trim();
+    const tempId = `temp-${Date.now()}`;
+    const pending: Mensaje = {
+      id: tempId,
+      contenido: texto,
+      tipo: 'text',
+      remitente: 'yo',
+      fecha_mensaje: new Date().toISOString(),
+      canal: conversacion.servicio_origen,
+      usuario_id: 'local',
+      metadata: { estado_envio: 'enviando', direction: 'outgoing' },
+    };
+    setOptimistic((prev) => [...prev, pending]);
     setErrorEnvio(null);
 
     try {
-      // Usar la nueva arquitectura unificada
       const res = await fetch('/api/chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          platform: conversacion.servicio_origen, // whatsapp, telegram, email
-          to: conversacion.remitente,
-          message: contenido,
+          platform: conversacion.servicio_origen === 'whatsapp-lite' ? 'whatsapp' : conversacion.servicio_origen,
+          to: conversacion.metadata?.remote_jid
+            || conversacion.metadata?.phone_number
+            || conversacion.remitente,
+          message: texto,
           messageType: 'text',
           metadata: {
             conversacion_id: conversacion.id,
@@ -133,23 +144,27 @@ export default function ChatWindow({
       console.log('📤 Respuesta del servidor:', { status: res.status, data });
 
       if (res.ok && data.success) {
-        // Mensaje enviado exitosamente
-        console.log('✅ Mensaje enviado via nueva arquitectura:', data);
-        
-        // Refrescar mensajes y conversaciones
+        setOptimistic((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? { ...m, metadata: { ...m.metadata, estado_envio: 'enviado' } }
+              : m
+          )
+        );
         fetchMensajes();
         onRefreshConversaciones();
+        setTimeout(() => {
+          setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+        }, 1500);
       } else {
-        // Manejar errores específicos
         const errorMessage = data.error || 'Error enviando mensaje';
-        console.log('❌ Error en envío:', errorMessage);
+        setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
         setErrorEnvio(errorMessage);
       }
     } catch (error) {
       console.error('Error enviando mensaje:', error);
+      setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
       setErrorEnvio(error instanceof Error ? error.message : 'Error de conexión');
-    } finally {
-      setEnviando(false);
     }
   };
 
@@ -344,18 +359,13 @@ export default function ChatWindow({
               <MessageBubble 
                 key={mensaje.id} 
                 mensaje={mensaje}
-                isOwn={!!mensaje.usuario_id} // Si tiene usuario_id, es nuestro
+                isOwn={
+                  !!mensaje.usuario_id
+                  || mensaje.metadata?.direction === 'outgoing'
+                  || String(mensaje.id).startsWith('temp-')
+                }
               />
             ))}
-            
-            {/* Indicador de escritura */}
-            {isTyping && (
-              <TypingIndicator
-                remitente={conversacion.remitente}
-                servicioColor={getServicioColor(conversacion.servicio_origen)}
-                show={isTyping}
-              />
-            )}
             
             <div ref={messagesEndRef} />
           </Box>
@@ -370,10 +380,9 @@ export default function ChatWindow({
         onSendFile={handleSendFile}
         onSendAudio={handleSendAudio}
         conversationId={conversacion.id}
-        disabled={loading || enviando}
+        disabled={loading}
         placeholder={`Responder por ${conversacion.servicio_origen}...`}
         enviando={enviando}
-        onTyping={setIsTyping}
       />
     </Box>
   );

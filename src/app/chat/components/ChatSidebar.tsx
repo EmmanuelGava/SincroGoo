@@ -4,7 +4,6 @@ import {
   Typography, 
   Paper, 
   Avatar, 
-  Badge,
   List,
   ListItem,
   ListItemAvatar,
@@ -67,7 +66,7 @@ export default function ChatSidebar({
   
   const getServiceIcon = (servicio: string) => {
     const IconComponent = servicioIcons[servicio] || SmsIcon;
-    return <IconComponent sx={{ color: servicioColors[servicio] || '#90caf9' }} />;
+    return <IconComponent sx={{ color: servicioColors[servicio] || '#90caf9', fontSize: 12 }} />;
   };
 
   const formatTime = (fecha: string) => {
@@ -195,11 +194,7 @@ export default function ChatSidebar({
                   }}
                 >
                   <ListItemAvatar>
-                    <Badge
-                      overlap="circular"
-                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                      badgeContent={getServiceIcon(conversacion.servicio_origen)}
-                    >
+                    <Box sx={{ position: 'relative', mr: 1 }}>
                       <Avatar sx={{ 
                         bgcolor: servicioColors[conversacion.servicio_origen] || '#90caf9',
                         width: 40,
@@ -207,7 +202,21 @@ export default function ChatSidebar({
                       }}>
                         {conversacion.remitente.charAt(0).toUpperCase()}
                       </Avatar>
-                    </Badge>
+                      <Box sx={{
+                        position: 'absolute',
+                        bottom: -2,
+                        right: -2,
+                        bgcolor: 'background.paper',
+                        borderRadius: '50%',
+                        width: 18,
+                        height: 18,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        {getServiceIcon(conversacion.servicio_origen)}
+                      </Box>
+                    </Box>
                   </ListItemAvatar>
                   
                   <ListItemText

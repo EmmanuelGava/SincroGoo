@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { looksLikePhoneNumber } from '@/lib/chat/conversationIdentity';
 
 export interface IncomingMessageData {
   platform: 'whatsapp' | 'telegram' | 'email';
@@ -33,13 +34,19 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
     const remitente = normalizeContactId(data.platform, data.contact);
     
     // 1. Buscar o crear conversación
+    const phoneNumber = data.metadata?.phone_number
+      && looksLikePhoneNumber(data.metadata.phone_number)
+      ? String(data.metadata.phone_number)
+      : (data.platform === 'whatsapp' && looksLikePhoneNumber(remitente) ? remitente : undefined);
+
     const conversacionId = await findOrCreateConversation(supabase, {
       remitente,
       platform: data.platform,
       timestamp: data.timestamp || new Date(),
       usuarioId: data.metadata?.userId,
       remoteJid: data.metadata?.remote_jid,
-      phoneNumber: data.metadata?.phone_number || (data.platform === 'whatsapp' ? remitente : undefined),
+      phoneNumber,
+      contactName: data.contact.name,
     });
 
     // 2. Guardar el mensaje
@@ -100,6 +107,7 @@ async function findOrCreateConversation(supabase: any, data: {
   usuarioId?: string;
   remoteJid?: string;
   phoneNumber?: string;
+  contactName?: string;
 }) {
   const remitente = data.phoneNumber || data.remitente;
 
@@ -146,6 +154,7 @@ async function findOrCreateConversation(supabase: any, data: {
       ...(existingConversation.metadata || {}),
       ...(data.remoteJid ? { remote_jid: data.remoteJid } : {}),
       ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
+      ...(data.contactName ? { contact_name: data.contactName } : {}),
     };
     await supabase
       .from('conversaciones')
@@ -175,6 +184,7 @@ async function findOrCreateConversation(supabase: any, data: {
         created_at: new Date().toISOString(),
         ...(data.remoteJid ? { remote_jid: data.remoteJid } : {}),
         ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
+        ...(data.contactName ? { contact_name: data.contactName } : {}),
       }
     })
     .select('id')

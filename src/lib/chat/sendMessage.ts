@@ -233,21 +233,34 @@ async function saveOutgoingMessage(data: SendMessageData, platformDetails: strin
       messageType: data.messageType
     });
 
+    const conversacionIdMeta = data.metadata?.conversacion_id;
     const supabase = getSupabaseAdmin();
-    
-    // Buscar o crear conversación
-    const { data: existingConversation, error: searchError } = await supabase
-      .from('conversaciones')
-      .select('id')
-      .eq('remitente', data.to)
-      .eq('servicio_origen', data.platform)
-      .order('fecha_mensaje', { ascending: false })
-      .limit(1)
-      .single();
 
-    if (searchError && searchError.code !== 'PGRST116') {
-      console.error('❌ Error buscando conversación:', searchError);
-      throw searchError;
+    let existingConversation: { id: string } | null = null;
+    if (conversacionIdMeta) {
+      const byId = await supabase
+        .from('conversaciones')
+        .select('id')
+        .eq('id', conversacionIdMeta)
+        .maybeSingle();
+      existingConversation = byId.data;
+    }
+
+    if (!existingConversation) {
+      const { data: found, error: searchError } = await supabase
+        .from('conversaciones')
+        .select('id')
+        .eq('remitente', data.to)
+        .eq('servicio_origen', data.platform)
+        .order('fecha_mensaje', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (searchError && searchError.code !== 'PGRST116') {
+        console.error('❌ Error buscando conversación:', searchError);
+        throw searchError;
+      }
+      existingConversation = found;
     }
 
     let conversacionId;

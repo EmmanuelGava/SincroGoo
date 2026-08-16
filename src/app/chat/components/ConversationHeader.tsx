@@ -15,6 +15,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import LeadProfileModal from './LeadProfileModal';
+import { conversationDisplayName } from '@/lib/chat/conversationIdentity';
 
 interface Conversacion {
   id: string;
@@ -54,6 +55,7 @@ const servicioNames: Record<string, string> = {
 export default function ConversationHeader({ conversacion }: ConversationHeaderProps) {
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   
+  const displayName = conversationDisplayName(conversacion);
   const IconComponent = servicioIcons[conversacion.servicio_origen] || SmsIcon;
   const servicioColor = servicioColors[conversacion.servicio_origen] || '#90caf9';
   const servicioName = servicioNames[conversacion.servicio_origen] || conversacion.servicio_origen;
@@ -91,7 +93,7 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
           width: 48,
           height: 48
         }}>
-          {conversacion.remitente.charAt(0).toUpperCase()}
+          {displayName.charAt(0).toUpperCase()}
         </Avatar>
         <Box sx={{
           position: 'absolute',
@@ -118,7 +120,7 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
             color: 'text.primary',
             fontWeight: 600
           }}>
-            {conversacion.remitente}
+            {displayName}
           </Typography>
           
           <Chip 

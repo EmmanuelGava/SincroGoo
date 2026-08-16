@@ -183,6 +183,28 @@ export async function liteSend(userId: string, to: string, message: string) {
   };
 }
 
+export async function liteReset(userId: string) {
+  if (isWhatsAppWorkerConfigured()) {
+    return callWhatsAppWorker('/reset', {
+      method: 'POST',
+      body: { userId },
+      userId,
+    });
+  }
+  if (process.env.VERCEL) {
+    return {
+      status: 503,
+      body: { success: false, error: 'Worker de WhatsApp no configurado.' },
+    };
+  }
+  const service = await localLite();
+  await service.resetSession(userId);
+  return {
+    status: 200,
+    body: { success: true, message: 'Sesión reiniciada, pedí el QR de nuevo' },
+  };
+}
+
 export async function liteDisconnect(userId: string) {
   if (isWhatsAppWorkerConfigured()) {
     return callWhatsAppWorker('/disconnect', {
@@ -198,7 +220,7 @@ export async function liteDisconnect(userId: string) {
     };
   }
   const service = await localLite();
-  await service.disconnect();
+  await service.resetSession(userId);
   return {
     status: 200,
     body: { success: true, message: 'WhatsApp Lite desconectado' },

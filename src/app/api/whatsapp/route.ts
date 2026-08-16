@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { liteConnect, liteDisconnect, liteSend, liteStatus } from '@/lib/whatsapp/workerClient';
+import { liteConnect, liteDisconnect, liteReset, liteSend, liteStatus } from '@/lib/whatsapp/workerClient';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
 
       case 'disconnect':
         return await handleDisconnect(type, session.user.id);
+
+      case 'reset':
+        return await handleReset(type, session.user.id);
 
       case 'status':
         return await handleStatus(type, session.user.id);
@@ -64,6 +67,15 @@ async function handleDisconnect(type: 'lite' | 'business', userId: string) {
 
   if (type === 'business') {
     return NextResponse.json({ success: true, message: 'WhatsApp Business desconectado' });
+  }
+
+  return NextResponse.json({ error: 'Tipo no válido' }, { status: 400 });
+}
+
+async function handleReset(type: 'lite' | 'business', userId: string) {
+  if (type === 'lite') {
+    const result = await liteReset(userId);
+    return NextResponse.json(result.body, { status: result.status });
   }
 
   return NextResponse.json({ error: 'Tipo no válido' }, { status: 400 });

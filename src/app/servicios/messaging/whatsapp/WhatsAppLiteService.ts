@@ -418,17 +418,17 @@ export class WhatsAppLiteService {
   async disconnect(): Promise<void> {
     try {
       console.log('🔌 Desconectando WhatsApp Lite...');
-      
+
       // Cerrar socket
       if (this.state.socket) {
         this.connectionManager.clearExistingSocket();
         console.log('✅ Socket cerrado');
         this.state.socket = null;
       }
-      
+
       // ✅ SOLUCIÓN: Limpiar archivos temporales
       await this.cleanupManager.cleanupAllTempFiles();
-      
+
       // Limpiar estado
       this.state = {
         isConnected: false,
@@ -440,11 +440,44 @@ export class WhatsAppLiteService {
         socket: null,
         isReconnecting: false
       };
-      
+
       console.log('✅ WhatsApp Lite desconectado');
     } catch (error) {
       console.error('❌ Error desconectando WhatsApp Lite:', error);
     }
+  }
+
+  /**
+   * Desvincular por completo: sin esto, el siguiente connect() reutiliza las
+   * credenciales guardadas y nunca aparece un QR nuevo.
+   */
+  async resetSession(userId: string): Promise<void> {
+    console.log('♻️ [WhatsAppLiteService] Reiniciando sesión de WhatsApp para', userId);
+
+    this.connectionManager.clearExistingSocket();
+
+    const sessionIds = await this.databaseManager.deleteSessionsForUser(userId);
+    const localSessionId = this.state.sessionId;
+    if (localSessionId && !sessionIds.includes(localSessionId)) {
+      sessionIds.push(localSessionId);
+    }
+
+    for (const sessionId of sessionIds) {
+      await this.cleanupManager.cleanupSessionFiles(sessionId);
+    }
+
+    this.state = {
+      isConnected: false,
+      currentQR: null,
+      phoneNumber: null,
+      lastActivity: null,
+      userId: null,
+      sessionId: null,
+      socket: null,
+      isReconnecting: false
+    };
+
+    console.log('✅ [WhatsAppLiteService] Sesión reiniciada, el próximo connect pedirá QR');
   }
 
   /**

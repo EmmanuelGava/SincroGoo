@@ -216,8 +216,28 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/disconnect') {
-      await whatsappLiteService.disconnect();
+      const body = await readBody(req);
+      const userId = String(body.userId || req.headers['x-user-id'] || '');
+      // Desconectar desde la app significa desvincular: si quedan credenciales,
+      // el siguiente connect reutiliza la sesión y nunca muestra el QR.
+      if (userId) {
+        await whatsappLiteService.resetSession(userId);
+      } else {
+        await whatsappLiteService.disconnect();
+      }
       json(res, 200, { success: true, message: 'WhatsApp Lite desconectado' });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/reset') {
+      const body = await readBody(req);
+      const userId = String(body.userId || req.headers['x-user-id'] || '');
+      if (!userId) {
+        json(res, 400, { success: false, error: 'userId requerido' });
+        return;
+      }
+      await whatsappLiteService.resetSession(userId);
+      json(res, 200, { success: true, message: 'Sesión reiniciada, pedí el QR de nuevo' });
       return;
     }
 

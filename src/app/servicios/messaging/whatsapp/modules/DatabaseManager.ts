@@ -476,6 +476,34 @@ export class DatabaseManager {
   }
 
   /**
+   * Borrar todas las sesiones de un usuario para poder vincular de cero.
+   */
+  async deleteSessionsForUser(userId: string): Promise<string[]> {
+    try {
+      const supabase = getSupabaseAdmin();
+      const authId = this.isGoogleId(userId) ? userId : null;
+      const usuarioId = await this.resolveUsuarioId(userId);
+
+      let query = supabase.from('whatsapp_lite_sessions').delete();
+      query = this.applyOwnerFilter(query, usuarioId, authId);
+
+      const { data, error } = await query.select('session_id');
+
+      if (error) {
+        console.error('❌ Error borrando sesiones del usuario:', error);
+        return [];
+      }
+
+      const ids = (data || []).map((row: { session_id: string }) => row.session_id);
+      console.log('🗑️ Sesiones borradas para vincular de nuevo:', ids.length);
+      return ids;
+    } catch (error) {
+      console.error('❌ Error en deleteSessionsForUser:', error);
+      return [];
+    }
+  }
+
+  /**
    * Invalidar credenciales de una sesión cerrada por WhatsApp (401/500):
    * ya no sirven y reintentarlas al arrancar deja el worker en bucle.
    */

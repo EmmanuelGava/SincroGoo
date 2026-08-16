@@ -193,7 +193,8 @@ export function useChat() {
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user?.id || !supabase) return;
 
-    const channel = supabase
+    const client = supabase;
+    const channel = client
       .channel(inboxChannelName(session.user.id))
       .on('broadcast', { event: 'new_message' }, () => {
         refreshLive();
@@ -203,7 +204,7 @@ export function useChat() {
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [status, session?.user?.id, refreshLive]);
 

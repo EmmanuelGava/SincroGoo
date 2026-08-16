@@ -148,7 +148,10 @@ const server = createServer(async (req, res) => {
         return;
       }
       const result = await whatsappLiteService.connect(userId);
-      const qrCode = await toQrDataUrl(result.qrCode || (await waitForQr(userId)));
+      const { waitForLiteQr, toQrDataUrl } = await import('../src/lib/whatsapp/qrUtils');
+      const qrCode =
+        (await waitForLiteQr(() => whatsappLiteService.getCurrentState(userId)?.currentQR)) ||
+        (await toQrDataUrl(result.qrCode));
       json(res, result.success ? 200 : 500, {
         success: result.success,
         data: {

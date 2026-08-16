@@ -474,15 +474,16 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
             status: 'connected'
           });
         } else {
-          // ✅ SOLUCIÓN: Si no está conectado, esperar QR via Socket.IO
-          console.log('⏳ Conexión iniciada, esperando QR code via Socket.IO...');
+          console.log('⏳ Conexión iniciada, esperando QR code...');
           console.log('📱 SessionId:', actualData.sessionId);
-          
-          // No mostrar error, solo esperar el QR
+
+          if (actualData.qrCode) {
+            console.log('📱 QR recibido en respuesta HTTP');
+            setQrCode(actualData.qrCode);
+          }
+
           setShowQRDialog(true);
           setStep(1);
-          
-          // Habilitar polling para verificar conexión
           setIsPolling(true);
           pollConnectionStatus();
         }
@@ -1295,28 +1296,6 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
             className="text-xs"
           >
             🐛 Debug Conexión
-          </Button>
-
-          <Button
-            onClick={async () => {
-              try {
-                const response = await fetch('/api/whatsapp/test-v2', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ action: 'connect', userId: session?.user?.id })
-                });
-                const result = await response.json();
-                console.log('🧪 Test V2 Result:', result);
-                alert('Ver consola para resultados de V2');
-              } catch (error) {
-                console.error('Error V2:', error);
-              }
-            }}
-            variant="outlined"
-            size="small"
-            color="secondary"
-          >
-            🧪 Probar V2
           </Button>
         </Box>
 

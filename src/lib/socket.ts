@@ -23,9 +23,11 @@ export function initSocket(): Socket {
   }
 
   const socketUrl =
-    process.env.NEXT_PUBLIC_SOCKET_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    'http://localhost:3000';
+    process.env.NODE_ENV === 'development' && process.env.USE_WHATSAPP_WORKER !== 'true'
+      ? 'http://localhost:3000'
+      : process.env.NEXT_PUBLIC_SOCKET_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        'http://localhost:3000';
   console.log('🔌 URL del Socket.IO:', socketUrl);
 
   socket = io(socketUrl, {

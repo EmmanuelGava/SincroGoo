@@ -1,12 +1,18 @@
 const WORKER_URL = process.env.WHATSAPP_WORKER_URL;
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
 
-export function isWhatsAppWorkerConfigured(): boolean {
+function useRemoteWorker(): boolean {
+  if (process.env.USE_WHATSAPP_WORKER === 'true') return Boolean(WORKER_URL);
+  if (process.env.NODE_ENV === 'development') return false;
   return Boolean(WORKER_URL);
 }
 
+export function isWhatsAppWorkerConfigured(): boolean {
+  return useRemoteWorker();
+}
+
 export function shouldUseLocalLite(): boolean {
-  return !process.env.VERCEL && !isWhatsAppWorkerConfigured();
+  return !process.env.VERCEL && !useRemoteWorker();
 }
 
 export async function callWhatsAppWorker(
@@ -95,6 +101,10 @@ export async function liteConnect(userId: string) {
   }
   const service = await localLite();
   const result = await service.connect(userId);
+  const { waitForLiteQr, toQrDataUrl } = await import('@/lib/whatsapp/qrUtils');
+  const resolvedQr =
+    (await waitForLiteQr(() => service.getCurrentState(userId)?.currentQR)) ||
+    (await toQrDataUrl(result.qrCode));
   return {
     status: result.success ? 200 : 500,
     body: {
@@ -102,7 +112,7 @@ export async function liteConnect(userId: string) {
       data: {
         connected: Boolean(result.data?.connected),
         sessionId: result.sessionId || result.data?.sessionId,
-        qrCode: result.qrCode,
+        qrCode: resolvedQr || undefined,
         message: result.data?.message || result.error,
         phoneNumber: service.getConnectionStatus().phoneNumber,
       },

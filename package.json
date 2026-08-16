@@ -27,7 +27,8 @@
     "whatsapp:cleanup-errors": "node scripts/cleanup-error-sessions.js",
     "whatsapp:test-mobile": "node scripts/test-mobile-connection.js",
     "whatsapp:check-duplicates": "node scripts/check-duplicate-phones.js",
-    "worker:whatsapp": "npx tsx worker/whatsapp.ts"
+    "worker:whatsapp": "npx tsx worker/whatsapp.ts",
+    "whatsapp:test-qr-local": "node --env-file=.env.local --import tsx scripts/test-local-whatsapp-qr.ts"
   },
   "dependencies": {
     "@auth/core": "latest",

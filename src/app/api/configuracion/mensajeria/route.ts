@@ -27,18 +27,34 @@ export async function GET(req: NextRequest) {
           .from('usuarios')
           .select('id')
           .eq('auth_id', userId)
-          .single();
+          .maybeSingle();
         
         if (userError) {
           console.error('❌ [Config API] Error obteniendo UUID de Supabase:', userError);
-          return NextResponse.json({
-            error: 'Error obteniendo información del usuario'
-          }, { status: 500 });
+          return NextResponse.json({ success: true, configuraciones: [] });
         }
         
-        if (userData) {
+        if (userData?.id) {
           userId = userData.id;
           console.log('✅ [Config API] UUID de Supabase obtenido:', userId);
+        } else {
+          const { data: created, error: createError } = await supabase
+            .from('usuarios')
+            .insert({
+              auth_id: userId,
+              email: session?.user?.email || `auth-${userId}@klosync.user`,
+              nombre: session?.user?.name || 'Usuario',
+              avatar_url: session?.user?.image,
+              provider: 'google',
+              ultimo_acceso: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+          if (createError || !created?.id) {
+            console.error('❌ [Config API] No se pudo crear usuario:', createError);
+            return NextResponse.json({ success: true, configuraciones: [] });
+          }
+          userId = created.id;
         }
       } catch (error) {
         console.error('❌ [Config API] Error en consulta de usuario:', error);

@@ -335,6 +335,10 @@ export class EventManager {
       // Guardar estado en BD
       await this.databaseManager.saveConnectionState(state);
       console.log('💾 [EventManager] Estado de conexión guardado en BD');
+
+      if (state.userId) {
+        await this.databaseManager.saveLiteMessagingConfig(state.userId, phoneNumber);
+      }
       
       // Notificar al frontend
       this.notifyConnectionUpdate(state);

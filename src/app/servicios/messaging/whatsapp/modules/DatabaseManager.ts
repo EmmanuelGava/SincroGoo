@@ -11,24 +11,44 @@ export class DatabaseManager {
 
   /**
    * Convierte el userId a UUID de `usuarios.id`.
-   * Devuelve el UUID si existe la fila, o `null` si no existe.
+   * Si no hay fila, la crea (el Chat/CRM necesitan ese UUID como FK).
    * NUNCA devuelve el Google ID crudo (eso causaba el error 22P02 al castear a uuid).
    */
-  private async resolveUsuarioId(userId?: string | null): Promise<string | null> {
+  async resolveOrCreateUsuarioId(userId?: string | null, extra?: { email?: string; nombre?: string }): Promise<string | null> {
     if (!userId) return null;
-    if (!this.isGoogleId(userId)) return userId; // ya es UUID
+    if (!this.isGoogleId(userId)) return userId;
     try {
       const supabase = getSupabaseAdmin();
-      const { data } = await supabase
+      const existing = await supabase.from('usuarios').select('id').eq('auth_id', userId).limit(1);
+      if (existing.data?.[0]?.id) return existing.data[0].id;
+
+      const { data, error } = await supabase
         .from('usuarios')
+        .insert({
+          auth_id: userId,
+          email: extra?.email || `auth-${userId}@klosync.user`,
+          nombre: extra?.nombre || 'Usuario',
+          provider: 'google',
+          ultimo_acceso: new Date().toISOString(),
+        })
         .select('id')
-        .eq('auth_id', userId)
-        .limit(1);
-      return data?.[0]?.id ?? null;
+        .single();
+
+      if (error) {
+        console.error('❌ [DatabaseManager] No se pudo crear fila en usuarios:', error);
+        const retry = await supabase.from('usuarios').select('id').eq('auth_id', userId).limit(1);
+        return retry.data?.[0]?.id ?? null;
+      }
+      console.log('✅ [DatabaseManager] Usuario creado para auth_id:', userId, '→', data.id);
+      return data.id;
     } catch (error) {
-      console.error('❌ [DatabaseManager] Error resolviendo UUID de usuario:', error);
+      console.error('❌ [DatabaseManager] Error resolveOrCreateUsuarioId:', error);
       return null;
     }
+  }
+
+  private async resolveUsuarioId(userId?: string | null): Promise<string | null> {
+    return this.resolveOrCreateUsuarioId(userId);
   }
 
   /**
@@ -690,5 +710,64 @@ export class DatabaseManager {
     }
   }
 
+  /**
+   * Guarda/actualiza la config de mensajería que Chat y CRM consultan.
+   */
+  async saveLiteMessagingConfig(userId: string, phoneNumber: string): Promise<void> {
+    try {
+      const usuarioId = await this.resolveOrCreateUsuarioId(userId);
+      if (!usuarioId) {
+        console.error('❌ [DatabaseManager] Sin UUID de usuario; no se guarda config de mensajería');
+        return;
+      }
+
+      const supabase = getSupabaseAdmin();
+      const payload = {
+        tipo_conexion: 'lite',
+        phone_number: phoneNumber,
+        estado_conexion: 'connected',
+        ultima_conexion: new Date().toISOString(),
+        plataforma_original: 'whatsapp-lite',
+      };
+
+      const { data: existing } = await supabase
+        .from('configuracion_mensajeria_usuario')
+        .select('id, configuracion')
+        .eq('usuario_id', usuarioId)
+        .eq('plataforma', 'whatsapp')
+        .order('fecha_actualizacion', { ascending: false })
+        .limit(1);
+
+      if (existing?.[0]?.id) {
+        await supabase
+          .from('configuracion_mensajeria_usuario')
+          .update({
+            activa: true,
+            configuracion: { ...(existing[0].configuracion || {}), ...payload },
+            fecha_actualizacion: new Date().toISOString(),
+          })
+          .eq('id', existing[0].id);
+        console.log('✅ Config de mensajería WhatsApp actualizada');
+        return;
+      }
+
+      const { error } = await supabase.from('configuracion_mensajeria_usuario').insert({
+        usuario_id: usuarioId,
+        plataforma: 'whatsapp',
+        nombre_configuracion: 'WhatsApp Personal',
+        descripcion: 'Conexión WhatsApp Lite (Baileys)',
+        activa: true,
+        configuracion: payload,
+      });
+
+      if (error) {
+        console.error('❌ Error insertando config de mensajería:', error);
+      } else {
+        console.log('✅ Config de mensajería WhatsApp creada');
+      }
+    } catch (error) {
+      console.error('❌ Error en saveLiteMessagingConfig:', error);
+    }
+  }
 
 }

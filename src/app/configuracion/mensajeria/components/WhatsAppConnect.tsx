@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { initSocket, getSocket, disconnectSocket } from '@/lib/socket';
 import PhoneNumberWarning from './PhoneNumberWarning';
@@ -71,6 +71,7 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
 
   // ✅ SOLUCIÓN: Socket.IO solo se inicializa cuando se conecta WhatsApp
   const [socketInitialized, setSocketInitialized] = useState(false);
+  const notifiedConnected = useRef(false);
 
   // Función para inicializar Socket.IO solo cuando sea necesario
   const initializeSocketIO = useCallback(() => {
@@ -121,19 +122,33 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
         socket.on('whatsapp-status', (data: any) => {
           console.log('📡 Estado de WhatsApp actualizado via Socket.IO:', data);
           
-          if (data.connected) {
+          if (data.connected && data.phoneNumber) {
             console.log('📡 Estado actualizado (conectado):', data);
             setConnectionStatus({
               connected: true,
               phoneNumber: data.phoneNumber,
               lastActivity: data.lastActivity || new Date()
             });
+            setStep(3);
+            setQrCode(null);
+            setShowQRDialog(false);
+            notifiedConnected.current = true;
+            onConnected({
+              tipo_conexion: 'lite',
+              session_id: 'connected',
+              phone_number: data.phoneNumber,
+              status: 'connected'
+            });
           } else {
             console.log('📡 Estado actualizado (no conectado):', data);
-            setConnectionStatus({
-              connected: false,
-              phoneNumber: null,
-              lastActivity: null
+            // No pisar un estado ya conectado con updates transitorios (connecting / 515).
+            setConnectionStatus((prev: { connected?: boolean; phoneNumber?: string | null }) => {
+              if (prev?.connected && prev.phoneNumber) return prev;
+              return {
+                connected: false,
+                phoneNumber: null,
+                lastActivity: null
+              };
             });
           }
         });
@@ -212,52 +227,50 @@ export default function WhatsAppConnect({ onConnected }: WhatsAppConnectProps) {
     };
   }, [socketInitialized]);
 
-  // Verificar estado inicial de WhatsApp - DESHABILITADO temporalmente
+  // Verificar estado de WhatsApp (poll) para avanzar aunque se pierda el evento de Socket.IO
   useEffect(() => {
-    console.log('⚠️ Verificación inicial DESHABILITADA temporalmente para debugging');
-    return;
-    
-    // CÓDIGO ORIGINAL COMENTADO
-    /*
-    const checkInitialStatus = async () => {
-      if (session?.user?.id) {
-        try {
-          console.log('🔍 Verificando estado inicial de WhatsApp Lite...');
-          const response = await fetch('/api/whatsapp', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              action: 'status',
-              type: 'lite'
-            })
-          });
+    if (!session?.user?.id) return;
+    let cancelled = false;
 
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📊 Estado inicial:', data);
-            
-            if (data.success && data.data?.connected) {
-              console.log('🎉 WhatsApp ya está conectado al cargar!');
-              setConnectionStatus(data.data);
-              setStep(3);
-              onConnected({
-                tipo_conexion: 'lite',
-                session_id: data.data.sessionId || 'connected',
-                phone_number: data.data.phoneNumber || 'Conectado',
-                status: 'connected'
-              });
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error verificando estado inicial:', error);
+    const checkStatus = async () => {
+      try {
+        const response = await fetch('/api/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'status', type: 'lite' }),
+        });
+        if (!response.ok || cancelled) return;
+        const data = await response.json();
+        const connected = Boolean(data?.data?.connected || data?.connected);
+        const phoneNumber = data?.data?.phoneNumber || data?.phoneNumber;
+        if (connected && phoneNumber && !notifiedConnected.current) {
+          notifiedConnected.current = true;
+          setConnectionStatus({
+            connected: true,
+            phoneNumber,
+            lastActivity: data?.data?.lastActivity || new Date(),
+          });
+          setStep(3);
+          setQrCode(null);
+          setShowQRDialog(false);
+          onConnected({
+            tipo_conexion: 'lite',
+            session_id: data?.data?.sessionId || 'connected',
+            phone_number: phoneNumber,
+            status: 'connected',
+          });
         }
+      } catch {
+        // el poll reintenta
       }
     };
 
-    checkInitialStatus();
-    */
+    checkStatus();
+    const id = setInterval(checkStatus, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [session?.user?.id, onConnected]);
 
   // ✅ SOLUCIÓN: Monitorear cambios en el estado del QR

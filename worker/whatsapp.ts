@@ -104,17 +104,35 @@ async function waitForQr(userId: string, timeoutMs = 12000): Promise<string | nu
 
 function liteStatus(userId: string) {
   const status = whatsappLiteService.getConnectionStatus();
-  const state = whatsappLiteService.getCurrentState(userId);
+  const state = whatsappLiteService.getCurrentState() || whatsappLiteService.getCurrentState(userId);
   return {
     success: true,
     data: {
-      connected: status.connected,
-      phoneNumber: status.phoneNumber,
-      lastActivity: status.lastActivity,
+      connected: Boolean(status.connected || state?.isConnected || state?.phoneNumber),
+      phoneNumber: status.phoneNumber || state?.phoneNumber,
+      lastActivity: status.lastActivity || state?.lastActivity,
       sessionId: state?.sessionId,
       qrCode: state?.currentQR,
     },
   };
+}
+
+async function liteStatusWithDb(userId: string) {
+  const memory = liteStatus(userId);
+  if (memory.data.connected && memory.data.phoneNumber) return memory;
+  const db = await whatsappLiteService.getConnectionStatusFromDB(userId);
+  if (db.connected) {
+    return {
+      success: true,
+      data: {
+        ...memory.data,
+        connected: true,
+        phoneNumber: db.phoneNumber || memory.data.phoneNumber,
+        lastActivity: db.lastActivity || memory.data.lastActivity,
+      },
+    };
+  }
+  return memory;
 }
 
 const server = createServer(async (req, res) => {
@@ -168,7 +186,7 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/status') {
       const userId = String(url.searchParams.get('userId') || req.headers['x-user-id'] || '');
-      json(res, 200, liteStatus(userId));
+      json(res, 200, await liteStatusWithDb(userId));
       return;
     }
 

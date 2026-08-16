@@ -221,14 +221,10 @@ export class WhatsAppLiteService {
    * Obtener estado de conexión (verifica BD y estado local)
    */
   getConnectionStatus(): ConnectionStatus {
-    // ✅ SOLUCIÓN: Verificar estado real del socket
-    const isReallyConnected = !!(this.state.socket && 
-                             this.state.socket.user && 
-                             this.state.isConnected);
-    
+    const connected = Boolean(this.state.isConnected && this.state.phoneNumber);
     return {
-      connected: isReallyConnected,
-      phoneNumber: isReallyConnected ? (this.state.phoneNumber || undefined) : undefined,
+      connected,
+      phoneNumber: connected ? (this.state.phoneNumber || undefined) : undefined,
       lastActivity: this.state.lastActivity || undefined
     };
   }
@@ -242,20 +238,12 @@ export class WhatsAppLiteService {
         return this.getConnectionStatus();
       }
 
-      // Verificar sesión activa en BD
-      const hasActiveSession = await this.databaseManager.hasActiveSession(userId);
-      
-      if (hasActiveSession) {
-        // Si hay sesión activa en BD pero no en memoria, sincronizar
-        if (!this.state.isConnected) {
-          console.log('🔄 Sesión activa encontrada en BD, sincronizando estado local...');
-          // Aquí podrías cargar los datos de la sesión desde BD
-        }
-        
+      const saved = await this.databaseManager.loadConnectionState(userId);
+      if (saved.isConnected && saved.phoneNumber) {
         return {
           connected: true,
-          phoneNumber: this.state.phoneNumber || undefined,
-          lastActivity: this.state.lastActivity || new Date()
+          phoneNumber: saved.phoneNumber,
+          lastActivity: saved.lastActivity || new Date(),
         };
       }
 

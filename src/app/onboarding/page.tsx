@@ -87,8 +87,26 @@ export default function OnboardingPage() {
         {step === 1 && (
           <div className="mt-6 rounded-lg border p-4">
             <WhatsAppConnect
-              onConnected={() => {
+              onConnected={(config) => {
                 setStep(2);
+                const phone = config?.phone_number || config?.phoneNumber;
+                if (!phone) return;
+                fetch('/api/configuracion/mensajeria', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    plataforma: 'whatsapp-lite',
+                    nombre_configuracion: 'WhatsApp Personal',
+                    descripcion: 'Conexión WhatsApp Lite',
+                    activa: true,
+                    configuracion: {
+                      tipo_conexion: 'lite',
+                      phone_number: phone,
+                      estado_conexion: 'connected',
+                      ultima_conexion: new Date().toISOString(),
+                    },
+                  }),
+                }).catch(() => {});
               }}
             />
           </div>

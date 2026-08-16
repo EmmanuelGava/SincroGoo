@@ -195,8 +195,12 @@ const server = createServer(async (req, res) => {
       const to = String(body.to || '');
       const message = String(body.message || '');
       const userId = String(body.userId || req.headers['x-user-id'] || '');
-      if (!to || !message) {
-        json(res, 400, { success: false, error: 'to y message requeridos' });
+      const type = String(body.type || 'text');
+      const filePath = body.filePath ? String(body.filePath) : undefined;
+      const mimetype = body.mimetype ? String(body.mimetype) : undefined;
+      const fileName = body.fileName ? String(body.fileName) : undefined;
+      if (!to || (!message && !filePath)) {
+        json(res, 400, { success: false, error: 'to y message o filePath requeridos' });
         return;
       }
       if (!whatsappLiteService.hasLiveSocket() && userId) {
@@ -207,7 +211,12 @@ const server = createServer(async (req, res) => {
         json(res, 503, { success: false, error: 'WhatsApp Lite no está conectado' });
         return;
       }
-      const success = await whatsappLiteService.sendMessage(to, message);
+      const success = await whatsappLiteService.sendMessage(to, message, {
+        type,
+        filePath,
+        mimetype,
+        fileName,
+      });
       json(res, success ? 200 : 503, {
         success,
         error: success ? undefined : 'No se pudo enviar el mensaje',

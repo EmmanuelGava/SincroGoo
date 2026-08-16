@@ -155,11 +155,16 @@ export async function liteStatus(userId: string) {
   };
 }
 
-export async function liteSend(userId: string, to: string, message: string) {
+export async function liteSend(
+  userId: string,
+  to: string,
+  message: string,
+  extra: { type?: string; filePath?: string; mimetype?: string; fileName?: string } = {}
+) {
   if (isWhatsAppWorkerConfigured()) {
     return callWhatsAppWorker('/send', {
       method: 'POST',
-      body: { userId, to, message },
+      body: { userId, to, message, ...extra },
       userId,
     });
   }
@@ -173,7 +178,7 @@ export async function liteSend(userId: string, to: string, message: string) {
     };
   }
   const service = await localLite();
-  const success = await service.sendMessage(to, message);
+  const success = await service.sendMessage(to, message, extra);
   return {
     status: success ? 200 : 503,
     body: {

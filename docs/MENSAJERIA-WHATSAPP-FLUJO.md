@@ -162,6 +162,11 @@ ChatWindow (optimistic: el texto aparece ya)
 
 Nunca mandar un LID como si fuera `@s.whatsapp.net`. El contacto puede ser `96147188244605@lid`; el JID de envío tiene que ser ese `remote_jid`, no un número inventado.
 
+Media (imagen/audio):
+- Buckets públicos `chat-images` (10 MB) y `chat-audio` (16 MB).
+- El browser **no** sube con la anon key (NextAuth ≠ JWT de Supabase). POST `/api/chat/upload` con service role.
+- El worker baja la URL pública y manda el buffer por Baileys (`image` / `audio` ptt).
+
 ---
 
 ## 7. Inbox / UI

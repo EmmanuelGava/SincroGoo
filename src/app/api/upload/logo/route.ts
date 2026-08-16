@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 
-const BUCKET = 'chat-files';
+const BUCKET = 'chat-images';
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED = ['image/jpeg', 'image/png', 'image/jpg'];
 

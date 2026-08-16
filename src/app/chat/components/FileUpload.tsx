@@ -113,7 +113,10 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
     onDrop,
     disabled,
     multiple: true,
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 10 * 1024 * 1024,
+    accept: {
+      'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+    },
   });
 
   const removeUploadingFile = (file: File) => {

@@ -48,7 +48,12 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      const mediaRecorder = new MediaRecorder(stream);
+      const mime = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+        ? 'audio/ogg;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -59,7 +64,7 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: mime });
         setRecordedAudio(audioBlob);
         
         // Detener todas las pistas del stream

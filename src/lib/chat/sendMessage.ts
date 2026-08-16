@@ -119,7 +119,14 @@ async function sendViaWhatsApp(data: SendMessageData) {
     );
 
     if (isWhatsAppWorkerConfigured() || !shouldUseLocalLite()) {
-      const result = await liteSend(data.userId || '', sendJid, data.message);
+      const result = await liteSend(data.userId || '', sendJid, data.message, {
+        type: data.messageType || 'text',
+        filePath: data.filePath,
+        mimetype: data.metadata?.file_type === 'audio' || data.messageType === 'audio'
+          ? (data.metadata?.mime_type || 'audio/webm')
+          : data.metadata?.mime_type,
+        fileName: data.metadata?.file_name,
+      });
       return {
         success: Boolean(result.body.success),
         platformDetails: 'whatsapp-lite-baileys',

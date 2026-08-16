@@ -179,22 +179,23 @@ export default function ChatWindow({
     setErrorEnvio(null);
 
     try {
-      // Usar la nueva arquitectura unificada para archivos
       const res = await fetch('/api/chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          platform: conversacion.servicio_origen,
-          to: conversacion.remitente,
-          message: `📎 ${fileName}`,
-          messageType: 'file',
+          platform: conversacion.servicio_origen === 'whatsapp-lite' ? 'whatsapp' : conversacion.servicio_origen,
+          to: conversacion.metadata?.remote_jid
+            || conversacion.metadata?.phone_number
+            || conversacion.remitente,
+          message: fileName,
+          messageType: fileType === 'image' ? 'image' : fileType === 'audio' ? 'audio' : 'file',
           filePath: url,
           metadata: {
             conversacion_id: conversacion.id,
             original_canal: conversacion.servicio_origen,
             file_name: fileName,
             file_type: fileType,
-            file_url: url
+            file_url: url,
           }
         })
       });
@@ -225,34 +226,27 @@ export default function ChatWindow({
     setErrorEnvio(null);
 
     try {
-      // Primero subir el audio a Supabase Storage
-      const timestamp = Date.now();
-      const fileName = `audio_${timestamp}.webm`;
-      
-      // Crear FormData para la subida
-      const formData = new FormData();
-      formData.append('file', audioBlob, fileName);
-      
-      // Subir usando el FileUploadService (necesitamos adaptarlo para Blob)
+      const mime = (audioBlob.type || 'audio/webm').split(';')[0];
+      const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : 'webm';
+      const fileName = `audio_${Date.now()}.${ext}`;
       const { FileUploadService } = await import('@/app/servicios/storage/FileUploadService');
-      
-      // Convertir Blob a File
-      const audioFile = new File([audioBlob], fileName, { type: 'audio/webm' });
+      const audioFile = new File([audioBlob], fileName, { type: mime });
       const uploadResult = await FileUploadService.uploadFile(audioFile, conversacion.id);
       
       if (!uploadResult.success || !uploadResult.url) {
-        setErrorEnvio('Error subiendo audio');
+        setErrorEnvio(uploadResult.error || 'Error subiendo audio');
         return;
       }
 
-      // Enviar mensaje con el audio usando la nueva arquitectura
       const res = await fetch('/api/chat/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          platform: conversacion.servicio_origen,
-          to: conversacion.remitente,
-          message: `🎤 Audio (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
+          platform: conversacion.servicio_origen === 'whatsapp-lite' ? 'whatsapp' : conversacion.servicio_origen,
+          to: conversacion.metadata?.remote_jid
+            || conversacion.metadata?.phone_number
+            || conversacion.remitente,
+          message: `Audio (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
           messageType: 'audio',
           filePath: uploadResult.url,
           metadata: {
@@ -261,6 +255,7 @@ export default function ChatWindow({
             file_name: fileName,
             file_type: 'audio',
             file_url: uploadResult.url,
+            mime_type: mime.includes('ogg') ? 'audio/ogg; codecs=opus' : mime,
             duration: duration
           }
         })

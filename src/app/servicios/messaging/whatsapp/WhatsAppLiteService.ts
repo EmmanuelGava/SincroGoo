@@ -11,6 +11,7 @@ import {
   getDisconnectStatusCode,
   isPermanentDisconnect,
 } from './modules/socketHealth';
+import type { AnyMessageContent } from 'baileys';
 import fs from 'fs';
 import path from 'path';
 
@@ -27,6 +28,7 @@ export interface MessageOptions {
   type?: string;
   filePath?: string;
   fileName?: string;
+  mimetype?: string;
 }
 
 export class WhatsAppLiteService {
@@ -253,7 +255,7 @@ export class WhatsAppLiteService {
    */
   async sendMessage(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<boolean> {
     try {
-      if (await this.sendOnLiveSocket(phoneNumber, message)) {
+      if (await this.sendOnLiveSocket(phoneNumber, message, options)) {
         return true;
       }
     } catch (error) {
@@ -285,20 +287,21 @@ export class WhatsAppLiteService {
     }
 
     try {
-      return await this.sendOnLiveSocket(phoneNumber, message);
+      return await this.sendOnLiveSocket(phoneNumber, message, options);
     } catch (error) {
       console.error('❌ Error enviando mensaje (reintento):', error);
       return false;
     }
   }
 
-  private async sendOnLiveSocket(phoneNumber: string, message: string): Promise<boolean> {
+  private async sendOnLiveSocket(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<boolean> {
     if (!this.hasLiveSocket()) {
       return false;
     }
     const jid = toWhatsAppJid(phoneNumber);
-    await this.state.socket!.sendMessage(jid, { text: message });
-    console.log(`✅ Mensaje enviado a ${jid}`);
+    const payload = await buildWhatsAppPayload(message, options);
+    await this.state.socket!.sendMessage(jid, payload);
+    console.log(`✅ Mensaje enviado a ${jid}`, options.type || 'text');
     return true;
   }
 
@@ -787,4 +790,48 @@ function toWhatsAppJid(to: string): string {
   if (trimmed.includes('@')) return trimmed;
   const user = trimmed.replace(/[^\d]/g, '');
   return `${user}@s.whatsapp.net`;
+}
+
+async function buildWhatsAppPayload(message: string, options: MessageOptions): Promise<AnyMessageContent> {
+  const type = options.type || 'text';
+  const filePath = options.filePath;
+  if ((type === 'image' || type === 'audio' || type === 'file') && filePath) {
+    const media = await downloadMedia(filePath);
+    if (type === 'image') {
+      return {
+        image: media,
+        caption: message && !message.startsWith('📎') ? message : undefined,
+      };
+    }
+    if (type === 'audio') {
+      return {
+        audio: media,
+        mimetype: options.mimetype || guessAudioMime(filePath),
+        ptt: true,
+      };
+    }
+    return {
+      document: media,
+      fileName: options.fileName || 'archivo',
+      mimetype: options.mimetype || 'application/octet-stream',
+      caption: message || undefined,
+    };
+  }
+  return { text: message };
+}
+
+function guessAudioMime(url: string): string {
+  const lower = url.toLowerCase();
+  if (lower.includes('.ogg') || lower.includes('.opus')) return 'audio/ogg; codecs=opus';
+  if (lower.includes('.mp3') || lower.includes('.mpeg')) return 'audio/mpeg';
+  if (lower.includes('.m4a') || lower.includes('.mp4')) return 'audio/mp4';
+  return 'audio/webm';
+}
+
+async function downloadMedia(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`No se pudo bajar el archivo (${response.status})`);
+  }
+  return Buffer.from(await response.arrayBuffer());
 } 

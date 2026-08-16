@@ -3,6 +3,46 @@ import { WhatsAppLiteState } from './types';
 
 export class DatabaseManager {
   /**
+   * Un Google ID es una cadena puramente numérica (ej. "105103073145221460512").
+   */
+  private isGoogleId(userId?: string | null): userId is string {
+    return typeof userId === 'string' && /^\d+$/.test(userId);
+  }
+
+  /**
+   * Convierte el userId a UUID de `usuarios.id`.
+   * Devuelve el UUID si existe la fila, o `null` si no existe.
+   * NUNCA devuelve el Google ID crudo (eso causaba el error 22P02 al castear a uuid).
+   */
+  private async resolveUsuarioId(userId?: string | null): Promise<string | null> {
+    if (!userId) return null;
+    if (!this.isGoogleId(userId)) return userId; // ya es UUID
+    try {
+      const supabase = getSupabaseAdmin();
+      const { data } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_id', userId)
+        .limit(1);
+      return data?.[0]?.id ?? null;
+    } catch (error) {
+      console.error('❌ [DatabaseManager] Error resolviendo UUID de usuario:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Aplica el filtro de propietario a una query de whatsapp_lite_sessions.
+   * Usa el UUID si existe; si no, cae al Google ID guardado en metadata.auth_id.
+   */
+  private applyOwnerFilter<T>(query: T, usuarioId: string | null, authId: string | null): T {
+    const q = query as any;
+    if (usuarioId) return q.eq('usuario_id', usuarioId);
+    if (authId) return q.eq('metadata->>auth_id', authId);
+    return q;
+  }
+
+  /**
    * Validar que un número de teléfono no tenga conexiones activas
    */
   async validatePhoneNumberUniqueness(phoneNumber: string, currentSessionId?: string): Promise<{
@@ -115,19 +155,9 @@ export class DatabaseManager {
     try {
       const supabase = getSupabaseAdmin();
 
-      // Convertir Google ID a UUID si es necesario
-      let usuarioId = state.userId;
-      if (state.userId && typeof state.userId === 'string' && /^\d+$/.test(state.userId)) {
-        const { data: user } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_id', state.userId)
-          .single();
-
-        if (user?.id) {
-          usuarioId = user.id;
-        }
-      }
+      // Resolver UUID; guardar también el Google ID en metadata como respaldo
+      const authId = this.isGoogleId(state.userId) ? state.userId : null;
+      const usuarioId = await this.resolveUsuarioId(state.userId);
 
       const connectionData = {
         usuario_id: usuarioId,
@@ -140,7 +170,8 @@ export class DatabaseManager {
           connected: state.isConnected,
           sessionId: state.sessionId,
           phoneNumber: state.phoneNumber,
-          lastActivity: state.lastActivity?.toISOString()
+          lastActivity: state.lastActivity?.toISOString(),
+          auth_id: authId ?? undefined
         }
       };
 
@@ -166,30 +197,19 @@ export class DatabaseManager {
     try {
       const supabase = getSupabaseAdmin();
 
-      // Convertir Google ID a UUID si es necesario
-      let usuarioId = userId;
-      if (typeof userId === 'string' && /^\d+$/.test(userId)) {
-        console.log('🔄 [WhatsApp] Google ID detectado en loadConnectionState, obteniendo UUID...');
-        const { data: user } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_id', userId)
-          .single();
+      const authId = this.isGoogleId(userId) ? userId : null;
+      const usuarioId = await this.resolveUsuarioId(userId);
 
-        if (user?.id) {
-          usuarioId = user.id;
-          console.log('✅ [WhatsApp] UUID obtenido para loadConnectionState:', usuarioId);
-        }
-      }
-
-      const { data: session } = await supabase
+      let query = supabase
         .from('whatsapp_lite_sessions')
         .select('*')
-        .eq('usuario_id', usuarioId)
         .eq('status', 'connected')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
+      query = this.applyOwnerFilter(query, usuarioId, authId);
+
+      const { data: sessions } = await query;
+      const session = sessions?.[0];
 
       if (session) {
         console.log('📥 Estado de conexión cargado:', session);
@@ -218,19 +238,7 @@ export class DatabaseManager {
     try {
       const supabase = getSupabaseAdmin();
 
-      // Convertir userId a UUID si es necesario
-      let usuarioId = userId;
-      if (userId && typeof userId === 'string' && /^\d+$/.test(userId)) {
-        const { data: user } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_id', userId)
-          .single();
-
-        if (user?.id) {
-          usuarioId = user.id;
-        }
-      }
+      const usuarioId = await this.resolveUsuarioId(userId);
 
       const messageRecord = {
         usuario_id: usuarioId,
@@ -269,19 +277,9 @@ export class DatabaseManager {
       
       const supabase = getSupabaseAdmin();
 
-      // Convertir Google ID a UUID si es necesario
-      let usuarioId = userId;
-      if (userId && typeof userId === 'string' && /^\d+$/.test(userId)) {
-        const { data: user } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_id', userId)
-          .single();
-
-        if (user?.id) {
-          usuarioId = user.id;
-        }
-      }
+      // Resolver UUID; guardar el Google ID en metadata para poder recuperar sin fila en usuarios
+      const authId = this.isGoogleId(userId) ? userId : null;
+      const usuarioId = await this.resolveUsuarioId(userId);
 
       // Verificar que las credenciales contengan los campos necesarios
       if (!credentials || typeof credentials !== 'object') {
@@ -308,7 +306,8 @@ export class DatabaseManager {
         session_id: sessionId,
         baileys_credentials: serializedCredentials,
         status: 'connected',
-        last_activity: new Date().toISOString()
+        last_activity: new Date().toISOString(),
+        metadata: { auth_id: authId ?? undefined }
       };
 
       console.log('💾 [DatabaseManager] Datos a guardar:', {
@@ -351,33 +350,25 @@ export class DatabaseManager {
       
       const supabase = getSupabaseAdmin();
 
-      // Convertir Google ID a UUID si es necesario
-      let usuarioId = userId;
-      if (typeof userId === 'string' && /^\d+$/.test(userId)) {
-        const { data: user } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_id', userId)
-          .single();
+      const authId = this.isGoogleId(userId) ? userId : null;
+      const usuarioId = await this.resolveUsuarioId(userId);
 
-        if (user?.id) {
-          usuarioId = user.id;
-        }
-      }
-
-      const { data: session, error } = await supabase
+      let query = supabase
         .from('whatsapp_lite_sessions')
         .select('baileys_credentials, session_id, last_activity')
-        .eq('usuario_id', usuarioId)
         .not('baileys_credentials', 'is', null)
         .order('last_activity', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
+      query = this.applyOwnerFilter(query, usuarioId, authId);
 
-      if (error && error.code !== 'PGRST116') {
+      const { data: rows, error } = await query;
+
+      if (error) {
         console.error('❌ Error consultando credenciales de Baileys:', error);
         return null;
       }
+
+      const session = rows?.[0];
 
       if (session?.baileys_credentials) {
         console.log('📥 [DatabaseManager] Credenciales encontradas en Supabase');
@@ -494,24 +485,15 @@ export class DatabaseManager {
     try {
       const supabase = getSupabaseAdmin();
 
-      // Convertir Google ID a UUID si es necesario
-      let usuarioId = userId;
-      if (typeof userId === 'string' && /^\d+$/.test(userId)) {
-        const { data: user } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_id', userId)
-          .single();
+      const authId = this.isGoogleId(userId) ? userId : null;
+      const usuarioId = await this.resolveUsuarioId(userId);
 
-        if (user?.id) {
-          usuarioId = user.id;
-        }
-      }
-
-      const { data: sessions } = await supabase
+      let statsQuery = supabase
         .from('whatsapp_lite_sessions')
-        .select('status, last_activity, baileys_credentials')
-        .eq('usuario_id', usuarioId);
+        .select('status, last_activity, baileys_credentials');
+      statsQuery = this.applyOwnerFilter(statsQuery, usuarioId, authId);
+
+      const { data: sessions } = await statsQuery;
 
       if (!sessions) {
         return { totalSessions: 0, activeSessions: 0, expiredSessions: 0 };
@@ -672,36 +654,27 @@ export class DatabaseManager {
   async hasActiveSession(userId: string): Promise<boolean> {
     try {
       const supabase = getSupabaseAdmin();
-      
-      // Convertir userId a UUID si es necesario
-      let usuarioId = userId;
-      if (userId && typeof userId === 'string' && /^\d+$/.test(userId)) {
-        const { data: user } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_id', userId)
-          .single();
 
-        if (user?.id) {
-          usuarioId = user.id;
-        }
-      }
+      const authId = this.isGoogleId(userId) ? userId : null;
+      const usuarioId = await this.resolveUsuarioId(userId);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('whatsapp_lite_sessions')
         .select('id, status, last_activity')
-        .eq('usuario_id', usuarioId)
         .eq('status', 'connected')
         .gte('last_activity', new Date(Date.now() - 5 * 60 * 1000).toISOString()) // Últimos 5 minutos
         .limit(1);
+      query = this.applyOwnerFilter(query, usuarioId, authId);
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('❌ Error verificando sesión activa:', error);
         return false;
       }
 
-      const hasActive = data && data.length > 0;
-      console.log(`🔍 Sesión activa para usuario ${usuarioId}:`, hasActive);
+      const hasActive = Boolean(data && data.length > 0);
+      console.log(`🔍 Sesión activa para usuario ${usuarioId ?? authId}:`, hasActive);
       return hasActive;
     } catch (error) {
       console.error('❌ Error en hasActiveSession:', error);

@@ -103,12 +103,13 @@ async function waitForQr(userId: string, timeoutMs = 12000): Promise<string | nu
 }
 
 function liteStatus(userId: string) {
+  const live = whatsappLiteService.hasLiveSocket();
   const status = whatsappLiteService.getConnectionStatus();
   const state = whatsappLiteService.getCurrentState() || whatsappLiteService.getCurrentState(userId);
   return {
     success: true,
     data: {
-      connected: Boolean(status.connected || state?.isConnected || state?.phoneNumber),
+      connected: live,
       phoneNumber: status.phoneNumber || state?.phoneNumber,
       lastActivity: status.lastActivity || state?.lastActivity,
       sessionId: state?.sessionId,
@@ -121,13 +122,12 @@ async function liteStatusWithDb(userId: string) {
   const memory = liteStatus(userId);
   if (memory.data.connected && memory.data.phoneNumber) return memory;
   const db = await whatsappLiteService.getConnectionStatusFromDB(userId);
-  if (db.connected) {
+  if (db.phoneNumber && !memory.data.phoneNumber) {
     return {
       success: true,
       data: {
         ...memory.data,
-        connected: true,
-        phoneNumber: db.phoneNumber || memory.data.phoneNumber,
+        phoneNumber: db.phoneNumber,
         lastActivity: db.lastActivity || memory.data.lastActivity,
       },
     };

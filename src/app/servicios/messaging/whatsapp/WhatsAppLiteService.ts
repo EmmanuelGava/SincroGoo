@@ -1,4 +1,3 @@
-import { WASocket } from 'baileys';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { DatabaseManager } from './modules/DatabaseManager';
@@ -6,6 +5,12 @@ import { AuthManager, type BaileysAuthState } from './modules/AuthManager';
 import { EventManager, WhatsAppState, ConnectionCallback } from './modules/EventManager';
 import { ConnectionManager, QRCodeData } from './modules/ConnectionManager';
 import { CleanupManager } from './modules/CleanupManager';
+import {
+  isWaSocketOpen,
+  isConnectionClosedError,
+  getDisconnectStatusCode,
+  isPermanentDisconnect,
+} from './modules/socketHealth';
 import fs from 'fs';
 import path from 'path';
 
@@ -43,6 +48,14 @@ export class WhatsAppLiteService {
   private eventManager: EventManager;
   private connectionManager: ConnectionManager;
   private cleanupManager: CleanupManager;
+  private connectLock: Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+    qrCode?: string;
+    sessionId?: string;
+    expiresAt?: Date;
+  }> | null = null;
 
   private constructor() {
     this.databaseManager = new DatabaseManager();
@@ -73,18 +86,41 @@ export class WhatsAppLiteService {
     sessionId?: string;
     expiresAt?: Date;
   }> {
+    if (this.connectLock) {
+      console.log('⏳ [WhatsAppLiteService] Conexión ya en curso, se espera...');
+      return this.connectLock;
+    }
+    this.connectLock = this.executeConnect(userId).finally(() => {
+      this.connectLock = null;
+    });
+    return this.connectLock;
+  }
+
+  private async executeConnect(userId: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+    qrCode?: string;
+    sessionId?: string;
+    expiresAt?: Date;
+  }> {
     try {
       console.log('🚀 [WhatsAppLiteService] Iniciando conexión para usuario:', userId);
-      
-      // Verificar si ya hay una conexión activa
-      if (this.state.socket && this.state.isConnected) {
+
+      if (this.hasLiveSocket() && this.state.userId === userId) {
         console.log('⚠️ [WhatsAppLiteService] Ya hay una conexión activa');
         return { success: true, data: { connected: true, message: 'Ya conectado' } };
       }
 
-      // Solo limpiar si hay una sesión corrupta o error previo
-      // NO limpiar automáticamente para preservar autenticación
-      if (this.state.sessionId && this.state.lastError) {
+      if (this.state.socket && !isWaSocketOpen(this.state.socket)) {
+        console.log('⚠️ [WhatsAppLiteService] Socket en memoria pero WS cerrado, se recrea');
+        this.connectionManager.releaseExistingSocket();
+        this.state.socket = null;
+        this.state.isConnected = false;
+      }
+
+      const lastErrorCode = getDisconnectStatusCode(this.state.lastError);
+      if (this.state.sessionId && this.state.lastError && isPermanentDisconnect(lastErrorCode)) {
         console.log('🧹 Limpiando sesión corrupta anterior:', this.state.sessionId);
         await this.cleanupSessionFiles(this.state.sessionId);
       }
@@ -215,32 +251,72 @@ export class WhatsAppLiteService {
    */
   async sendMessage(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<boolean> {
     try {
-      if (!this.hasLiveSocket()) {
-        console.log('❌ WhatsApp Lite no está conectado');
+      if (await this.sendOnLiveSocket(phoneNumber, message)) {
+        return true;
+      }
+    } catch (error) {
+      if (!isConnectionClosedError(error)) {
+        console.error('❌ Error enviando mensaje:', error);
         return false;
       }
+      console.warn('⚠️ Envío falló por socket cerrado, reconectando...');
+    }
 
-      const jid = toWhatsAppJid(phoneNumber);
-      
-      await this.state.socket!.sendMessage(jid, {
-        text: message
-      });
+    const userId = this.state.userId;
+    if (!userId) {
+      console.log('❌ WhatsApp Lite no está conectado');
+      return false;
+    }
 
-      console.log(`✅ Mensaje enviado a ${jid}`);
-      return true;
+    this.state.lastError = undefined;
+    this.state.preserve515 = true;
 
+    const result = await this.connect(userId);
+    if (!result.success) {
+      console.error('❌ No se pudo reconectar para enviar');
+      return false;
+    }
+    const recovered = await this.waitUntilConnected(20000);
+    if (!recovered) {
+      console.error('❌ La reconexión no abrió a tiempo para enviar');
+      return false;
+    }
+
+    try {
+      return await this.sendOnLiveSocket(phoneNumber, message);
     } catch (error) {
-      console.error('❌ Error enviando mensaje:', error);
+      console.error('❌ Error enviando mensaje (reintento):', error);
       return false;
     }
   }
 
+  private async sendOnLiveSocket(phoneNumber: string, message: string): Promise<boolean> {
+    if (!this.hasLiveSocket()) {
+      return false;
+    }
+    const jid = toWhatsAppJid(phoneNumber);
+    await this.state.socket!.sendMessage(jid, { text: message });
+    console.log(`✅ Mensaje enviado a ${jid}`);
+    return true;
+  }
+
   hasLiveSocket(): boolean {
     this.applyLiveUserFromSocket();
-    return Boolean(this.state.socket && this.state.isConnected && this.state.phoneNumber);
+    return Boolean(
+      this.state.socket &&
+        isWaSocketOpen(this.state.socket) &&
+        this.state.isConnected &&
+        this.state.phoneNumber
+    );
   }
 
   private applyLiveUserFromSocket(): boolean {
+    if (!isWaSocketOpen(this.state.socket)) {
+      if (this.state.socket) {
+        this.state.isConnected = false;
+      }
+      return false;
+    }
     const user = this.state.socket?.user;
     if (!user?.id) return false;
     const phone = String(user.id).split('@')[0].split(':')[0];

@@ -1,9 +1,10 @@
-import { WASocket, makeWASocket, fetchLatestBaileysVersion } from 'baileys';
+import { makeWASocket, fetchLatestBaileysVersion, WASocket } from 'baileys';
 import { isJidBroadcast } from 'baileys';
 import QRCode from 'qrcode';
 import type { BaileysAuthState } from './AuthManager';
 import { BAILEYS_CONFIG } from './BaileysConfig';
 import { EventManager } from './EventManager';
+import { isWaSocketOpen } from './socketHealth';
 
 // Cache de la versión de WhatsApp Web. Usar la última evita el error 405 "Connection Failure".
 let cachedWaVersion: [number, number, number] | undefined;
@@ -110,14 +111,8 @@ export class ConnectionManager {
   async createSocket(authState: BaileysAuthState): Promise<WASocket> {
     console.log('🔧 Creando socket de Baileys...');
     
-    // ✅ SOLUCIÓN: Verificar si ya hay un socket activo
     if (this.existingSocket) {
-      const ws = this.existingSocket.ws as { readyState?: number; isOpen?: boolean } | undefined;
-      const open =
-        typeof ws?.isOpen === 'boolean'
-          ? ws.isOpen
-          : ws?.readyState === 1;
-      if (this.existingSocket.user && open) {
+      if (isWaSocketOpen(this.existingSocket) && this.existingSocket.user) {
         console.log('✅ Reutilizando socket existente con usuario', this.existingSocket.user.id);
         return this.existingSocket;
       }

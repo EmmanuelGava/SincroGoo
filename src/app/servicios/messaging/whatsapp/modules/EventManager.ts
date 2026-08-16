@@ -4,6 +4,12 @@ import os from 'os';
 import fs from 'fs';
 import { DatabaseManager } from './DatabaseManager';
 import QRCode from 'qrcode';
+import {
+  getDisconnectStatusCode,
+  isPermanentDisconnect,
+  isWaSocketOpen,
+} from './socketHealth';
+import { RECONNECT_DELAYS } from './BaileysConfig';
 
 export type ConnectionCallback = (status: { connected: boolean; phoneNumber?: string }) => void;
 
@@ -160,32 +166,30 @@ export class EventManager {
         });
       }
 
-      // ✅ SOLUCIÓN: Manejar error 515 específicamente
-      if (update.lastDisconnect?.error) {
-        const error = update.lastDisconnect.error as any;
-        const statusCode = error.output?.statusCode;
-        
-        console.log('🔌 [EventManager] Conexión cerrada:', statusCode);
-        console.log('🔌 [EventManager] Error completo:', error);
-        
-        // Guardar error para posible limpieza futura
+      if (update.connection === 'close') {
+        const error = update.lastDisconnect?.error;
+        const statusCode = getDisconnectStatusCode(error);
+        console.log('🔌 [EventManager] Conexión cerrada:', statusCode, error instanceof Error ? error.message : error);
+
         state.lastError = error;
-        
-        if (statusCode === 515) {
-          console.log('🔄 [EventManager] Error 515 - Manejo inteligente (NO crear nueva sesión)...');
-          
-          // ✅ SOLUCIÓN: Error 515 es normal después del emparejamiento
-          // NO crear nueva sesión, solo esperar a que el socket se reconecte
-          state.isReconnecting = true;
-          
-          // ✅ SOLUCIÓN: Forzar reconexión completa después de error 515
-          console.log('🔄 [EventManager] Iniciando reconexión completa después de error 515...');
-          
-          // Intentar reconexión inmediata
-          this.attemptReconnectionAfter515(userId, state);
-          
+        state.isConnected = false;
+        state.socket = null;
+        state.currentQR = null;
+
+        if (isPermanentDisconnect(statusCode)) {
+          console.log('❌ [EventManager] Desconexión permanente, no se reconecta');
+          state.phoneNumber = null;
+          await this.databaseManager.saveConnectionState(state);
+          this.notifyConnectionUpdate(state);
           return;
         }
+
+        // 428 Connection Closed, 408 lost, 440 replaced, 515 restart, etc.
+        console.log('🔄 [EventManager] Cierre transitorio, se recreará el socket. código:', statusCode);
+        state.lastError = undefined;
+        this.scheduleReconnect(userId, state, statusCode);
+        this.notifyConnectionUpdate(state);
+        return;
       }
 
       // Procesar QR code
@@ -220,20 +224,6 @@ export class EventManager {
       if (update.connection === 'connecting' && state.lastError?.output?.statusCode === 515) {
         console.log('🔄 [EventManager] Reconexión detectada después de error 515');
         console.log('👤 [EventManager] Socket user durante reconexión:', socket.user?.id);
-      }
-
-      // Procesar desconexión
-      if (update.connection === 'close' && !update.lastDisconnect?.error) {
-        console.log('🔌 Conexión cerrada normalmente');
-        state.isConnected = false;
-        state.phoneNumber = null;
-        state.currentQR = null;
-        
-        // Guardar estado en BD
-        await this.databaseManager.saveConnectionState(state);
-        
-        // Notificar al frontend
-        this.notifyConnectionUpdate(state);
       }
 
       // Reconexiones internas de Baileys: no marcar desconectado si ya hay sesión viva.
@@ -421,10 +411,33 @@ export class EventManager {
   }
 
   /**
+   * Recrear el socket tras un cierre transitorio (428, 408, 440, 515...).
+   */
+  private scheduleReconnect(userId: string, state: WhatsAppState, statusCode?: number): void {
+    if (state.isReconnecting) {
+      console.log('⏳ [EventManager] Reconexión ya en curso, se omite duplicado');
+      return;
+    }
+    const delay =
+      (statusCode != null ? RECONNECT_DELAYS[statusCode as keyof typeof RECONNECT_DELAYS] : undefined) ?? 3000;
+    if (delay === 0) {
+      console.log('⛔ [EventManager] Delay 0: no se reconecta. código:', statusCode);
+      return;
+    }
+    state.isReconnecting = true;
+    setTimeout(() => {
+      this.attemptReconnectionAfter515(userId, state).catch((error) => {
+        console.error('❌ [EventManager] Error programando reconexión:', error);
+        state.isReconnecting = false;
+      });
+    }, delay);
+  }
+
+  /**
    * Reconexión específica para error 515
    */
   private async attemptReconnectionAfter515(userId: string, state: WhatsAppState): Promise<void> {
-    console.log('🔄 [EventManager] Iniciando reconexión después de error 515...');
+    console.log('🔄 [EventManager] Iniciando reconexión de socket...');
 
     try {
       state.isReconnecting = true;
@@ -439,28 +452,29 @@ export class EventManager {
       // Dar tiempo a que saveCreds termine de escribir en disco.
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      if (isWaSocketOpen(state.socket)) {
+        console.log('✅ [EventManager] Socket ya está abierto, no se recrea');
+        return;
+      }
+
       if (!state.sessionId) {
         console.log('⚠️ [EventManager] Sin sessionId; no se puede reconectar tras 515');
         state.isReconnecting = false;
         return;
       }
 
-      // CRÍTICO: limpiar lastError para que connect() NO borre los archivos de sesión
-      // (el cleanup solo debe correr ante sesión corrupta, no ante un 515 normal).
       state.lastError = undefined;
-      // El 515 dejó el socket muerto; marcar como no conectado antes de recrear.
       state.isConnected = false;
       state.socket = null;
-      // Preservar el directorio temporal: ya contiene las credenciales del escaneo (me),
-      // necesarias para que Baileys complete el registro en la reconexión.
-      state.preserve515 = true;
 
       const tempDir = process.env.TEMP || process.env.TMP || os.tmpdir();
       const authDir = path.join(tempDir, 'whatsapp_auth', state.sessionId);
-      if (fs.existsSync(authDir)) {
+      const hasAuthDir = fs.existsSync(authDir);
+      state.preserve515 = hasAuthDir;
+      if (hasAuthDir) {
         console.log('📁 [EventManager] Reutilizando credenciales de:', authDir, '→', fs.readdirSync(authDir).length, 'archivos');
       } else {
-        console.log('⚠️ [EventManager] No hay directorio temporal de sesión; reconectando de todos modos');
+        console.log('⚠️ [EventManager] No hay directorio temporal; se cargarán credenciales de BD');
       }
 
       console.log('🔄 [EventManager] Recreando socket con credenciales de la sesión', state.sessionId);

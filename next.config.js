@@ -23,7 +23,11 @@ const nextConfig = {
         ]
       },
       {
-        source: '/api/:path*',
+        source: '/chat',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store' }
+        ]
+      },
         headers: [
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
           { key: 'Access-Control-Allow-Origin', value: '*' },

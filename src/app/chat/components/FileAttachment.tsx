@@ -24,6 +24,12 @@ interface FileAttachmentProps {
   isOwn?: boolean;
 }
 
+function toSameOriginMedia(url: string): string {
+  if (!url) return url;
+  if (url.startsWith('/')) return url;
+  return `/api/chat/media?url=${encodeURIComponent(url)}`;
+}
+
 function formatClock(seconds: number) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
   const m = Math.floor(seconds / 60);
@@ -77,15 +83,19 @@ function WhatsAppAudioPlayer({
 
   const toggle = async () => {
     const el = audioRef.current;
-    if (!el || error) return;
+    if (!el) return;
     try {
       if (playing) {
         el.pause();
         setPlaying(false);
-      } else {
-        await el.play();
-        setPlaying(true);
+        return;
       }
+      if (error) {
+        setError(false);
+        el.load();
+      }
+      await el.play();
+      setPlaying(true);
     } catch {
       setError(true);
     }
@@ -103,10 +113,10 @@ function WhatsAppAudioPlayer({
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 220, py: 0.25 }}>
-      <audio ref={audioRef} src={url} preload="metadata" />
+      <audio ref={audioRef} src={toSameOriginMedia(url)} preload="metadata" />
       <IconButton
         onClick={toggle}
-        disabled={error}
+        disabled={false}
         sx={{
           bgcolor: isOwn ? 'rgba(255,255,255,0.2)' : '#00a884',
           color: '#fff',
@@ -180,7 +190,7 @@ export default function FileAttachment({
           ) : (
             <Box
               component="img"
-              src={url}
+              src={toSameOriginMedia(url)}
               alt={fileName}
               onError={() => setImageError(true)}
               sx={{
@@ -202,7 +212,7 @@ export default function FileAttachment({
           <DialogContent sx={{ p: 0, bgcolor: '#000' }}>
             <Box
               component="img"
-              src={url}
+              src={toSameOriginMedia(url)}
               alt={fileName}
               sx={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }}
             />

@@ -390,7 +390,7 @@ export default function KanbanLeads() {
           <Button 
             variant="contained" 
             startIcon={<AddIcon />} 
-            onClick={handleOpen}
+            onClick={() => handleOpen()}
             sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' }, textTransform: 'none', fontWeight: 500, borderRadius: 2, boxShadow: 'none' }}
           >
             Nuevo Lead

@@ -8,7 +8,7 @@ import { SyncSupabaseUser } from "./SyncSupabaseUser"
 // Proveedor de sesión simplificado utilizando directamente NextAuth
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   return (
-    <NextAuthSessionProvider>
+    <NextAuthSessionProvider refetchInterval={5 * 60} refetchOnWindowFocus>
       <SyncSupabaseUser />
       {children}
     </NextAuthSessionProvider>

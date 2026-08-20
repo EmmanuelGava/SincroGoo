@@ -69,12 +69,20 @@ export async function GET(req: NextRequest) {
     // Usar cliente admin para operaciones del servidor
     const supabase = getSupabaseAdmin();
 
+    const activa = req.nextUrl.searchParams.get('activa');
+
     // Obtener configuraciones reales de la base de datos
-    const { data: configuraciones, error } = await supabase
+    let query = supabase
       .from('configuracion_mensajeria_usuario')
       .select('*')
       .eq('usuario_id', userId)
       .order('fecha_creacion', { ascending: false });
+
+    if (activa === 'true') {
+      query = query.eq('activa', true);
+    }
+
+    const { data: configuraciones, error } = await query;
 
     if (error) {
       console.error('❌ [Config API] Error obteniendo configuraciones:', error);

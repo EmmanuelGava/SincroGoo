@@ -1,13 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { Box, Alert, Snackbar } from '@mui/material';
+import { useSearchParams } from 'next/navigation';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
 import ChatSidebar from './components/ChatSidebar';
 import ChatWindow from './components/ChatWindow';
 import { useChat } from './hooks/useChat';
 
-export default function ChatPage() {
+function ChatPageInner() {
+  const searchParams = useSearchParams();
+  const conversacionParam = searchParams.get('conversacion');
   const {
     conversaciones,
     conversacionActiva,
@@ -17,19 +20,27 @@ export default function ChatPage() {
     fetchConversaciones,
     fetchMensajes,
     mensajes,
+    eliminarConversacion,
   } = useChat();
+
+  useEffect(() => {
+    if (!conversacionParam || conversaciones.length === 0) return;
+    const match = conversaciones.find((conv) => conv.id === conversacionParam);
+    if (match && conversacionActiva?.id !== match.id) {
+      seleccionarConversacion(match);
+    }
+  }, [conversacionParam, conversaciones, conversacionActiva?.id, seleccionarConversacion]);
 
   return (
     <>
       <EncabezadoSistema />
-      <Box sx={{ 
-        width: '100vw', 
-        height: '100vh', 
-        display: 'flex', 
+      <Box sx={{
+        width: '100vw',
+        height: '100vh',
+        display: 'flex',
         bgcolor: 'background.default',
         pt: '70px',
       }}>
-        {/* Sidebar de conversaciones */}
         <ChatSidebar
           conversaciones={conversaciones}
           conversacionActiva={conversacionActiva}
@@ -37,8 +48,7 @@ export default function ChatPage() {
           onRefreshConversaciones={fetchConversaciones}
           loading={loading}
         />
-        
-        {/* Ventana de chat principal */}
+
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <ChatWindow
             conversacion={conversacionActiva}
@@ -47,13 +57,13 @@ export default function ChatPage() {
             onRefreshMensajes={() => {
               if (conversacionActiva) fetchMensajes(conversacionActiva.id, { silent: true });
             }}
+            onDeleteConversacion={eliminarConversacion}
           />
         </Box>
       </Box>
 
-      {/* Notificación de errores */}
-      <Snackbar 
-        open={!!error} 
+      <Snackbar
+        open={!!error}
         autoHideDuration={6000}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
@@ -62,5 +72,13 @@ export default function ChatPage() {
         </Alert>
       </Snackbar>
     </>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageInner />
+    </Suspense>
   );
 }

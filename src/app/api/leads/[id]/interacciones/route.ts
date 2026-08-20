@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
 export async function GET(
@@ -7,11 +9,12 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { supabase, session } = await getSupabaseClient(true);
+    const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    const supabase = getSupabaseAdmin();
     const leadId = params.id;
 
     if (!leadId) {

@@ -3,6 +3,14 @@ import { useSession } from 'next-auth/react';
 import { initSocket, shouldInitializeSocket } from '@/lib/socket';
 import { supabase } from '@/lib/supabase/browserClient';
 import { inboxChannelName } from '@/lib/chat/inboxChannel';
+import { shouldAlertIncomingMessage } from '@/lib/chat/chatNotifyPolicy';
+import {
+  isChatSoundEnabled,
+  playChatIncomingSound,
+  showChatBrowserNotification,
+  unlockChatAudio,
+} from '@/lib/chat/chatNotifications';
+import { conversationNeedsPhoneResolution } from '@/lib/chat/conversationIdentity';
 
 interface Conversacion {
   id: string;
@@ -41,6 +49,7 @@ export function useChat() {
   const fetchConversacionesRef = useRef<() => Promise<void>>();
   const fetchMensajesRef = useRef<(id: string, options?: { silent?: boolean }) => Promise<void>>();
   const conversacionActivaRef = useRef<Conversacion | null>(null);
+  const resolvingPhoneRef = useRef(new Set<string>());
 
   // Fetch conversaciones
   const fetchConversaciones = useCallback(async () => {
@@ -175,6 +184,34 @@ export function useChat() {
   const seleccionarConversacion = useCallback((conversacion: Conversacion) => {
     setConversacionActiva(conversacion);
     fetchMensajes(conversacion.id);
+    if (conversationNeedsPhoneResolution(conversacion) && !resolvingPhoneRef.current.has(conversacion.id)) {
+      resolvingPhoneRef.current.add(conversacion.id);
+      const jid = String(conversacion.metadata?.remote_jid || '')
+        || (String(conversacion.remitente).includes('@')
+          ? String(conversacion.remitente)
+          : `${conversacion.remitente}@lid`);
+      fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'resolve-peer',
+          type: 'lite',
+          jid,
+          conversacionId: conversacion.id,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.resolved && data?.phone) {
+            fetchConversacionesRef.current?.();
+          } else {
+            resolvingPhoneRef.current.delete(conversacion.id);
+          }
+        })
+        .catch(() => {
+          resolvingPhoneRef.current.delete(conversacion.id);
+        });
+    }
     if ((conversacion.unread_count || 0) > 0) {
       fetch('/api/chat/conversaciones', {
         method: 'PATCH',
@@ -199,6 +236,30 @@ export function useChat() {
     setMensajes([]);
   }, []);
 
+  const eliminarConversacion = useCallback(async (conversacionId: string) => {
+    try {
+      const res = await fetch('/api/chat/conversaciones', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversacionId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'No se pudo eliminar el chat');
+      }
+      setConversaciones((prev) => prev.filter((c) => c.id !== conversacionId));
+      if (conversacionActivaRef.current?.id === conversacionId) {
+        setConversacionActiva(null);
+        setMensajes([]);
+      }
+      return true;
+    } catch (error) {
+      console.error('Error eliminando conversación:', error);
+      setError(error instanceof Error ? error.message : 'Error eliminando el chat');
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     conversacionActivaRef.current = conversacionActiva;
   }, [conversacionActiva]);
@@ -208,6 +269,12 @@ export function useChat() {
     fetchConversaciones();
   }, [fetchConversaciones]);
 
+  useEffect(() => {
+    const unlock = () => unlockChatAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    return () => window.removeEventListener('pointerdown', unlock);
+  }, []);
+
   const refreshLive = useCallback(() => {
     fetchConversacionesRef.current?.();
     const activeId = conversacionActivaRef.current?.id;
@@ -216,14 +283,43 @@ export function useChat() {
     }
   }, []);
 
+  const alertIncoming = useCallback((payload: {
+    conversacionId?: string;
+    preview?: string;
+    contactName?: string;
+    direction?: string;
+  }) => {
+    if (!shouldAlertIncomingMessage({
+      direction: payload.direction,
+      conversacionId: payload.conversacionId,
+      activeConversacionId: conversacionActivaRef.current?.id,
+      pageVisible: typeof document === 'undefined' ? true : !document.hidden,
+    })) {
+      return;
+    }
+    if (isChatSoundEnabled()) {
+      playChatIncomingSound();
+    }
+    const title = payload.contactName || 'Nuevo mensaje';
+    const body = payload.preview || 'Tenés un mensaje nuevo';
+    showChatBrowserNotification(title, body, payload.conversacionId);
+  }, []);
+
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user?.id || !supabase) return;
 
     const client = supabase;
     const channel = client
       .channel(inboxChannelName(session.user.id))
-      .on('broadcast', { event: 'new_message' }, () => {
+      .on('broadcast', { event: 'new_message' }, (msg) => {
+        const payload = (msg?.payload || {}) as {
+          conversacionId?: string;
+          preview?: string;
+          contactName?: string;
+          direction?: string;
+        };
         refreshLive();
+        alertIncoming(payload);
       })
       .subscribe((subStatus) => {
         console.log('Realtime inbox chat:', subStatus);
@@ -232,7 +328,7 @@ export function useChat() {
     return () => {
       client.removeChannel(channel);
     };
-  }, [status, session?.user?.id, refreshLive]);
+  }, [status, session?.user?.id, refreshLive, alertIncoming]);
 
   // Respaldo por si el broadcast se pierde (pestaña en segundo plano, etc.)
   useEffect(() => {
@@ -273,6 +369,7 @@ export function useChat() {
     enviarMensaje,
     seleccionarConversacion,
     limpiarConversacionActiva,
+    eliminarConversacion,
     
     // Utilidades
     hasConversaciones: conversaciones.length > 0,

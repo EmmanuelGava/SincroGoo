@@ -89,6 +89,38 @@ export function conversationDisplayName(conv: {
   return conversationRealPhone(conv) || 'Contacto WhatsApp';
 }
 
+export function isPlaceholderLeadEmail(email: string | null | undefined): boolean {
+  const value = String(email || '').trim().toLowerCase();
+  return !value || value.endsWith('@klosync.local');
+}
+
+export function isLikelyInternalWhatsAppId(value: string | null | undefined): boolean {
+  if (!value) return false;
+  if (isWhatsAppLid(value)) return true;
+  const digits = onlyDigits(value);
+  return digits.length >= 14 && !digits.startsWith('54');
+}
+
+export function leadFormEmail(email: string | null | undefined): string {
+  return isPlaceholderLeadEmail(email) ? '' : String(email).trim();
+}
+
+export function leadFormPhone(telefono: string | null | undefined): string {
+  if (!telefono || isLikelyInternalWhatsAppId(telefono) || !looksLikePhoneNumber(telefono)) {
+    return '';
+  }
+  return String(telefono).trim();
+}
+
+export function conversationNeedsPhoneResolution(conv: {
+  remitente?: string | null;
+  metadata?: Record<string, unknown> | null;
+}): boolean {
+  if (conversationRealPhone(conv)) return false;
+  const remoteJid = String(metaOf(conv).remote_jid || '');
+  return isWhatsAppLid(remoteJid) || isLikelyInternalWhatsAppId(conv.remitente);
+}
+
 export function formatPhone(value: string): string {
   const digits = onlyDigits(value);
   if (digits.startsWith('549') && digits.length >= 11) {

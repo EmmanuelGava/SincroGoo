@@ -31,6 +31,8 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ChatIcon from '@mui/icons-material/Chat';
 import HistoryIcon from '@mui/icons-material/History';
+import { useRouter } from 'next/navigation';
+import { isPlaceholderLeadEmail, leadFormPhone } from '@/lib/chat/conversationIdentity';
 
 interface Lead {
   id: string;
@@ -47,6 +49,7 @@ interface Lead {
   valor_estimado?: number;
   origen?: string;
   notas?: string;
+  conversacion_id?: string | null;
 }
 
 interface Interaccion {
@@ -64,6 +67,7 @@ interface LeadProfileModalProps {
 }
 
 export default function LeadProfileModal({ open, onClose, leadId }: LeadProfileModalProps) {
+  const router = useRouter();
   const [lead, setLead] = useState<Lead | null>(null);
   const [interacciones, setInteracciones] = useState<Interaccion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,7 +90,10 @@ export default function LeadProfileModal({ open, onClose, leadId }: LeadProfileM
         throw new Error('Error cargando datos del lead');
       }
       const leadData = await leadRes.json();
-      setLead(leadData.lead);
+      setLead({
+        ...leadData.lead,
+        conversacion_id: leadData.lead?.conversacion_id || leadData.conversacionId || null,
+      });
 
       // Fetch interactions
       const interaccionesRes = await fetch(`/api/leads/${leadId}/interacciones`);
@@ -102,8 +109,8 @@ export default function LeadProfileModal({ open, onClose, leadId }: LeadProfileM
     }
   };
 
-  const getEstadoColor = (estado: string) => {
-    switch (estado.toLowerCase()) {
+  const getEstadoColor = (estado?: string) => {
+    switch ((estado || '').toLowerCase()) {
       case 'nuevo': return 'info';
       case 'contactado': return 'warning';
       case 'calificado': return 'primary';
@@ -186,7 +193,7 @@ export default function LeadProfileModal({ open, onClose, leadId }: LeadProfileM
           <Box>
             <Typography variant="h6">{lead.nombre}</Typography>
             <Chip 
-              label={lead.estado_lead}
+              label={lead.estado_lead || 'Sin estado'}
               color={getEstadoColor(lead.estado_lead) as any}
               size="small"
             />
@@ -208,16 +215,16 @@ export default function LeadProfileModal({ open, onClose, leadId }: LeadProfileM
                   Información Personal
                 </Typography>
                 <List dense>
-                  {lead.email && (
+                  {lead.email && !isPlaceholderLeadEmail(lead.email) && (
                     <ListItem>
                       <ListItemIcon><EmailIcon /></ListItemIcon>
                       <ListItemText primary="Email" secondary={lead.email} />
                     </ListItem>
                   )}
-                  {lead.telefono && (
+                  {leadFormPhone(lead.telefono) && (
                     <ListItem>
                       <ListItemIcon><PhoneIcon /></ListItemIcon>
-                      <ListItemText primary="Teléfono" secondary={lead.telefono} />
+                      <ListItemText primary="Teléfono" secondary={leadFormPhone(lead.telefono)} />
                     </ListItem>
                   )}
                   {lead.empresa && (
@@ -361,6 +368,14 @@ export default function LeadProfileModal({ open, onClose, leadId }: LeadProfileM
       </DialogContent>
 
       <DialogActions>
+        {lead.conversacion_id && (
+          <Button onClick={() => router.push(`/chat?conversacion=${lead.conversacion_id}`)}>
+            Abrir chat
+          </Button>
+        )}
+        <Button onClick={() => router.push(`/crm?lead=${lead.id}`)}>
+          Ver en Kanban
+        </Button>
         <Button onClick={onClose} variant="contained">
           Cerrar
         </Button>

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { userId, supabase } = client;
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('estados_lead')
       .select('*')
       .eq('usuario_id', userId)
@@ -33,6 +33,24 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al obtener estados_lead:', error);
       throw error;
+    }
+
+    if (!data || data.length === 0) {
+      const defaults = [
+        { nombre: 'Nuevo', orden: 0, color: '#4FC3F7', icono: 'RadioButtonUnchecked', is_default: true },
+        { nombre: 'Contactado', orden: 1, color: '#FFD54F', icono: 'HourglassEmpty', is_default: false },
+        { nombre: 'Calificado', orden: 2, color: '#7986CB', icono: 'TrendingUp', is_default: false },
+        { nombre: 'Propuesta', orden: 3, color: '#FF8A65', icono: 'WorkOutline', is_default: false },
+        { nombre: 'Ganado', orden: 4, color: '#4ECCA3', icono: 'ThumbUpOffAlt', is_default: false },
+        { nombre: 'Perdido', orden: 5, color: '#F06292', icono: 'ThumbDownOffAlt', is_default: false },
+      ].map((estado) => ({ ...estado, usuario_id: userId }));
+
+      const seeded = await supabase.from('estados_lead').insert(defaults).select('*').order('orden', { ascending: true });
+      if (seeded.error) {
+        console.error('Error al crear etapas por defecto:', seeded.error);
+        throw seeded.error;
+      }
+      data = seeded.data || [];
     }
     
     return NextResponse.json(data || []);

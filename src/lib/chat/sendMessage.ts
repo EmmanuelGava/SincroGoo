@@ -26,15 +26,26 @@ export async function sendMessage(data: SendMessageData) {
     let success = false;
     let platformDetails = '';
     let error = null;
+    let alreadySaved = false;
 
     // Enviar según la plataforma
     switch (data.platform) {
       case 'whatsapp': {
         console.log('📱 Procesando WhatsApp...');
+        const pending = await saveOutgoingMessage(data, 'whatsapp-lite-baileys', 'enviando');
+        alreadySaved = Boolean(pending?.messageId);
         const whatsappResult = await sendViaWhatsApp(data);
         success = whatsappResult.success;
         platformDetails = whatsappResult.platformDetails;
         error = whatsappResult.error;
+        if (pending?.messageId) {
+          await updateOutgoingStatus(
+            pending.messageId,
+            success ? 'enviado' : 'error',
+            error,
+            whatsappResult.waMessageId
+          );
+        }
         break;
       }
       
@@ -60,9 +71,11 @@ export async function sendMessage(data: SendMessageData) {
         throw new Error(`Plataforma no soportada: ${data.platform}`);
     }
 
-    if (success) {
+    if (success && !alreadySaved) {
       // Guardar mensaje saliente en la base de datos
       await saveOutgoingMessage(data, platformDetails);
+      console.log(`✅ Mensaje enviado exitosamente via ${data.platform}`);
+    } else if (success) {
       console.log(`✅ Mensaje enviado exitosamente via ${data.platform}`);
     }
 
@@ -133,6 +146,7 @@ async function sendViaWhatsApp(data: SendMessageData) {
         error: result.body.success
           ? undefined
           : String(result.body.error || 'WhatsApp Lite no está conectado'),
+        waMessageId: result.body.waMessageId ? String(result.body.waMessageId) : undefined,
       };
     }
 
@@ -158,7 +172,7 @@ async function sendViaWhatsApp(data: SendMessageData) {
       };
     }
     
-    const success = await whatsappLiteService.sendMessage(
+    const sent = await whatsappLiteService.sendMessage(
       sendJid,
       data.message,
       {
@@ -167,11 +181,12 @@ async function sendViaWhatsApp(data: SendMessageData) {
       }
     );
 
-    console.log('📱 Resultado del envío:', success);
+    console.log('📱 Resultado del envío:', sent);
 
     return {
-      success,
-      platformDetails: 'whatsapp-lite-baileys'
+      success: typeof sent === 'object' ? sent.success : Boolean(sent),
+      platformDetails: 'whatsapp-lite-baileys',
+      waMessageId: typeof sent === 'object' ? sent.waMessageId : undefined,
     };
   } catch (error) {
     console.error('❌ Error enviando via WhatsApp:', error);
@@ -232,7 +247,11 @@ async function sendViaEmail(data: SendMessageData) {
 /**
  * Guardar mensaje saliente en la base de datos
  */
-async function saveOutgoingMessage(data: SendMessageData, platformDetails: string) {
+async function saveOutgoingMessage(
+  data: SendMessageData,
+  platformDetails: string,
+  estadoEnvio: 'enviando' | 'enviado' = 'enviado'
+): Promise<{ conversacionId: string; messageId: string } | null> {
   try {
     console.log('💾 Guardando mensaje saliente en BD:', {
       platform: data.platform,
@@ -334,7 +353,7 @@ async function saveOutgoingMessage(data: SendMessageData, platformDetails: strin
           platform_details: platformDetails,
           direction: 'outgoing',
           user_id: data.userId,
-          estado_envio: 'enviado',
+          estado_envio: estadoEnvio,
         },
         usuario_id: data.userId || null
       });
@@ -346,9 +365,47 @@ async function saveOutgoingMessage(data: SendMessageData, platformDetails: strin
     
     console.log('✅ Mensaje saliente guardado exitosamente');
     const { notifyInboxRealtime } = await import('@/lib/chat/notifyInbox');
-    await notifyInboxRealtime(data.userId, { conversacionId, platform: data.platform });
+    await notifyInboxRealtime(data.userId, {
+      conversacionId,
+      platform: data.platform,
+      preview: String(data.message || '').slice(0, 120),
+      direction: 'outgoing',
+    });
+    return { conversacionId, messageId };
   } catch (error) {
     console.error('❌ Error guardando mensaje saliente:', error);
-    // No lanzar error para no interrumpir el envío
+    return null;
+  }
+}
+
+async function updateOutgoingStatus(
+  messageId: string,
+  estado: 'enviado' | 'error',
+  errorText?: string | null,
+  waMessageId?: string
+) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: current } = await supabase
+      .from('mensajes_conversacion')
+      .select('metadata')
+      .eq('id', messageId)
+      .maybeSingle();
+    const metadata = {
+      ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}),
+      estado_envio: estado,
+      ...(errorText ? { error_envio: errorText } : {}),
+    };
+    const patch: Record<string, unknown> = { metadata };
+    if (waMessageId) patch.wa_message_id = waMessageId;
+    const { error } = await supabase
+      .from('mensajes_conversacion')
+      .update(patch)
+      .eq('id', messageId);
+    if (error) {
+      console.warn('⚠️ No se pudo actualizar estado del mensaje saliente:', error);
+    }
+  } catch (error) {
+    console.warn('⚠️ Error actualizando estado saliente:', error);
   }
 } 

@@ -5,7 +5,17 @@ import {
   Avatar, 
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -14,6 +24,9 @@ import SmsIcon from '@mui/icons-material/Sms';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { useRouter } from 'next/navigation';
 import LeadProfileModal from './LeadProfileModal';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 
@@ -31,6 +44,7 @@ interface Conversacion {
 
 interface ConversationHeaderProps {
   conversacion: Conversacion;
+  onDelete?: (conversacionId: string) => Promise<boolean> | boolean;
 }
 
 const servicioIcons: Record<string, React.ElementType> = {
@@ -54,8 +68,12 @@ const servicioNames: Record<string, string> = {
   sms: 'SMS',
 };
 
-export default function ConversationHeader({ conversacion }: ConversationHeaderProps) {
+export default function ConversationHeader({ conversacion, onDelete }: ConversationHeaderProps) {
   const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
   
   const displayName = conversationDisplayName(conversacion);
   const displayPhone = conversacion.display_phone || conversationRealPhone(conversacion);
@@ -168,13 +186,89 @@ export default function ConversationHeader({ conversacion }: ConversationHeaderP
             </IconButton>
           </Tooltip>
         )}
+        {conversacion.lead_id && (
+          <Tooltip title="Ver en el Kanban">
+            <IconButton
+              size="small"
+              onClick={() => router.push(`/crm?lead=${conversacion.lead_id}`)}
+            >
+              <ViewKanbanIcon />
+            </IconButton>
+          </Tooltip>
+        )}
         
         <Tooltip title="Más opciones">
-          <IconButton size="small">
+          <IconButton
+            size="small"
+            onClick={(event) => setMenuAnchor(event.currentTarget)}
+            aria-label="Más opciones"
+          >
             <MoreVertIcon />
           </IconButton>
         </Tooltip>
       </Box>
+
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+      >
+        {conversacion.lead_id && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              router.push(`/crm?lead=${conversacion.lead_id}`);
+            }}
+          >
+            <ListItemIcon><ViewKanbanIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Ver en el Kanban</ListItemText>
+          </MenuItem>
+        )}
+        {conversacion.lead_id && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setLeadModalOpen(true);
+            }}
+          >
+            <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Ver perfil del lead</ListItemText>
+          </MenuItem>
+        )}
+        <MenuItem
+          onClick={() => {
+            setMenuAnchor(null);
+            setConfirmDelete(true);
+          }}
+        >
+          <ListItemIcon><DeleteOutlineIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Eliminar chat</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      <Dialog open={confirmDelete} onClose={() => !deleting && setConfirmDelete(false)}>
+        <DialogTitle>Eliminar chat</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Se borra esta conversación y sus mensajes de KloSync. El lead, si existe, se mantiene. WhatsApp no se desvincula.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancelar</Button>
+          <Button
+            color="error"
+            disabled={deleting}
+            onClick={async () => {
+              setDeleting(true);
+              const ok = onDelete ? await onDelete(conversacion.id) : false;
+              setDeleting(false);
+              if (ok) setConfirmDelete(false);
+            }}
+          >
+            {deleting ? 'Eliminando…' : 'Eliminar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Modal del perfil del lead */}
       {conversacion.lead_id && (

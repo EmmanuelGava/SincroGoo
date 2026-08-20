@@ -253,15 +253,14 @@ export class WhatsAppLiteService {
   /**
    * Enviar mensaje
    */
-  async sendMessage(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<boolean> {
+  async sendMessage(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<{ success: boolean; waMessageId?: string }> {
     try {
-      if (await this.sendOnLiveSocket(phoneNumber, message, options)) {
-        return true;
-      }
+      const sent = await this.sendOnLiveSocket(phoneNumber, message, options);
+      if (sent.success) return sent;
     } catch (error) {
       if (!isConnectionClosedError(error)) {
         console.error('❌ Error enviando mensaje:', error);
-        return false;
+        return { success: false };
       }
       console.warn('⚠️ Envío falló por socket cerrado, reconectando...');
     }
@@ -269,7 +268,7 @@ export class WhatsAppLiteService {
     const userId = this.state.userId;
     if (!userId) {
       console.log('❌ WhatsApp Lite no está conectado');
-      return false;
+      return { success: false };
     }
 
     this.state.lastError = undefined;
@@ -278,31 +277,48 @@ export class WhatsAppLiteService {
     const result = await this.connect(userId);
     if (!result.success) {
       console.error('❌ No se pudo reconectar para enviar');
-      return false;
+      return { success: false };
     }
     const recovered = await this.waitUntilConnected(20000);
     if (!recovered) {
       console.error('❌ La reconexión no abrió a tiempo para enviar');
-      return false;
+      return { success: false };
     }
 
     try {
       return await this.sendOnLiveSocket(phoneNumber, message, options);
     } catch (error) {
       console.error('❌ Error enviando mensaje (reintento):', error);
-      return false;
+      return { success: false };
     }
   }
 
-  private async sendOnLiveSocket(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<boolean> {
+  private async sendOnLiveSocket(phoneNumber: string, message: string, options: MessageOptions = {}): Promise<{ success: boolean; waMessageId?: string }> {
     if (!this.hasLiveSocket()) {
-      return false;
+      return { success: false };
     }
     const jid = toWhatsAppJid(phoneNumber);
     const payload = await buildWhatsAppPayload(message, options);
-    await this.state.socket!.sendMessage(jid, payload);
+    const sent = await this.state.socket!.sendMessage(jid, payload);
+    const waMessageId = sent?.key?.id ? String(sent.key.id) : undefined;
     console.log(`✅ Mensaje enviado a ${jid}`, options.type || 'text');
-    return true;
+    return { success: true, waMessageId };
+  }
+
+  async resolvePeer(remoteJid: string, extra?: { remoteJidAlt?: string | null; timeoutMs?: number }) {
+    const { resolveWhatsAppPeer, digitsFromJid } = await import('@/lib/whatsapp/peerIdentity');
+    if (!this.hasLiveSocket()) {
+      return {
+        phone: digitsFromJid(remoteJid),
+        sendJid: remoteJid,
+        resolved: false,
+        kind: remoteJid.includes('@lid') ? 'lid' as const : 'pn' as const,
+      };
+    }
+    return resolveWhatsAppPeer(this.state.socket, remoteJid, {
+      remoteJidAlt: extra?.remoteJidAlt,
+      timeoutMs: extra?.timeoutMs ?? 8000,
+    });
   }
 
   hasLiveSocket(): boolean {
@@ -619,17 +635,9 @@ export class WhatsAppLiteService {
    */
   private async loadConnectionState(userId: string): Promise<void> {
     try {
-      console.log('🔄 [WhatsApp] Google ID detectado en loadConnectionState, obteniendo UUID...');
-      
-      // Aquí iría la lógica para obtener UUID del usuario
-      // Por ahora usamos un UUID falso para testing
-      const userUUID = 'bd6cb228-7597-4df3-b6ec-c9d6b32b50f9';
-      console.log('✅ [WhatsApp] UUID obtenido para loadConnectionState:', userUUID);
-      
-      // Cargar estado desde BD
       const savedState = await this.databaseManager.loadConnectionState(userId);
       if (savedState) {
-        this.state = { ...this.state, ...savedState };
+        this.state = { ...this.state, ...savedState, userId };
         console.log('📥 Estado de conexión cargado desde BD');
       }
     } catch (error) {

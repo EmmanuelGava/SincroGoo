@@ -1,40 +1,33 @@
 'use client';
 
-import React from 'react';
-import { Container, Typography, Box, Paper } from '@mui/material';
+import React, { Suspense } from 'react';
+import { Box, Typography } from '@mui/material';
 import dynamic from 'next/dynamic';
-// Importación dinámica para evitar problemas SSR con react-beautiful-dnd
 const KanbanLeads = dynamic(() => import('./componentes/KanbanLeads'), { ssr: false });
-// Aquí luego se importarán los componentes de Kanban y lógica de leads
 import { LeadsKanbanProvider } from './contexts/LeadsKanbanContext';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
-import SidebarMensajesEntrantes from './componentes/SidebarMensajesEntrantes';
 
 export default function CrmPage() {
   return (
     <>
       <EncabezadoSistema />
       <LeadsKanbanProvider>
-        <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'row', bgcolor: 'background.default', pt: '70px' }}>
-          <SidebarMensajesEntrantes />
-          <Box sx={{ flexGrow: 1, minWidth: 0, overflow: 'auto' }}>
-            <Container maxWidth="xl" sx={{ mt: 4 }}>
-              <Typography variant="h4" component="h1" gutterBottom>
-                CRM Visual – Kanban de Leads
-              </Typography>
-              <Typography variant="subtitle1" gutterBottom>
-                Gestiona tus oportunidades y leads de manera visual. Arrastra y suelta para mover entre etapas.
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Si todavía no hay leads, conectá WhatsApp y el primer mensaje crea la conversación. Podés crear un lead a mano cuando quieras.
-              </Typography>
-              <Box sx={{ mt: 4 }}>
-                <KanbanLeads />
-              </Box>
-            </Container>
+        <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', pt: '70px' }}>
+          <Box sx={{ px: 3, pt: 2 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+              CRM Visual – Kanban de Leads
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Los chats nuevos aparecen a la izquierda. Arrastralos a una columna para pasarlos al Kanban.
+            </Typography>
+          </Box>
+          <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+            <Suspense fallback={<Typography sx={{ p: 3 }}>Cargando tablero...</Typography>}>
+              <KanbanLeads />
+            </Suspense>
           </Box>
         </Box>
       </LeadsKanbanProvider>
     </>
   );
-} 
+}

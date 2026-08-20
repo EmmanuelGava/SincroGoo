@@ -4,7 +4,7 @@ import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { createClient } from '@supabase/supabase-js';
 import { type Database } from '@/lib/supabase/types/database';
-// import { Session } from 'next-auth' // Comentado porque no se utiliza
+import { googleAccessTokenIsExpired, refreshGoogleAccessToken } from '@/lib/auth/googleTokenRefresh';
 
 // Extender el tipo Session para incluir nuestras propiedades personalizadas
 declare module 'next-auth' {
@@ -177,12 +177,11 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // Handle Google token refresh
-      // Note: The original refreshAccessToken function might need to be adapted if it's specific to Google's token structure
-      if (token.provider === 'google' && token.accessTokenExpires && Date.now() >= token.accessTokenExpires) {
-        console.log('[NextAuth] Renovando token de Google expirado');
-        // Ensure refreshAccessToken is compatible or use a specific one for Google
-        return await refreshAccessToken(token);
+      // El JWT de sesión dura 30 días. El access token de Google dura ~1h.
+      // getServerSession no persiste el JWT renovado en la cookie, así que
+      // sin cache cada poll del Kanban/chat volvería a pegarle a Google.
+      if (token.provider === 'google' && googleAccessTokenIsExpired(token)) {
+        return await refreshGoogleAccessToken(token);
       }
 
       return token;
@@ -213,46 +212,6 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/signin',
   },
   debug: process.env.NODE_ENV === 'development',
-}
-
-async function refreshAccessToken(token: any) { // This function is specific to Google OAuth
-  try {
-    const url = "https://oauth2.googleapis.com/token";
-    const response = await fetch(url, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      method: "POST",
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID ?? '',
-        client_secret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-        grant_type: "refresh_token",
-        refresh_token: token.refreshToken,
-      }),
-    });
-
-    const refreshedTokens = await response.json();
-
-    if (!response.ok) {
-      throw refreshedTokens;
-    }
-
-    console.log('✅ [NextAuth] Token renovado exitosamente');
-    
-    return {
-      ...token,
-      accessToken: refreshedTokens.access_token,
-      accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000,
-      refreshToken: refreshedTokens.refresh_token ?? token.refreshToken,
-    };
-  } catch (error) {
-    console.error('❌ [NextAuth] Error al renovar token:', error);
-    
-    return {
-      ...token,
-      error: "RefreshAccessTokenError",
-    };
-  }
 }
 
 // Configuración para determinar qué rutas requieren autenticación

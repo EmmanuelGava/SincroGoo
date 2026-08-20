@@ -2,9 +2,10 @@ const WORKER_URL = process.env.WHATSAPP_WORKER_URL;
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
 
 function isRemoteWorkerEnabled(): boolean {
-  if (process.env.USE_WHATSAPP_WORKER === 'true') return Boolean(WORKER_URL);
-  if (process.env.NODE_ENV === 'development') return false;
-  return Boolean(WORKER_URL);
+  if (!WORKER_URL) return false;
+  // Local Baileys only if explicitly opted out. npm run dev must still talk to Railway.
+  if (process.env.USE_WHATSAPP_WORKER === 'false') return false;
+  return true;
 }
 
 export function isWhatsAppWorkerConfigured(): boolean {
@@ -178,12 +179,13 @@ export async function liteSend(
     };
   }
   const service = await localLite();
-  const success = await service.sendMessage(to, message, extra);
+  const sent = await service.sendMessage(to, message, extra);
   return {
-    status: success ? 200 : 503,
+    status: sent.success ? 200 : 503,
     body: {
-      success,
-      error: success ? undefined : 'WhatsApp Lite no está conectado',
+      success: sent.success,
+      waMessageId: sent.waMessageId,
+      error: sent.success ? undefined : 'WhatsApp Lite no está conectado',
     },
   };
 }
@@ -207,6 +209,36 @@ export async function liteReset(userId: string) {
   return {
     status: 200,
     body: { success: true, message: 'Sesión reiniciada, pedí el QR de nuevo' },
+  };
+}
+
+export async function liteResolvePeer(userId: string, jid: string) {
+  if (isWhatsAppWorkerConfigured()) {
+    return callWhatsAppWorker('/resolve-peer', {
+      method: 'POST',
+      body: { userId, jid },
+      userId,
+    });
+  }
+  if (process.env.VERCEL) {
+    return {
+      status: 503,
+      body: {
+        success: false,
+        resolved: false,
+        error: 'WhatsApp Lite no está conectado (falta worker en Railway).',
+      },
+    };
+  }
+  const service = await localLite();
+  if (!service.hasLiveSocket() && userId) {
+    await service.connect(userId);
+    await service.waitUntilConnected(25000);
+  }
+  const peer = await service.resolvePeer(jid, { timeoutMs: 8000 });
+  return {
+    status: peer.resolved || service.hasLiveSocket() ? 200 : 503,
+    body: { success: true, ...peer },
   };
 }
 

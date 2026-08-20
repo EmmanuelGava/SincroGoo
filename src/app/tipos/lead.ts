@@ -18,4 +18,5 @@ export interface Lead {
   fecha_actualizacion: string;
   ultimo_mensaje?: string;
   fecha_ultimo_mensaje?: string;
+  conversacion_id?: string | null;
 } 

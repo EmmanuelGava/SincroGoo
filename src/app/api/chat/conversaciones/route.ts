@@ -91,6 +91,8 @@ export async function GET(req: NextRequest) {
         ...newer,
         unread_count: (current.unread_count || 0) + (conv.unread_count || 0),
         ultimo_mensaje: newer.ultimo_mensaje || older.ultimo_mensaje,
+        lead_id: newer.lead_id || older.lead_id,
+        display_name: newer.display_name || older.display_name,
       });
     }
 
@@ -145,6 +147,45 @@ export async function PATCH(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error marcando conversación leída:', error);
+    const { error: errorMessage, status } = formatErrorResponse(error);
+    return NextResponse.json({ error: errorMessage }, { status });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const conversacionId = body.conversacionId || body.id;
+    if (!conversacionId) {
+      return NextResponse.json({ error: 'conversacionId requerido' }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdmin();
+    await supabase
+      .from('tasks')
+      .update({ conversation_id: null })
+      .eq('conversation_id', conversacionId);
+
+    const { error: messagesError } = await supabase
+      .from('mensajes_conversacion')
+      .delete()
+      .eq('conversacion_id', conversacionId);
+    if (messagesError) throw messagesError;
+
+    const { error } = await supabase
+      .from('conversaciones')
+      .delete()
+      .eq('id', conversacionId);
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error eliminando conversación:', error);
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });
   }

@@ -3,6 +3,14 @@ import { inboxChannelName } from '@/lib/chat/inboxChannel';
 
 export { inboxChannelName };
 
+export type InboxBroadcastPayload = {
+  conversacionId?: string;
+  platform?: string;
+  preview?: string;
+  contactName?: string;
+  direction?: 'incoming' | 'outgoing';
+};
+
 /**
  * Realtime de Supabase (Broadcast).
  * postgres_changes no sirve acá: el login es NextAuth, no hay JWT de Supabase,
@@ -10,7 +18,7 @@ export { inboxChannelName };
  */
 export async function notifyInboxRealtime(
   userId: string | undefined,
-  payload: { conversacionId?: string; platform?: string }
+  payload: InboxBroadcastPayload
 ) {
   if (!userId) return;
 
@@ -34,10 +42,7 @@ export async function notifyInboxRealtime(
           {
             topic: inboxChannelName(userId),
             event: 'new_message',
-            payload: {
-              conversacionId: payload.conversacionId,
-              platform: payload.platform,
-            },
+            payload,
           },
         ],
       }),
@@ -55,7 +60,7 @@ export async function notifyInboxRealtime(
 
 async function notifyInboxViaChannel(
   userId: string,
-  payload: { conversacionId?: string; platform?: string }
+  payload: InboxBroadcastPayload
 ) {
   const supabase = getSupabaseAdmin();
   await supabase.channel(inboxChannelName(userId)).send({

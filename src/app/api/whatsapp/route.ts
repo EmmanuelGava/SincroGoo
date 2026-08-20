@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { liteConnect, liteDisconnect, liteReset, liteSend, liteStatus } from '@/lib/whatsapp/workerClient';
+import { liteConnect, liteDisconnect, liteReset, liteResolvePeer, liteSend, liteStatus } from '@/lib/whatsapp/workerClient';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
 
       case 'send':
         return await handleSend(type, data, session.user.id);
+
+      case 'resolve-peer':
+        return await handleResolvePeer(type, data, session.user.id);
 
       default:
         return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
@@ -113,4 +116,27 @@ async function handleSend(type: 'lite' | 'business', data: any, userId: string) 
   }
 
   return NextResponse.json({ error: 'Tipo no válido' }, { status: 400 });
+}
+
+async function handleResolvePeer(type: 'lite' | 'business', data: any, userId: string) {
+  if (type !== 'lite') {
+    return NextResponse.json({ error: 'Tipo no válido' }, { status: 400 });
+  }
+
+  const jid = String(data.jid || data.to || '');
+  const conversacionId = data.conversacionId ? String(data.conversacionId) : '';
+  if (!jid) {
+    return NextResponse.json({ error: 'jid requerido' }, { status: 400 });
+  }
+
+  const result = await liteResolvePeer(userId, jid);
+  const phone = typeof result.body.phone === 'string' ? result.body.phone : '';
+  const resolved = Boolean(result.body.resolved);
+
+  if (resolved && phone && conversacionId) {
+    const { persistResolvedPeerPhone } = await import('@/lib/chat/persistPeerPhone');
+    await persistResolvedPeerPhone({ conversacionId, phone });
+  }
+
+  return NextResponse.json(result.body, { status: result.status });
 }

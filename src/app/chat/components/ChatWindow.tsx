@@ -40,6 +40,7 @@ interface ChatWindowProps {
   mensajes?: Mensaje[];
   onRefreshConversaciones: () => void;
   onRefreshMensajes?: () => void;
+  onDeleteConversacion?: (conversacionId: string) => Promise<boolean>;
 }
 
 export default function ChatWindow({
@@ -47,6 +48,7 @@ export default function ChatWindow({
   mensajes: mensajesLive,
   onRefreshConversaciones,
   onRefreshMensajes,
+  onDeleteConversacion,
 }: ChatWindowProps) {
   const [mensajesLocal, setMensajes] = useState<Mensaje[]>([]);
   const [loading, setLoading] = useState(false);
@@ -316,7 +318,7 @@ export default function ChatWindow({
       height: '100%'
     }}>
       {/* Header de la conversación */}
-      <ConversationHeader conversacion={conversacion} />
+      <ConversationHeader conversacion={conversacion} onDelete={onDeleteConversacion} />
       
       <Divider />
 

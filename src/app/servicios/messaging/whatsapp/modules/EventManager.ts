@@ -44,6 +44,7 @@ export class EventManager {
   private isProcessingAuth: boolean = false; // Evitar procesamiento múltiple de autenticación
   private reconnectHandler: ((userId: string) => Promise<void>) | null = null;
   private contactBook = new Map<string, { name?: string; notify?: string }>();
+  private lidToPhone = new Map<string, string>();
   private catchupSockets = new WeakSet<WASocket>();
 
   setReconnectHandler(handler: (userId: string) => Promise<void>): void {
@@ -73,7 +74,14 @@ export class EventManager {
     this.databaseManager = databaseManager;
   }
 
-  private rememberContacts(contacts: Array<{ id?: string; name?: string; notify?: string; verifiedName?: string }> | undefined) {
+  private rememberContacts(contacts: Array<{
+    id?: string;
+    lid?: string;
+    phoneNumber?: string;
+    name?: string;
+    notify?: string;
+    verifiedName?: string;
+  }> | undefined) {
     if (!Array.isArray(contacts)) return;
     for (const contact of contacts) {
       if (!contact?.id) continue;
@@ -85,6 +93,14 @@ export class EventManager {
       const digits = contact.id.split('@')[0];
       if (digits && digits !== contact.id) {
         this.contactBook.set(digits, this.contactBook.get(contact.id)!);
+      }
+      const pn = contact.phoneNumber?.includes('@s.whatsapp.net')
+        ? contact.phoneNumber
+        : (contact.id.includes('@s.whatsapp.net') ? contact.id : undefined);
+      const lid = contact.lid || (contact.id.includes('@lid') ? contact.id : undefined);
+      if (pn && lid) {
+        this.lidToPhone.set(lid, pn.split('@')[0].split(':')[0]);
+        this.lidToPhone.set(lid.split('@')[0], pn.split('@')[0].split(':')[0]);
       }
     }
   }
@@ -317,9 +333,10 @@ export class EventManager {
     message: any,
     options: { allowMediaPlaceholder: boolean; applyCatchupWindow: boolean }
   ): Promise<void> {
-    if (message?.key?.fromMe) return;
     const jid = message?.key?.remoteJid || '';
     if (!isCatchupJid(jid)) return;
+
+    const fromMe = Boolean(message?.key?.fromMe);
 
     const timestampMs = toWhatsAppTimestampMs(message.messageTimestamp);
     if (options.applyCatchupWindow && !isWithinCatchupWindow(timestampMs)) {
@@ -327,13 +344,15 @@ export class EventManager {
     }
 
     const text = extractIncomingText(message.message);
-    const historyBody = options.allowMediaPlaceholder ? extractHistoryBody(message.message) : null;
+    const historyBody = (options.allowMediaPlaceholder || fromMe)
+      ? extractHistoryBody(message.message)
+      : null;
     const body = text
       ? { text, type: 'text' as const }
       : historyBody;
 
     if (!body) {
-      if (!options.allowMediaPlaceholder) {
+      if (!options.allowMediaPlaceholder && !fromMe) {
         console.log('📨 Mensaje sin texto usable, se omite:', jid, Object.keys(message.message || {}));
       }
       return;
@@ -341,26 +360,35 @@ export class EventManager {
 
     const { resolveWhatsAppPeer } = await import('@/lib/whatsapp/peerIdentity');
     const key = message.key as { remoteJid?: string | null; remoteJidAlt?: string | null };
-    const peer = await resolveWhatsAppPeer(socket, jid, { remoteJidAlt: key.remoteJidAlt });
+    const knownPhone = this.lidToPhone.get(jid) || this.lidToPhone.get(jid.split('@')[0]);
+    const peer = await resolveWhatsAppPeer(socket, jid, {
+      remoteJidAlt: key.remoteJidAlt || (knownPhone ? `${knownPhone}@s.whatsapp.net` : null),
+    });
+    if (peer.resolved) {
+      this.lidToPhone.set(jid, peer.phone);
+      this.lidToPhone.set(jid.split('@')[0], peer.phone);
+    }
     const contactName = this.contactLabel(jid, peer.sendJid, message.pushName);
     const waMessageId = message.key?.id ? String(message.key.id) : undefined;
-    console.log('📨 Procesando mensaje de:', peer.phone, jid, peer.resolved ? 'teléfono' : 'sin resolver', contactName, waMessageId);
+    console.log('📨 Procesando mensaje de:', peer.phone, jid, peer.resolved ? 'teléfono' : 'sin resolver', contactName, waMessageId, fromMe ? 'fromMe' : 'in');
     await forwardIncomingToApp({
       from: peer.resolved ? peer.phone : (jid.split('@')[0] || peer.phone),
       fromJid: peer.sendJid,
       phone: peer.resolved ? peer.phone : undefined,
       message: body.text,
-      type: 'text',
+      type: body.type || 'text',
       contactName,
       userId,
       timestamp: timestampMs,
       waMessageId,
+      fromMe,
     });
     if (typeof global !== 'undefined' && (global as any).emitToUser) {
       (global as any).emitToUser(userId, 'whatsapp-message', {
         from: peer.phone,
         fromJid: peer.sendJid,
         message: body.text,
+        fromMe,
       });
     }
   }
@@ -769,6 +797,7 @@ async function forwardIncomingToApp(payload: {
   userId: string;
   timestamp?: unknown;
   waMessageId?: string;
+  fromMe?: boolean;
 }) {
   const appUrl = (process.env.APP_URL || process.env.NEXTAUTH_URL || '').replace(/\/$/, '');
   if (!appUrl) {
@@ -794,6 +823,7 @@ async function forwardIncomingToApp(payload: {
         timestamp: payload.timestamp,
         userId: payload.userId,
         wa_message_id: payload.waMessageId,
+        fromMe: Boolean(payload.fromMe),
       }),
     });
     if (!response.ok) {

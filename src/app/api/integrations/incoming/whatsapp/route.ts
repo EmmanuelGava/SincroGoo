@@ -132,6 +132,8 @@ async function handleLiteMessage(body: any) {
       userId: body.userId,
       remote_jid: remoteJid,
       phone_number: phone,
+      fromMe: Boolean(body.fromMe),
+      direction: body.fromMe ? 'outgoing' : 'incoming',
     }
   });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -21,9 +21,16 @@ import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import NewConversationModal from './NewConversationModal';
 import MessagingStatusIndicator from './MessagingStatusIndicator';
-import { conversationDisplayName } from '@/lib/chat/conversationIdentity';
+import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
+import {
+  ensureChatNotificationPermission,
+  isChatSoundEnabled,
+  setChatSoundEnabled,
+} from '@/lib/chat/chatNotifications';
 
 interface Conversacion {
   id: string;
@@ -68,6 +75,20 @@ export default function ChatSidebar({
   loading 
 }: ChatSidebarProps) {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+
+  useEffect(() => {
+    setSoundOn(isChatSoundEnabled());
+  }, []);
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setChatSoundEnabled(next);
+    if (next) {
+      void ensureChatNotificationPermission();
+    }
+  };
   
   const getServiceIcon = (servicio: string) => {
     const IconComponent = servicioIcons[servicio] || SmsIcon;
@@ -132,21 +153,28 @@ export default function ChatSidebar({
           }}>
             Chat Unificado
           </Typography>
-          <Tooltip title="Nueva conversación">
-            <IconButton
-              size="small"
-              onClick={() => setNewConversationOpen(true)}
-              sx={{
-                bgcolor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  bgcolor: 'primary.dark'
-                }
-              }}
-            >
-              <AddIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Tooltip title={soundOn ? 'Silenciar avisos' : 'Activar sonido de avisos'}>
+              <IconButton size="small" onClick={toggleSound} aria-label="Sonido de notificaciones">
+                {soundOn ? <VolumeUpIcon fontSize="small" /> : <VolumeOffIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Nueva conversación">
+              <IconButton
+                size="small"
+                onClick={() => setNewConversationOpen(true)}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: 'primary.dark'
+                  }
+                }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="body2" sx={{ 
@@ -154,7 +182,9 @@ export default function ChatSidebar({
           }}>
             {conversaciones.length} conversaciones activas
           </Typography>
-          <MessagingStatusIndicator />
+          <MessagingStatusIndicator
+            hasWhatsappChats={conversaciones.some((c) => String(c.servicio_origen || '').startsWith('whatsapp'))}
+          />
         </Box>
       </Box>
 
@@ -182,6 +212,7 @@ export default function ChatSidebar({
           <List sx={{ p: 0 }}>
             {conversaciones.map((conversacion) => {
               const displayName = conversationDisplayName(conversacion);
+              const displayPhone = conversacion.display_phone || conversationRealPhone(conversacion);
               const isActive = conversacionActiva?.id === conversacion.id;
               const unread = !isActive && (conversacion.unread_count || 0) > 0;
               return (
@@ -239,15 +270,35 @@ export default function ChatSidebar({
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box component="span" sx={{ 
+                          display: 'block',
                           color: isActive ? 'white' : 'text.primary',
                           fontWeight: unread ? 800 : 600,
                           flex: 1,
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          minWidth: 0,
                           fontSize: '0.875rem'
                         }}>
-                          {displayName}
+                          <Box component="span" sx={{
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {displayName}
+                          </Box>
+                          {displayPhone && displayPhone !== displayName ? (
+                            <Box component="span" sx={{
+                              display: 'block',
+                              fontWeight: 400,
+                              fontSize: '0.72rem',
+                              opacity: isActive ? 0.8 : 0.7,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {displayPhone}
+                            </Box>
+                          ) : null}
                         </Box>
                         {conversacion.lead_id && (
                           <Chip 

@@ -211,15 +211,16 @@ const server = createServer(async (req, res) => {
         json(res, 503, { success: false, error: 'WhatsApp Lite no está conectado' });
         return;
       }
-      const success = await whatsappLiteService.sendMessage(to, message, {
+      const sent = await whatsappLiteService.sendMessage(to, message, {
         type,
         filePath,
         mimetype,
         fileName,
       });
-      json(res, success ? 200 : 503, {
-        success,
-        error: success ? undefined : 'No se pudo enviar el mensaje',
+      json(res, sent.success ? 200 : 503, {
+        success: sent.success,
+        waMessageId: sent.waMessageId,
+        error: sent.success ? undefined : 'No se pudo enviar el mensaje',
       });
       return;
     }
@@ -235,6 +236,27 @@ const server = createServer(async (req, res) => {
         await whatsappLiteService.disconnect();
       }
       json(res, 200, { success: true, message: 'WhatsApp Lite desconectado' });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/resolve-peer') {
+      const body = await readBody(req);
+      const userId = String(body.userId || req.headers['x-user-id'] || '');
+      const jid = String(body.jid || body.to || '');
+      if (!jid) {
+        json(res, 400, { success: false, error: 'jid requerido' });
+        return;
+      }
+      if (!whatsappLiteService.hasLiveSocket() && userId) {
+        await whatsappLiteService.connect(userId);
+        await whatsappLiteService.waitUntilConnected(25000);
+      }
+      if (!whatsappLiteService.hasLiveSocket()) {
+        json(res, 503, { success: false, error: 'WhatsApp Lite no está conectado' });
+        return;
+      }
+      const peer = await whatsappLiteService.resolvePeer(jid, { timeoutMs: 8000 });
+      json(res, 200, { success: true, ...peer });
       return;
     }
 

@@ -8,6 +8,8 @@ import { Lead } from '@/app/tipos/lead';
 import { Estado, useLeadsKanbanContext } from '../contexts/LeadsKanbanContext';
 import { useEffect } from 'react';
 import CloseIcon from '@mui/icons-material/Close';
+import { useRouter } from 'next/navigation';
+import { leadFormEmail, leadFormPhone } from '@/lib/chat/conversationIdentity';
 
 const formSchema = z.object({
   id: z.string(),
@@ -36,6 +38,7 @@ interface FormularioEdicionLeadProps {
 
 export function FormularioEdicionLead({ lead, estados, open, onClose }: FormularioEdicionLeadProps) {
   const { actualizarLead } = useLeadsKanbanContext();
+  const router = useRouter();
   const { control, handleSubmit, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(formSchema),
   });
@@ -46,8 +49,8 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
         id: lead.id,
         nombre: lead.nombre,
         empresa: lead.empresa || '',
-        email: lead.email || '',
-        telefono: lead.telefono || '',
+        email: leadFormEmail(lead.email),
+        telefono: leadFormPhone(lead.telefono),
         cargo: lead.cargo || '',
         origen: lead.origen || '',
         notas: lead.notas || '',
@@ -89,8 +92,8 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <Controller name="nombre" control={control} render={({ field }) => ( <TextField {...field} label="Nombre del Lead" error={!!errors.nombre} helperText={errors.nombre?.message} /> )} />
                     <Controller name="empresa" control={control} render={({ field }) => ( <TextField {...field} label="Empresa" error={!!errors.empresa} helperText={errors.empresa?.message} /> )} />
-                    <Controller name="email" control={control} render={({ field }) => ( <TextField {...field} type="email" label="Email" error={!!errors.email} helperText={errors.email?.message} /> )} />
-                    <Controller name="telefono" control={control} render={({ field }) => ( <TextField {...field} label="Teléfono" error={!!errors.telefono} helperText={errors.telefono?.message} /> )} />
+                    <Controller name="email" control={control} render={({ field }) => ( <TextField {...field} type="email" label="Email" placeholder="Opcional" error={!!errors.email} helperText={errors.email?.message || 'Si no lo tenés, dejalo vacío'} /> )} />
+                    <Controller name="telefono" control={control} render={({ field }) => ( <TextField {...field} label="Teléfono" placeholder="Ej: +54 9 11 1234 5678" error={!!errors.telefono} helperText={errors.telefono?.message || 'Número real, no el ID interno de WhatsApp'} /> )} />
                     <Controller name="cargo" control={control} render={({ field }) => ( <TextField {...field} label="Cargo" error={!!errors.cargo} helperText={errors.cargo?.message} /> )} />
                     <Controller name="origen" control={control} render={({ field }) => ( <TextField {...field} label="Origen" error={!!errors.origen} helperText={errors.origen?.message} /> )} />
                     <Controller name="valor_potencial" control={control} render={({ field }) => ( <TextField {...field} type="number" label="Valor Potencial ($)" error={!!errors.valor_potencial} helperText={errors.valor_potencial?.message} onChange={(e) => field.onChange(parseFloat(e.target.value))} /> )} />
@@ -115,9 +118,22 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
                     />
                     <Controller name="notas" control={control} render={({ field }) => ( <TextField {...field} label="Notas" multiline rows={4} error={!!errors.notas} helperText={errors.notas?.message} /> )} />
 
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                        <Button onClick={onClose}>Cancelar</Button>
-                        <Button type="submit" variant="contained">Guardar Cambios</Button>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mt: 2 }}>
+                        <Button
+                          variant="outlined"
+                          disabled={!lead.conversacion_id}
+                          onClick={() => {
+                            if (lead.conversacion_id) {
+                              router.push(`/chat?conversacion=${lead.conversacion_id}`);
+                            }
+                          }}
+                        >
+                          Abrir chat
+                        </Button>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button onClick={onClose}>Cancelar</Button>
+                          <Button type="submit" variant="contained">Guardar Cambios</Button>
+                        </Box>
                     </Box>
                 </Box>
             </form>

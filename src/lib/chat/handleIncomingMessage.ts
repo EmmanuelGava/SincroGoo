@@ -68,6 +68,9 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
     });
 
     // 2. Guardar el mensaje
+    const fromMe = Boolean(data.metadata?.fromMe || data.metadata?.direction === 'outgoing');
+    const direction = fromMe ? 'outgoing' : 'incoming';
+
     const saved = await saveMessage(supabase, {
       conversacionId,
       content: data.message,
@@ -76,12 +79,15 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
       timestamp: data.timestamp || new Date(),
       messageType: data.messageType || 'text',
       waMessageId,
+      usuarioId: fromMe ? data.metadata?.userId : null,
       metadata: {
         ...data.metadata,
         source: data.platform,
         contact_name: data.contact.name,
         contact_phone: data.contact.phone,
-        contact_email: data.contact.email
+        contact_email: data.contact.email,
+        direction,
+        fromMe,
       }
     });
 
@@ -90,12 +96,18 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
       return { success: true, conversacionId, duplicate: true };
     }
 
-    await incrementUnread(supabase, conversacionId);
+    if (!fromMe) {
+      await incrementUnread(supabase, conversacionId);
+    }
 
     console.log(`✅ Mensaje de ${data.platform} procesado correctamente`);
     
     // 3. Emitir evento para actualización en tiempo real
-    await emitRealtimeUpdate(conversacionId, data.platform, data.metadata?.userId);
+    await emitRealtimeUpdate(conversacionId, data.platform, data.metadata?.userId, {
+      preview: String(data.message || '').slice(0, 120),
+      contactName: data.contact.name,
+      direction,
+    });
 
     return { success: true, conversacionId };
   } catch (error) {
@@ -243,6 +255,7 @@ async function saveMessage(supabase: any, data: {
   messageType: string;
   metadata: Record<string, any>;
   waMessageId?: string;
+  usuarioId?: string | null;
 }): Promise<boolean> {
   const from = new Date(data.timestamp.getTime() - 2000).toISOString();
   const to = new Date(data.timestamp.getTime() + 2000).toISOString();
@@ -270,7 +283,7 @@ async function saveMessage(supabase: any, data: {
       fecha_mensaje: data.timestamp.toISOString(),
       canal: data.platform,
       metadata: data.metadata,
-      usuario_id: null,
+      usuario_id: data.usuarioId || null,
       ...(data.waMessageId ? { wa_message_id: data.waMessageId } : {}),
     });
 
@@ -303,7 +316,12 @@ async function incrementUnread(supabase: any, conversacionId: string) {
 /**
  * Emitir actualización en tiempo real
  */
-async function emitRealtimeUpdate(conversacionId: string, platform: string, userId?: string) {
+async function emitRealtimeUpdate(
+  conversacionId: string,
+  platform: string,
+  userId?: string,
+  extra?: { preview?: string; contactName?: string; direction?: 'incoming' | 'outgoing' }
+) {
   const { notifyInboxRealtime } = await import('@/lib/chat/notifyInbox');
-  await notifyInboxRealtime(userId, { conversacionId, platform });
+  await notifyInboxRealtime(userId, { conversacionId, platform, ...extra });
 } 

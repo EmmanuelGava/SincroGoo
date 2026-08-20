@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme } from "@mui/material";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import AddIcon from '@mui/icons-material/Add';
@@ -21,12 +22,14 @@ import ThumbDownOffAltIcon from '@mui/icons-material/ThumbDownOffAlt';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import { IconButton, Tooltip } from '@mui/material';
+import ChatIcon from '@mui/icons-material/Chat';
 import { useLeadsKanbanContext } from '../contexts/LeadsKanbanContext';
 import { Lead } from '@/app/tipos/lead';
 import { Estado } from '../contexts/LeadsKanbanContext';
 import { FormularioLead } from './FormularioLead';
 import { FormularioEdicionLead } from './FormularioEdicionLead';
 import { supabase } from '@/lib/supabase/browserClient';
+import SidebarMensajesEntrantes from './SidebarMensajesEntrantes';
 
 const colorPalette = [
   '#4ECCA3', // Mint Green
@@ -60,6 +63,7 @@ const iconList = Object.keys(iconMap);
 
 function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; index: number, onEdit: (lead: Lead) => void, onDelete: (lead:Lead) => void, colors: any }) {
   const theme = useTheme();
+  const router = useRouter();
   
   return (
     <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
@@ -123,6 +127,22 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
               transition: 'opacity 0.2s',
             }}
           >
+            <Tooltip title="Abrir chat">
+              <span>
+                <IconButton
+                  size="small"
+                  disabled={!lead.conversacion_id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (lead.conversacion_id) {
+                      router.push(`/chat?conversacion=${lead.conversacion_id}`);
+                    }
+                  }}
+                >
+                  <ChatIcon sx={{ fontSize: '1rem', color: colors.textSecondary }} />
+                </IconButton>
+              </span>
+            </Tooltip>
             <Tooltip title="Editar lead">
               <IconButton size="small" onClick={() => onEdit(lead)}>
                 <EditIcon sx={{ fontSize: '1rem', color: colors.textSecondary }} />
@@ -165,6 +185,7 @@ export default function KanbanLeads() {
     eliminarEstado,
     eliminarLead,
     refrescarLeads,
+    convertirIncomingEnLead,
   } = useLeadsKanbanContext();
 
   const [estados, setEstados] = useState<Estado[]>(estadosGlobal);
@@ -219,10 +240,19 @@ export default function KanbanLeads() {
   }, []); // Sin dependencias para evitar recrear la suscripción
 
   const [open, setOpen] = useState(false);
+  const [nuevoLeadEstadoId, setNuevoLeadEstadoId] = useState<string | null>(null);
   const [openEstado, setOpenEstado] = useState(false);
   const [editEstado, setEditEstado] = useState<null | { id?: string; nombre: string; color?: string; orden: number, icono?: string }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { id: string; nombre: string }>(null);
   const [editLead, setEditLead] = useState<null | Lead>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const leadId = searchParams.get('lead');
+    if (!leadId || leads.length === 0) return;
+    const match = leads.find((item) => item.id === leadId);
+    if (match) setEditLead(match);
+  }, [searchParams, leads]);
   const [confirmDeleteLead, setConfirmDeleteLead] = useState<null | Lead>(null);
   
   // Estado para columnas colapsadas
@@ -267,6 +297,17 @@ export default function KanbanLeads() {
     const sourceEstadoId = source.droppableId;
     const destEstadoId = destination.droppableId;
     if (sourceEstadoId === destEstadoId) return;
+
+    if (String(draggableId).startsWith('incoming:')) {
+      const conversationId = String(draggableId).slice('incoming:'.length);
+      if (destEstadoId === 'incoming-chats') return;
+      try {
+        await convertirIncomingEnLead(conversationId, destEstadoId);
+      } catch (error) {
+        console.error('Error pasando chat al Kanban:', error);
+      }
+      return;
+    }
     
     const leadToMove = leads.find(lead => String(lead.id) === String(draggableId));
     if (!leadToMove) return;
@@ -282,8 +323,14 @@ export default function KanbanLeads() {
   };
 
   const onBeforeDragStart = () => { isDragging.current = true; };
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => { setOpen(false); };
+  const handleOpen = (estadoId?: string) => {
+    setNuevoLeadEstadoId(estadoId || estados[0]?.id || null);
+    setOpen(true);
+  };
+  const handleClose = () => {
+    setOpen(false);
+    setNuevoLeadEstadoId(null);
+  };
   const handleOpenEstado = (estado?: typeof editEstado) => {
     setEditEstado(estado || { nombre: '', color: colorPalette[0], orden: estados.length, icono: iconList[0] });
     setOpenEstado(true);
@@ -325,11 +372,17 @@ export default function KanbanLeads() {
     setConfirmDeleteLead(null);
   };
 
-  if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography>Cargando Kanban...</Typography></Box>;
-  if (error) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="error">{error}</Typography></Box>;
-
   return (
-    <Box sx={{ bgcolor: colors.background, color: colors.textPrimary, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
+    <Box sx={{ display: 'flex', flexDirection: 'row', bgcolor: colors.background, color: colors.textPrimary, height: '100%', width: '100%' }}>
+      <SidebarMensajesEntrantes />
+      <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {loading ? (
+        <Box sx={{ p: 4, textAlign: 'center' }}><Typography>Cargando Kanban...</Typography></Box>
+      ) : error ? (
+        <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="error">{error}</Typography></Box>
+      ) : (
+      <>
       {/* Kanban principal */}
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ p: 3, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -345,7 +398,6 @@ export default function KanbanLeads() {
         </Box>
 
         <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden', p: 3, pt: 0 }}>
-          <DragDropContext onDragEnd={onDragEnd} onBeforeDragStart={onBeforeDragStart}>
             <Droppable droppableId="kanban-columns" direction="horizontal" type="COLUMN">
               {(provided) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', gap: 2, height: '100%' }}>
@@ -497,8 +549,8 @@ export default function KanbanLeads() {
                               </Box>
                             ) : (
                               // Vista expandida - normal
-                              <Box {...provided.dragHandleProps} sx={{ p: 1.5, width: '100%', bgcolor: 'transparent', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1 }}>
+                              <Box sx={{ p: 1.5, width: '100%', bgcolor: 'transparent', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1, cursor: 'grab' }}>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                     {estado.icono && React.createElement(iconMap[estado.icono] || RadioButtonUncheckedIcon, { sx: { color: estado.color || colors.textSecondary, fontSize: '1rem' } })}
                                     {!estado.icono && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: estado.color || colors.textSecondary }} />}
@@ -523,7 +575,7 @@ export default function KanbanLeads() {
                                 <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', p: '0 4px', m: '0 -4px' }}>
                                   <Droppable droppableId={estado.id.toString()} type="LEAD">
                                     {(provided) => (
-                                      <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: '1px' }}>
+                                      <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: 160 }}>
                                         {leadsPorEstado[estado.id]?.map((lead, idx) => (
                                           <TarjetaLead key={lead.id} lead={lead} index={idx} onEdit={handleOpenEditLead} onDelete={setConfirmDeleteLead} colors={colors} />
                                         ))}
@@ -532,7 +584,11 @@ export default function KanbanLeads() {
                                     )}
                                   </Droppable>
                                 </Box>
-                                <Button startIcon={<AddIcon />} sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}>
+                                <Button
+                                  startIcon={<AddIcon />}
+                                  onClick={() => handleOpen(estado.id)}
+                                  sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}
+                                >
                                   Nuevo elemento
                                 </Button>
                               </Box>
@@ -551,13 +607,14 @@ export default function KanbanLeads() {
                 </Box>
               )}
             </Droppable>
-          </DragDropContext>
         </Box>
         
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}>
           <DialogTitle>Nuevo Lead</DialogTitle>
           <DialogContent>
-            {estados.length > 0 ? <FormularioLead estadoId={estados[0].id} onClose={handleClose} /> : <Typography>Crea una columna para añadir un lead.</Typography>}
+            {nuevoLeadEstadoId || estados.length > 0
+              ? <FormularioLead key={nuevoLeadEstadoId || estados[0].id} estadoId={nuevoLeadEstadoId || estados[0].id} onClose={handleClose} />
+              : <Typography>Crea una columna para añadir un lead.</Typography>}
           </DialogContent>
         </Dialog>
         
@@ -669,6 +726,10 @@ export default function KanbanLeads() {
           </DialogActions>
         </Dialog>
       </Box>
+      </>
+      )}
+      </Box>
     </Box>
+    </DragDropContext>
   );
 } 

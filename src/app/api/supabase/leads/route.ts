@@ -41,7 +41,29 @@ export async function GET(request: NextRequest) {
       console.error('Error al obtener leads:', error);
       throw error;
     }
-    return NextResponse.json(data || []);
+
+    const leads = data || [];
+    const ids = leads.map((lead: { id: string }) => lead.id);
+    const convByLead: Record<string, string> = {};
+    if (ids.length > 0) {
+      const { data: convs } = await supabase
+        .from('conversaciones')
+        .select('id, lead_id, fecha_mensaje')
+        .in('lead_id', ids)
+        .order('fecha_mensaje', { ascending: false });
+      for (const conv of convs || []) {
+        if (conv.lead_id && !convByLead[conv.lead_id]) {
+          convByLead[conv.lead_id] = conv.id;
+        }
+      }
+    }
+
+    return NextResponse.json(
+      leads.map((lead: { id: string }) => ({
+        ...lead,
+        conversacion_id: convByLead[lead.id] || null,
+      }))
+    );
   } catch (error) {
     console.error('Error completo en GET leads:', error);
     const { error: errorMessage, status } = formatErrorResponse(error);
@@ -59,13 +81,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { nombre, email, telefono, empresa, cargo, estado_id, probabilidad_cierre, tags, notas } = body;
     
-    if (!nombre || !email || !estado_id) {
-      return NextResponse.json({ error: 'Faltan campos obligatorios (nombre, email, estado_id)' }, { status: 400 });
+    if (!nombre || !estado_id) {
+      return NextResponse.json({ error: 'Faltan campos obligatorios (nombre, estado_id)' }, { status: 400 });
     }
+
+    const emailFinal = email || '';
     
     const { data, error } = await supabase.from('leads').insert({ 
       nombre, 
-      email, 
+      email: emailFinal, 
       telefono, 
       empresa, 
       cargo, 

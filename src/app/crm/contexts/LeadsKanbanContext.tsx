@@ -26,9 +26,11 @@ export interface LeadsKanbanContextProps {
   agregarEstado: (estado: Partial<Estado>) => Promise<void>;
   actualizarEstado: (id: string, estado: Partial<Estado>) => Promise<void>;
   eliminarEstado: (id: string) => Promise<void>;
+  convertirIncomingEnLead: (conversationId: string, estadoId: string) => Promise<void>;
   loading: boolean;
   error: string | null;
   refrescarLeads: () => void;
+  incomingTick: number;
 }
 
 const LeadsKanbanContext = createContext<LeadsKanbanContextProps | undefined>(undefined);
@@ -39,6 +41,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
+  const [incomingTick, setIncomingTick] = useState(0);
   const { data: session } = useSession();
 
   const leadsPorEstado = useMemo(() => leads.reduce((acc, lead) => {
@@ -91,6 +94,23 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
 
   const refrescarLeads = useCallback(() => {
     fetchAll();
+  }, [fetchAll]);
+
+  const convertirIncomingEnLead = useCallback(async (conversationId: string, estadoId: string) => {
+    setError(null);
+    const res = await fetch('/api/crm/conversaciones/entrantes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, estadoId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al pasar el chat al Kanban');
+    if (data.lead) {
+      setLeads((prev) => (prev.some((l) => l.id === data.lead.id) ? prev : [...prev, data.lead]));
+    } else {
+      await fetchAll();
+    }
+    setIncomingTick((tick) => tick + 1);
   }, [fetchAll]);
 
   const agregarLead = useCallback(async (lead: Partial<Lead>) => {
@@ -222,9 +242,11 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     agregarEstado,
     actualizarEstado,
     eliminarEstado,
+    convertirIncomingEnLead,
     loading,
     error,
     refrescarLeads,
+    incomingTick,
   }), [
     leads,
     estados,
@@ -236,9 +258,11 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     agregarEstado,
     actualizarEstado,
     eliminarEstado,
+    convertirIncomingEnLead,
     loading,
     error,
     refrescarLeads,
+    incomingTick,
   ]);
 
   return <LeadsKanbanContext.Provider value={value}>{children}</LeadsKanbanContext.Provider>;

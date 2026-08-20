@@ -161,7 +161,7 @@ async function attachOutboxId(messageId: string, outboxId: string) {
       outbox_id: outboxId,
       estado_envio: 'enviando',
     };
-    await supabase.from('mensajes_conversacion').update({ metadata }).eq('id', messageId);
+    await supabase.from('mensajes_conversacion').update({ metadata, estado_envio: 'enviando' }).eq('id', messageId);
   } catch (error) {
     console.warn('⚠️ No se pudo guardar outbox_id en el mensaje:', error);
   }
@@ -413,7 +413,8 @@ async function saveOutgoingMessage(
           user_id: data.userId,
           estado_envio: estadoEnvio,
         },
-        usuario_id: data.userId || null
+        usuario_id: data.userId || null,
+        estado_envio: estadoEnvio,
       });
 
     if (error) {
@@ -454,7 +455,7 @@ async function updateOutgoingStatus(
       estado_envio: estado,
       ...(errorText ? { error_envio: errorText } : {}),
     };
-    const patch: Record<string, unknown> = { metadata };
+    const patch: Record<string, unknown> = { metadata, estado_envio: estado };
     if (waMessageId) patch.wa_message_id = waMessageId;
     const { error } = await supabase
       .from('mensajes_conversacion')

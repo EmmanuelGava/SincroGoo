@@ -33,6 +33,7 @@ interface Mensaje {
   canal: string;
   usuario_id?: string;
   metadata?: any;
+  estado_envio?: string | null;
 }
 
 interface ChatWindowProps {
@@ -121,6 +122,7 @@ export default function ChatWindow({
       fecha_mensaje: new Date().toISOString(),
       canal: conversacion.servicio_origen,
       usuario_id: 'local',
+      estado_envio: 'enviando',
       metadata: { estado_envio: 'enviando', direction: 'outgoing' },
     };
     setOptimistic((prev) => [...prev, pending]);

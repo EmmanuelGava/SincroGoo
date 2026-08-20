@@ -40,11 +40,11 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 
 **No es MVP todavía.** Falta el loop tipo Kommo de verdad:
 
-1. Chat nuevo aparece en la lista del CRM (auth del sidebar rota; el drag chat→columna está en local, no en prod).
+1. Chat nuevo aparece en la lista del CRM y se arrastra a una columna (código en prod; falta demo con celular real).
 2. Arrastrar el chat a una columna crea el lead.
 3. Desde el lead volvés al chat (y al revés).
-4. No se pierde un envío si Railway pega un 428.
-5. Una **ficha de contacto**, no un LID suelto.
+4. No se pierde un envío si Railway pega un 428 (outbox en código; falta prueba worker down).
+5. Una **ficha de contacto** con teléfono real, no un LID suelto (resolución LID→número en prod; falta tabla `contactos`).
 
 Hasta que eso no se pueda demoar en klosync.vercel.app con un celular real, no hay producto para afuera.
 
@@ -56,11 +56,12 @@ Hasta que eso no se pueda demoar en klosync.vercel.app con un celular real, no h
 
 Sin esto el CRM es teatro.
 
-- [x] Drag: lista de chats sin lead a la izquierda → soltar en una columna → se crea el lead y sale de la lista. (código listo; falta push a `main`)
+- [x] Drag: lista de chats sin lead a la izquierda → soltar en una columna → se crea el lead y sale de la lista. (en `main`)
 - [ ] Probar en prod: KloSync cerrado + worker up; worker down 2–5 min + contacto nuevo; reconectar sin 515 en bucle.
 - [x] Etapas por defecto si el usuario no tiene columnas (Nuevo, Contactado, Calificado, Propuesta, Ganado, Perdido).
 - [x] Ida y vuelta: del lead abrir el chat (`/chat?conversacion=`); del chat ver el lead y ir al Kanban (`/crm?lead=`).
 - [x] Nombres reales en la lista del CRM (contact_name / teléfono; no LID). No fusionar dos LID distintos.
+- [x] Resolver LID a teléfono real al abrir el chat y guardarlo en el lead (no mostrar el ID interno como número).
 
 ### Fase 1 — Mensajería que no miente
 
@@ -69,7 +70,7 @@ El catch-up cubre **entrantes** mientras el socket está caído. Los **salientes
 Hacer, en este orden (detalle en el plan de confiabilidad):
 
 - [x] Outbox + reintento (worker caído → el mensaje queda queued y sale al volver). *Código listo; falta probar en prod: worker down 1 min, texto no se pierde.*
-- [ ] Ticks reales: enviado / entregado / leído / error (hoy es “Baileys aceptó”).
+- [ ] Ticks reales: enviado / entregado / leído / error (en curso).
 - [ ] Media **entrante** persistida (no solo placeholder `[Imagen]` / `[Audio]` en el catch-up).
 - [ ] Límites de tamaño/tipo visibles en la UI.
 - [ ] Delay anti-ban entre envíos.
@@ -173,7 +174,7 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 
 | Feature | Ellos | KloSync |
 |---|---|---|
-| Kanban / embudo | Sí | Básico; loop chat→columna incompleto en prod |
+| Kanban / embudo | Sí | Básico; loop chat→columna en prod, falta demo con celular |
 | WhatsApp | Sí | Lite (Baileys), no oficial |
 | Telegram | Kommo parcial | Recepción sí |
 | Multiagente mismo número | Sí | No |

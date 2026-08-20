@@ -125,7 +125,7 @@ async function patchInboxFromOutbox(
     estado_envio: estado,
     ...(extras.errorText ? { error_envio: extras.errorText } : {}),
   };
-  const patch: Record<string, unknown> = { metadata };
+  const patch: Record<string, unknown> = { metadata, estado_envio: estado };
   if (extras.waMessageId) patch.wa_message_id = extras.waMessageId;
 
   const { error } = await supabase

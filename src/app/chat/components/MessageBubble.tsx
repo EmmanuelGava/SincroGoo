@@ -22,6 +22,7 @@ interface Mensaje {
   canal: string;
   usuario_id?: string;
   metadata?: any;
+  estado_envio?: string | null;
 }
 
 interface MessageBubbleProps {
@@ -145,10 +146,11 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
           }}>
             {formatTime(mensaje.fecha_mensaje)}
           </Typography>
-          <MessageStatus 
-            estado={mensaje.metadata?.estado_envio}
+          <MessageStatus
+            estado={mensaje.estado_envio || mensaje.metadata?.estado_envio}
             error={mensaje.metadata?.error_envio}
             isOwn={isOwn}
+            messageId={mensaje.id}
           />
         </Box>
       </Paper>

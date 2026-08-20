@@ -114,8 +114,8 @@ Backoff: `min(30s * 2^attempts, 15min)` más jitter 0–20%. Tras `max_attempts`
 - [x] **Step 2: `enqueueWhatsAppOutbox`** en `src/lib/chat/outbox.ts`. Inserta fila `queued`. No llama al worker.
 - [x] **Step 3: Cambiar `sendMessage`** para WhatsApp: (a) guardar el mensaje del inbox con `estado_envio: 'enviando'` y `outbox_id`; (b) encolar; (c) `return { success: true }` si encoló. El socket ya no se toca desde Vercel.
 - [x] **Step 4: Loop en el worker** cada 2s: claim atómico + `whatsappLiteService.sendMessage`.
-- [ ] **Step 5: Probar** apagar Railway, mandar un texto desde el chat (queda enviando), prender worker, el mensaje sale y el tilde pasa a enviado.
-- [ ] **Step 6: Commit** `feat: cola outbox para envios WhatsApp`
+- [ ] **Step 5: Probar** apagar Railway, mandar un texto desde el chat (queda enviando), prender worker, el mensaje sale y el tilde pasa a enviado. *RPC claim + failed permanente verificado contra prod; falta el loop en el worker de Railway (redeploy) y el ciclo worker-down desde el chat.*
+- [x] **Step 6: Commit** `feat: cola outbox para envios WhatsApp`
 - [x] **Step 7: Actualizar** `docs/MENSAJERIA-WHATSAPP-FLUJO.md` sección 6 (flujo saliente = outbox).
 
 **No hacer en esta tarea:** delay anti-ban (tarea 6), acks de entregado (tarea 3). El send de Baileys puede devolver `key.id`; guardarlo ya en `wa_message_id` para no rehacer el claim después.
@@ -143,11 +143,11 @@ create unique index if not exists mensajes_wa_message_id_uidx
   where wa_message_id is not null;
 ```
 
-- [ ] **Step 1: Columna + unique index.**
-- [ ] **Step 2: EventManager** en `messages.upsert`: mandar `wa_message_id: message.key.id`. Ignorar `fromMe` como ahora. No usar `participant` de grupos.
-- [ ] **Step 3: `handleIncomingMessage`:** si viene `wa_message_id`, `insert … on conflict do nothing` (o select previo). Responder `{ success: true, duplicate: true }` sin crear otra conversación.
+- [x] **Step 1: Columna + unique index.**
+- [x] **Step 2: EventManager** en `messages.upsert`: mandar `wa_message_id: message.key.id`. `fromMe` entra como saliente (eco del celular). No usar `participant` de grupos.
+- [x] **Step 3: `handleIncomingMessage`:** si viene `wa_message_id`, select previo + unique index (`23505`). Responder `{ success: true, duplicate: true }` sin crear otra conversación.
 - [ ] **Step 4: Probar** curl/replay del mismo body lite con el mismo `wa_message_id` → un solo mensaje.
-- [ ] **Step 5: Commit** `fix: deduplicar mensajes WhatsApp por wa_message_id`
+- [x] **Step 5: Commit** `fix: deduplicar mensajes WhatsApp por wa_message_id`
 
 **Nota:** el unique global asume que los `key.id` de Baileys no chocan entre usuarios. Si algún día hay multi-sesión en el mismo proyecto, cambiar a unique `(conversacion_id, wa_message_id)`. Hoy 1 sesión Lite es suficiente.
 
@@ -184,10 +184,10 @@ Mapa:
 | 4 READ / 5 PLAYED | leido | Leído (doble tilde azul/verde) |
 | 0 ERROR / outbox failed | error | Error: {last_error} |
 
-- [ ] **Step 1: Columna `estado_envio`.** Seguir escribiendo también `metadata.estado_envio` para no romper la burbuja actual.
-- [ ] **Step 2: Listener `socket.ev.on('messages.update')`** en EventManager. Buscar mensaje por `wa_message_id`. Solo **avanzar** estado (no bajar de leido a enviado).
-- [ ] **Step 3: Al completar outbox sent**, set `wa_message_id` + `estado_envio = enviado` en el mensaje del inbox (match por `metadata.outbox_id`).
-- [ ] **Step 4: MessageStatus** casos `leido` (DoneAll color `#4FC3F7`) y no tratar `undefined` como enviado si `id` empieza con `temp-`.
+- [x] **Step 1: Columna `estado_envio`.** Seguir escribiendo también `metadata.estado_envio` para no romper la burbuja actual.
+- [x] **Step 2: Listener `socket.ev.on('messages.update')`** en EventManager. Buscar mensaje por `wa_message_id`. Solo **avanzar** estado (no bajar de leido a enviado).
+- [x] **Step 3: Al completar outbox sent**, set `wa_message_id` + `estado_envio = enviado` en el mensaje del inbox (match por `metadata.outbox_id`).
+- [x] **Step 4: MessageStatus** casos `leido` (DoneAll color `#4FC3F7`) y no tratar `undefined` como enviado si `id` empieza con `temp-`.
 - [ ] **Step 5: Probar** mandar a un contacto real: 1 tilde → 2 tildes al llegar al celular → azules al abrir. Apagar datos del destinatario: se queda en enviado, no en leído.
 - [ ] **Step 6: Commit** `feat: ticks de entrega y lectura WhatsApp`
 

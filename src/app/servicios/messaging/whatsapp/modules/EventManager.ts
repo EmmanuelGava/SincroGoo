@@ -315,6 +315,16 @@ export class EventManager {
       }
     });
 
+    socket.ev.on('messages.update', async (updates) => {
+      const { applyWhatsAppDeliveryAck } = await import('@/lib/chat/messageDeliveryStatus');
+      for (const item of updates) {
+        const waMessageId = item.key?.id ? String(item.key.id) : '';
+        const status = Number(item.update?.status);
+        if (!waMessageId || !Number.isFinite(status)) continue;
+        await applyWhatsAppDeliveryAck({ waMessageId, status, userId });
+      }
+    });
+
     socket.ev.on('messaging-history.set', async (payload) => {
       const messages = payload?.messages || [];
       this.rememberContacts(payload?.contacts);

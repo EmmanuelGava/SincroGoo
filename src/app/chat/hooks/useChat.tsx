@@ -34,6 +34,7 @@ interface Mensaje {
   canal: string;
   usuario_id?: string;
   metadata?: any;
+  estado_envio?: string | null;
 }
 
 export function useChat() {

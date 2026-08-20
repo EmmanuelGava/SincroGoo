@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: `Mensaje enviado exitosamente via ${platform}`,
-        platformDetails: result.platformDetails
+        platformDetails: result.platformDetails,
+        outbox_id: result.outboxId,
       });
     } else {
       // Usar 400 en lugar de 500 para errores de configuración/estado

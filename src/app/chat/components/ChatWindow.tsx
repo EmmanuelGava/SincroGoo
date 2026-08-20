@@ -148,13 +148,6 @@ export default function ChatWindow({
       console.log('📤 Respuesta del servidor:', { status: res.status, data });
 
       if (res.ok && data.success) {
-        setOptimistic((prev) =>
-          prev.map((m) =>
-            m.id === tempId
-              ? { ...m, metadata: { ...m.metadata, estado_envio: 'enviado' } }
-              : m
-          )
-        );
         fetchMensajes();
         onRefreshConversaciones();
         setTimeout(() => {

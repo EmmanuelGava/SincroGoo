@@ -173,15 +173,19 @@ Cómo probar:
 ## 6. Flujo de mensaje saliente
 
 ```
-ChatWindow (optimistic: el texto aparece ya)
+ChatWindow (optimistic: el texto aparece ya, estado enviando)
   → POST /api/chat/send
   → sendMessage.ts
        JID = metadata.remote_jid || teléfono@s.whatsapp.net
-       guarda en la conversación por conversacion_id (no crear otra fila)
-  → worker POST /send
+       guarda el mensaje del inbox con estado_envio=enviando
+       inserta fila queued en whatsapp_outbox (no habla con Baileys)
+  → worker loop cada 2s: claim_whatsapp_outbox (FOR UPDATE SKIP LOCKED)
   → hasLiveSocket()? si el WS está cerrado: connect + wait + reintento
   → socket.sendMessage(jid, { text })
+  → outbox sent + wa_message_id; inbox pasa a enviado
 ```
+
+Si Railway está caído, el mensaje **queda en `queued`**. Cuando el worker vuelve, sale. No se pierde en el POST a Vercel.
 
 Nunca mandar un LID como si fuera `@s.whatsapp.net`. El contacto puede ser `96147188244605@lid`; el JID de envío tiene que ser ese `remote_jid`, no un número inventado.
 

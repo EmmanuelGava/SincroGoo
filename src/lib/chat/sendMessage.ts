@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { enqueueWhatsAppOutbox } from '@/lib/chat/outbox';
 
 export interface SendMessageData {
   platform: 'whatsapp' | 'telegram' | 'email';
@@ -27,25 +28,18 @@ export async function sendMessage(data: SendMessageData) {
     let platformDetails = '';
     let error = null;
     let alreadySaved = false;
+    let outboxId: string | undefined;
 
     // Enviar según la plataforma
     switch (data.platform) {
       case 'whatsapp': {
         console.log('📱 Procesando WhatsApp...');
-        const pending = await saveOutgoingMessage(data, 'whatsapp-lite-baileys', 'enviando');
-        alreadySaved = Boolean(pending?.messageId);
-        const whatsappResult = await sendViaWhatsApp(data);
-        success = whatsappResult.success;
-        platformDetails = whatsappResult.platformDetails;
-        error = whatsappResult.error;
-        if (pending?.messageId) {
-          await updateOutgoingStatus(
-            pending.messageId,
-            success ? 'enviado' : 'error',
-            error,
-            whatsappResult.waMessageId
-          );
-        }
+        const queued = await enqueueWhatsAppOutgoing(data);
+        success = queued.success;
+        platformDetails = queued.platformDetails;
+        error = queued.error;
+        alreadySaved = queued.alreadySaved;
+        outboxId = queued.outboxId;
         break;
       }
       
@@ -79,7 +73,7 @@ export async function sendMessage(data: SendMessageData) {
       console.log(`✅ Mensaje enviado exitosamente via ${data.platform}`);
     }
 
-    return { success, platformDetails, error };
+    return { success, platformDetails, error, outboxId };
   } catch (error) {
     console.error(`❌ Error enviando mensaje via ${data.platform}:`, error);
     throw error;
@@ -107,6 +101,70 @@ async function resolveWhatsAppSendJid(data: SendMessageData): Promise<string> {
   const trimmed = String(data.to || '').trim();
   if (trimmed.includes('@')) return trimmed;
   return `${trimmed.replace(/[^\d]/g, '')}@s.whatsapp.net`;
+}
+
+async function enqueueWhatsAppOutgoing(data: SendMessageData): Promise<{
+  success: boolean;
+  platformDetails: string;
+  error?: string;
+  alreadySaved: boolean;
+  outboxId?: string;
+}> {
+  const platformDetails = 'whatsapp-lite-baileys';
+  if (!data.userId) {
+    return { success: false, platformDetails, error: 'usuario_id requerido', alreadySaved: false };
+  }
+
+  const sendJid = await resolveWhatsAppSendJid(data);
+  const pending = await saveOutgoingMessage(data, platformDetails, 'enviando');
+  if (!pending?.messageId) {
+    return { success: false, platformDetails, error: 'No se pudo guardar el mensaje', alreadySaved: false };
+  }
+
+  const isAudio = data.messageType === 'audio' || data.metadata?.file_type === 'audio';
+  try {
+    const { id } = await enqueueWhatsAppOutbox(getSupabaseAdmin(), {
+      usuario_id: data.userId,
+      conversacion_id: pending.conversacionId,
+      to_jid: sendJid,
+      message_type: data.messageType || 'text',
+      contenido: data.message,
+      file_url: data.filePath || (typeof data.metadata?.file_url === 'string' ? data.metadata.file_url : null),
+      mimetype: typeof data.metadata?.mime_type === 'string'
+        ? data.metadata.mime_type
+        : isAudio
+          ? 'audio/webm'
+          : null,
+      file_name: typeof data.metadata?.file_name === 'string' ? data.metadata.file_name : null,
+      metadata: { inbox_message_id: pending.messageId },
+    });
+    await attachOutboxId(pending.messageId, id);
+    console.log('📥 WhatsApp encolado en outbox:', id, 'jid:', sendJid);
+    return { success: true, platformDetails, alreadySaved: true, outboxId: id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo encolar';
+    await updateOutgoingStatus(pending.messageId, 'error', message);
+    return { success: false, platformDetails, error: message, alreadySaved: true };
+  }
+}
+
+async function attachOutboxId(messageId: string, outboxId: string) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: current } = await supabase
+      .from('mensajes_conversacion')
+      .select('metadata')
+      .eq('id', messageId)
+      .maybeSingle();
+    const metadata = {
+      ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}),
+      outbox_id: outboxId,
+      estado_envio: 'enviando',
+    };
+    await supabase.from('mensajes_conversacion').update({ metadata }).eq('id', messageId);
+  } catch (error) {
+    console.warn('⚠️ No se pudo guardar outbox_id en el mensaje:', error);
+  }
 }
 
 /**

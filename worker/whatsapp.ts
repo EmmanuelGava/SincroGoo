@@ -7,6 +7,8 @@ import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { Server } from 'socket.io';
 import QRCode from 'qrcode';
 import { whatsappLiteService } from '../src/app/servicios/messaging/whatsapp/WhatsAppLiteService';
+import { getSupabaseAdmin } from '../src/lib/supabase/client';
+import { processOutboxBatch, type WhatsAppOutboxRow } from '../src/lib/chat/outbox';
 
 const PORT = Number(process.env.PORT || 3001);
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
@@ -308,4 +310,47 @@ server.listen(PORT, '0.0.0.0', () => {
   whatsappLiteService.restoreConnectedSessions().catch((error) => {
     console.error('❌ Error restaurando sesiones Lite al arrancar:', error);
   });
+  startOutboxLoop();
 });
+
+async function sendOutboxRow(row: WhatsAppOutboxRow) {
+  const userId = row.usuario_id;
+  if (!whatsappLiteService.hasLiveSocket() && userId) {
+    await whatsappLiteService.connect(userId);
+    await whatsappLiteService.waitUntilConnected(25000);
+  }
+  if (!whatsappLiteService.hasLiveSocket()) {
+    return { success: false, error: 'WhatsApp Lite no está conectado' };
+  }
+  try {
+    const sent = await whatsappLiteService.sendMessage(row.to_jid, row.contenido, {
+      type: row.message_type,
+      filePath: row.file_url || undefined,
+      mimetype: row.mimetype || undefined,
+      fileName: row.file_name || undefined,
+    });
+    return {
+      success: sent.success,
+      waMessageId: sent.waMessageId,
+      error: sent.success ? undefined : 'No se pudo enviar el mensaje',
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error enviando WhatsApp';
+    return { success: false, error: message };
+  }
+}
+
+function startOutboxLoop() {
+  const tick = async () => {
+    try {
+      const result = await processOutboxBatch(getSupabaseAdmin(), sendOutboxRow, 10);
+      if (result.processed > 0) {
+        console.log(`📬 Outbox: procesados ${result.processed}, enviados ${result.sent}`);
+      }
+    } catch (error) {
+      console.error('❌ Loop outbox:', error);
+    }
+  };
+  setInterval(tick, 2000);
+  tick();
+}

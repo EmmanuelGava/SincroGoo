@@ -110,28 +110,13 @@ alter table public.whatsapp_outbox enable row level security;
 
 Backoff: `min(30s * 2^attempts, 15min)` más jitter 0–20%. Tras `max_attempts` → `failed` y `metadata.estado_envio = error` en el mensaje del inbox.
 
-- [ ] **Step 1: Crear tabla** con el SQL de arriba. Verificar `select * from whatsapp_outbox limit 1;` (0 filas, sin error).
-- [ ] **Step 2: `enqueueWhatsAppOutbox`** en `src/lib/chat/outbox.ts`. Inserta fila `queued`. No llama al worker.
-- [ ] **Step 3: Cambiar `sendMessage`** para WhatsApp: (a) guardar el mensaje del inbox con `estado_envio: 'enviando'` y `outbox_id`; (b) encolar; (c) `return { success: true }` si encoló. El socket ya no se toca desde Vercel.
-- [ ] **Step 4: Loop en el worker** cada 2s: `select … where status in ('queued','sending') and next_attempt_at <= now() order by created_at limit 10`. Claim atómico:
-
-```sql
-update public.whatsapp_outbox
-set status = 'sending', attempts = attempts + 1, updated_at = now()
-where id = (
-  select id from public.whatsapp_outbox
-  where status in ('queued','sending') and next_attempt_at <= now()
-  order by created_at
-  for update skip locked
-  limit 1
-)
-returning *;
-```
-
-Luego `whatsappLiteService.sendMessage(...)`. Si ok → `sent` + `wa_message_id`. Si Connection Closed → `queued` y `next_attempt_at`. Si error permanente (jid inválido) → `failed`.
+- [x] **Step 1: Crear tabla** con el SQL de arriba. Verificar `select * from whatsapp_outbox limit 1;` (0 filas, sin error).
+- [x] **Step 2: `enqueueWhatsAppOutbox`** en `src/lib/chat/outbox.ts`. Inserta fila `queued`. No llama al worker.
+- [x] **Step 3: Cambiar `sendMessage`** para WhatsApp: (a) guardar el mensaje del inbox con `estado_envio: 'enviando'` y `outbox_id`; (b) encolar; (c) `return { success: true }` si encoló. El socket ya no se toca desde Vercel.
+- [x] **Step 4: Loop en el worker** cada 2s: claim atómico + `whatsappLiteService.sendMessage`.
 - [ ] **Step 5: Probar** apagar Railway, mandar un texto desde el chat (queda enviando), prender worker, el mensaje sale y el tilde pasa a enviado.
 - [ ] **Step 6: Commit** `feat: cola outbox para envios WhatsApp`
-- [ ] **Step 7: Actualizar** `docs/MENSAJERIA-WHATSAPP-FLUJO.md` sección 6 (flujo saliente = outbox).
+- [x] **Step 7: Actualizar** `docs/MENSAJERIA-WHATSAPP-FLUJO.md` sección 6 (flujo saliente = outbox).
 
 **No hacer en esta tarea:** delay anti-ban (tarea 6), acks de entregado (tarea 3). El send de Baileys puede devolver `key.id`; guardarlo ya en `wa_message_id` para no rehacer el claim después.
 

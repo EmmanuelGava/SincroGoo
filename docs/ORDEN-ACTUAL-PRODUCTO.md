@@ -12,6 +12,7 @@
 | Confiabilidad chat (outbox, ticks, media) | [`superpowers/plans/2026-08-16-mensajeria-confiabilidad.md`](./superpowers/plans/2026-08-16-mensajeria-confiabilidad.md) |
 | Listado histórico de mejoras | [`LISTADO-COMPLETO-MEJORAS-02-26.md`](./LISTADO-COMPLETO-MEJORAS-02-26.md) |
 | Qué es el producto (módulos) | [`FUNCIONALIDADES-PROYECTO.md`](./FUNCIONALIDADES-PROYECTO.md) |
+| Inbox, canales, widget, bot (orden) | [`superpowers/specs/2026-08-20-widget-chatbot-canales-design.md`](./superpowers/specs/2026-08-20-widget-chatbot-canales-design.md) |
 
 ---
 
@@ -67,7 +68,7 @@ El catch-up cubre **entrantes** mientras el socket está caído. Los **salientes
 
 Hacer, en este orden (detalle en el plan de confiabilidad):
 
-- [ ] Outbox + reintento (worker caído → el mensaje queda queued y sale al volver).
+- [x] Outbox + reintento (worker caído → el mensaje queda queued y sale al volver). *Código listo; falta probar en prod: worker down 1 min, texto no se pierde.*
 - [ ] Ticks reales: enviado / entregado / leído / error (hoy es “Baileys aceptó”).
 - [ ] Media **entrante** persistida (no solo placeholder `[Imagen]` / `[Audio]` en el catch-up).
 - [ ] Límites de tamaño/tipo visibles en la UI.
@@ -95,6 +96,7 @@ Cuando el loop y los contactos existen:
 - [ ] Valor monetario y fecha de cierre en la tarjeta del Kanban.
 - [ ] Filtros del tablero: canal, valor, fecha.
 - [ ] Lead scoring básico (alta / media / baja).
+- [ ] Stats mínimas del inbox: nuevas, no respondidas, tiempo a primera respuesta, conversión por etapa.
 
 ### Fase 4 — Pegar el diferencial (Explorador + Slides al CRM)
 
@@ -105,22 +107,33 @@ Lo que nos distingue de Kommo. No tiene sentido si la ficha de contacto no exist
 - [ ] Enriquecer (email, LinkedIn) si se puede sin frenar el MVP.
 - [ ] Al terminar una generación larga de slides: avisar por WhatsApp (o al menos en el inbox). Ese es el diferenciador único vs Rollstack/Slideform.
 
-### Fase 5 — Automatización de mensajes (después de templates y contactos)
+### Fase 5 — Sumar canales al inbox (cuando WA + Kanban + contacto ya se usan)
 
-Kommo lo tiene; nosotros no. Va acá y no antes:
+Mismo `handleIncomingMessage`, badge de canal, mismo drag al Kanban. No widget. No bot.
 
-- [ ] Mensaje de bienvenida al primer contacto.
-- [ ] “Si no responde en X días, recordatorio”.
-- [ ] Mensajes programados (fecha/hora).
-- [ ] Chatbot básico: fuera de horario + menú inicial.
+- [ ] Instagram DM (Meta, cuenta profesional, ventana 24 h).
+- [ ] Mercado Libre: preguntas de publicación, después mensajería post-venta.
+- [ ] Email completo (SMTP/SendGrid) si hace falta un tercer canal simple.
 
-### Fase 6 — Equipo y canales extra (cuando el vendedor individual ya lo usa)
+### Fase 6 — Widget en la web del comerciante
+
+Canal `web`: snippet + iframe, mismo inbox. Recién cuando el inbox ya atiende más de un `servicio_origen` de verdad.
+
+- [ ] Snippet, allowlist de dominios, visitante anónimo, humano responde desde `/chat`.
+
+### Fase 7 — Chatbot semi-automático (un motor, todos los canales)
+
+Después del widget, no antes. Reglas primero; IA después y opt-in.
+
+- [ ] Bienvenida, fuera de horario, menú, FAQ, handoff a humano.
+- [ ] “Si no responde en X días, recordatorio” y mensajes programados.
+- [ ] IA FAQ / borrador (opt-in). Nunca stock o precio inventado.
+
+### Fase 8 — Equipo (cuando el vendedor individual ya lo usa)
 
 - [ ] Asignación de chat y de lead a un agente.
 - [ ] WhatsApp multiagente (varios en el mismo número).
 - [ ] Campañas / broadcast a una lista de contactos.
-- [ ] Reportes de conversión por etapa del funnel.
-- [ ] Email completo (SMTP/SendGrid) + tracking de apertura.
 - [ ] WhatsApp Business API oficial (Meta Cloud API), cuando Lite ya no alcance.
 
 ---
@@ -186,6 +199,7 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 1. ¿El tester ve el WhatsApp en el Kanban arrastrando? Si no → Fase 0.  
 2. ¿Se pierde un envío o un lead en una caída de Railway? Si sí → Fase 1.  
 3. ¿El mismo humano es un LID en el chat y otra tarjeta en el Kanban? → Fase 2.  
-4. Recién ahí features de Kommo (rápidas, filtros, automatización).
+4. Recién ahí features de Kommo (rápidas, filtros).
+5. ¿El inbox ya no miente una semana? Recién ahí Instagram / ML. Después widget. Después bot.
 
-No saltar a multiagente, Cloud API, chatbot o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario**, no en el catálogo de features.
+No saltar a widget, chatbot, multiagente, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario**, no en el catálogo de features.

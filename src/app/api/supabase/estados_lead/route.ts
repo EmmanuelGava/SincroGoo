@@ -24,11 +24,13 @@ export async function GET(request: NextRequest) {
 
     const { userId, supabase } = client;
 
-    let { data, error } = await supabase
+    const { data: initialData, error } = await supabase
       .from('estados_lead')
       .select('*')
       .eq('usuario_id', userId)
       .order('orden', { ascending: true });
+
+    let data = initialData;
 
     if (error) {
       console.error('Error al obtener estados_lead:', error);

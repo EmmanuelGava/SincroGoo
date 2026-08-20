@@ -181,6 +181,8 @@ export class ConnectionManager {
         syncFullHistory: BAILEYS_CONFIG.syncFullHistory,
         generateHighQualityLinkPreview: BAILEYS_CONFIG.generateHighQualityLinkPreview,
         logger: BAILEYS_CONFIG.logger,
+        fireInitQueries: BAILEYS_CONFIG.fireInitQueries,
+        shouldSyncHistoryMessage: BAILEYS_CONFIG.shouldSyncHistoryMessage,
         shouldIgnoreJid: (jid: string) => isJidBroadcast(jid),
         getMessage: async () => ({ conversation: 'Mensaje no disponible' }),
         patchMessageBeforeSending: (msg: any) => {

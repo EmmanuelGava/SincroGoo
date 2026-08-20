@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
         fecha_mensaje,
         lead_id,
         metadata,
+        unread_count,
+        last_read_at,
         mensajes_conversacion (
           contenido,
           fecha_mensaje,
@@ -68,6 +70,7 @@ export async function GET(req: NextRequest) {
         fecha_mensaje: conv.fecha_mensaje,
         lead_id: conv.lead_id,
         metadata,
+        unread_count: conv.unread_count || 0,
         ultimo_mensaje: ultimoMensaje?.contenido || null
       };
     }) || [];
@@ -76,9 +79,19 @@ export async function GET(req: NextRequest) {
     for (const conv of conversacionesConUltimoMensaje) {
       const key = conversationIdentityKey(conv);
       const current = merged.get(key);
-      if (!current || new Date(conv.fecha_mensaje).getTime() > new Date(current.fecha_mensaje).getTime()) {
+      if (!current) {
         merged.set(key, conv);
+        continue;
       }
+      const newer = new Date(conv.fecha_mensaje).getTime() > new Date(current.fecha_mensaje).getTime()
+        ? conv
+        : current;
+      const older = newer === conv ? current : conv;
+      merged.set(key, {
+        ...newer,
+        unread_count: (current.unread_count || 0) + (conv.unread_count || 0),
+        ultimo_mensaje: newer.ultimo_mensaje || older.ultimo_mensaje,
+      });
     }
 
     const conversacionesUnicas = [...merged.values()].sort(
@@ -99,5 +112,40 @@ export async function GET(req: NextRequest) {
       conversaciones: [], 
       error: errorMessage 
     }, { status });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const conversacionId = body.conversacionId || body.id;
+    if (!conversacionId) {
+      return NextResponse.json({ error: 'conversacionId requerido' }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase
+      .from('conversaciones')
+      .update({
+        unread_count: 0,
+        last_read_at: new Date().toISOString(),
+      })
+      .eq('id', conversacionId);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true }, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  } catch (error) {
+    console.error('Error marcando conversación leída:', error);
+    const { error: errorMessage, status } = formatErrorResponse(error);
+    return NextResponse.json({ error: errorMessage }, { status });
   }
 }

@@ -1,4 +1,5 @@
 import { DisconnectReason } from 'baileys';
+import { shouldSyncHistoryChunk } from './historyCatchup';
 
 // Logger básico para evitar el error del noise-handler
 const createBasicLogger = () => ({
@@ -35,7 +36,7 @@ export const BAILEYS_CONFIG = {
   getMessage: async () => ({ conversation: 'Mensaje no disponible' }),
   // Configuraciones adicionales para estabilidad móvil
   fireInitQueries: false, // No hacer queries iniciales que pueden causar 515
-  shouldSyncHistoryMessage: () => false // No sincronizar historial
+  shouldSyncHistoryMessage: shouldSyncHistoryChunk,
 };
 
 export const SESSION_CONFIG = {

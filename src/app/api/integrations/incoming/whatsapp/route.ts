@@ -124,6 +124,7 @@ async function handleLiteMessage(body: any) {
     },
     timestamp: parseIncomingTimestamp(body.timestamp),
     messageType: body.type || 'text',
+    waMessageId: body.wa_message_id || body.messageId,
     metadata: {
       source: 'whatsapp-lite',
       tipo_conexion: 'lite',
@@ -163,6 +164,7 @@ async function procesarMensajesWhatsAppBusiness(value: any) {
           },
           timestamp: new Date(parseInt(message.timestamp) * 1000),
           messageType: 'text',
+          waMessageId: message.id,
           metadata: {
             message_id: message.id,
             source: 'whatsapp-business',

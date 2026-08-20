@@ -14,6 +14,7 @@ export interface IncomingMessageData {
   timestamp?: Date;
   metadata?: Record<string, any>;
   messageType?: 'text' | 'image' | 'audio' | 'video' | 'file';
+  waMessageId?: string;
 }
 
 /**
@@ -24,12 +25,25 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
   try {
     console.log(`📥 Mensaje entrante de ${data.platform}:`, {
       contact: data.contact.id,
-      message: data.message.substring(0, 100) + '...',
+      message: String(data.message || '').substring(0, 100) + '...',
       timestamp: data.timestamp
     });
 
     const supabase = getSupabaseAdmin();
-    
+    const waMessageId = data.waMessageId ? String(data.waMessageId) : undefined;
+
+    if (waMessageId) {
+      const existing = await supabase
+        .from('mensajes_conversacion')
+        .select('id, conversacion_id')
+        .eq('wa_message_id', waMessageId)
+        .maybeSingle();
+      if (existing.data?.id) {
+        console.log('↩️ Mensaje duplicado (wa_message_id), se omite:', waMessageId);
+        return { success: true, conversacionId: existing.data.conversacion_id, duplicate: true };
+      }
+    }
+
     // Normalizar el remitente según la plataforma
     const remitente = normalizeContactId(data.platform, data.contact);
     
@@ -54,13 +68,14 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
     });
 
     // 2. Guardar el mensaje
-    await saveMessage(supabase, {
+    const saved = await saveMessage(supabase, {
       conversacionId,
       content: data.message,
       sender: remitente,
       platform: data.platform,
       timestamp: data.timestamp || new Date(),
       messageType: data.messageType || 'text',
+      waMessageId,
       metadata: {
         ...data.metadata,
         source: data.platform,
@@ -69,6 +84,13 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
         contact_email: data.contact.email
       }
     });
+
+    if (!saved) {
+      console.log('↩️ Mensaje duplicado al insertar, se omite');
+      return { success: true, conversacionId, duplicate: true };
+    }
+
+    await incrementUnread(supabase, conversacionId);
 
     console.log(`✅ Mensaje de ${data.platform} procesado correctamente`);
     
@@ -115,11 +137,11 @@ async function findOrCreateConversation(supabase: any, data: {
 }) {
   const remitente = data.phoneNumber || data.remitente;
 
-  let existingConversation: { id: string; metadata?: Record<string, unknown> } | null = null;
+  let existingConversation: { id: string; metadata?: Record<string, unknown>; fecha_mensaje?: string } | null = null;
 
   const byPhone = await supabase
     .from('conversaciones')
-    .select('id, metadata')
+    .select('id, metadata, fecha_mensaje')
     .eq('remitente', remitente)
     .eq('servicio_origen', data.platform)
     .order('fecha_mensaje', { ascending: false })
@@ -131,7 +153,7 @@ async function findOrCreateConversation(supabase: any, data: {
   if (!existingConversation && data.remoteJid) {
     const byJid = await supabase
       .from('conversaciones')
-      .select('id, metadata')
+      .select('id, metadata, fecha_mensaje')
       .eq('servicio_origen', data.platform)
       .filter('metadata->>remote_jid', 'eq', data.remoteJid)
       .order('fecha_mensaje', { ascending: false })
@@ -144,7 +166,7 @@ async function findOrCreateConversation(supabase: any, data: {
     const lidDigits = data.remoteJid.split('@')[0].split(':')[0];
     const byLid = await supabase
       .from('conversaciones')
-      .select('id, metadata')
+      .select('id, metadata, fecha_mensaje')
       .eq('remitente', lidDigits)
       .eq('servicio_origen', data.platform)
       .order('fecha_mensaje', { ascending: false })
@@ -160,13 +182,20 @@ async function findOrCreateConversation(supabase: any, data: {
       ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
       ...(data.contactName ? { contact_name: data.contactName } : {}),
     };
+    const incomingTs = data.timestamp.toISOString();
+    const existingTs = existingConversation.fecha_mensaje
+      ? new Date(existingConversation.fecha_mensaje).getTime()
+      : 0;
+    const patch: Record<string, unknown> = {
+      remitente,
+      metadata: nextMetadata,
+    };
+    if (data.timestamp.getTime() >= existingTs) {
+      patch.fecha_mensaje = incomingTs;
+    }
     await supabase
       .from('conversaciones')
-      .update({
-        remitente,
-        fecha_mensaje: data.timestamp.toISOString(),
-        metadata: nextMetadata,
-      })
+      .update(patch)
       .eq('id', existingConversation.id);
     
     return existingConversation.id;
@@ -213,11 +242,27 @@ async function saveMessage(supabase: any, data: {
   timestamp: Date;
   messageType: string;
   metadata: Record<string, any>;
-}) {
+  waMessageId?: string;
+}): Promise<boolean> {
+  const from = new Date(data.timestamp.getTime() - 2000).toISOString();
+  const to = new Date(data.timestamp.getTime() + 2000).toISOString();
+  const similar = await supabase
+    .from('mensajes_conversacion')
+    .select('id')
+    .eq('conversacion_id', data.conversacionId)
+    .eq('contenido', data.content)
+    .gte('fecha_mensaje', from)
+    .lte('fecha_mensaje', to)
+    .limit(1)
+    .maybeSingle();
+  if (similar.data?.id) {
+    return false;
+  }
+
   const { error } = await supabase
     .from('mensajes_conversacion')
     .insert({
-      id: uuidv4(), // Generar UUID válido
+      id: uuidv4(),
       conversacion_id: data.conversacionId,
       tipo: data.messageType,
       contenido: data.content,
@@ -225,12 +270,33 @@ async function saveMessage(supabase: any, data: {
       fecha_mensaje: data.timestamp.toISOString(),
       canal: data.platform,
       metadata: data.metadata,
-      usuario_id: null
+      usuario_id: null,
+      ...(data.waMessageId ? { wa_message_id: data.waMessageId } : {}),
     });
 
   if (error) {
+    if (error.code === '23505') {
+      return false;
+    }
     console.error('Error guardando mensaje:', error);
     throw error;
+  }
+  return true;
+}
+
+async function incrementUnread(supabase: any, conversacionId: string) {
+  const current = await supabase
+    .from('conversaciones')
+    .select('unread_count')
+    .eq('id', conversacionId)
+    .maybeSingle();
+  const next = (current.data?.unread_count ?? 0) + 1;
+  const { error } = await supabase
+    .from('conversaciones')
+    .update({ unread_count: next })
+    .eq('id', conversacionId);
+  if (error) {
+    console.warn('⚠️ No se pudo incrementar unread_count:', error);
   }
 }
 

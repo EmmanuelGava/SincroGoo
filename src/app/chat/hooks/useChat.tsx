@@ -14,6 +14,7 @@ interface Conversacion {
   lead_id?: string;
   ultimo_mensaje?: string;
   metadata?: any;
+  unread_count?: number;
 }
 
 interface Mensaje {
@@ -174,6 +175,22 @@ export function useChat() {
   const seleccionarConversacion = useCallback((conversacion: Conversacion) => {
     setConversacionActiva(conversacion);
     fetchMensajes(conversacion.id);
+    if ((conversacion.unread_count || 0) > 0) {
+      fetch('/api/chat/conversaciones', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversacionId: conversacion.id }),
+      }).then(() => {
+        setConversaciones((prev) =>
+          prev.map((c) => (c.id === conversacion.id ? { ...c, unread_count: 0 } : c))
+        );
+        setConversacionActiva((prev) =>
+          prev && prev.id === conversacion.id ? { ...prev, unread_count: 0 } : prev
+        );
+      }).catch((error) => {
+        console.warn('No se pudo marcar la conversación como leída:', error);
+      });
+    }
   }, [fetchMensajes]);
 
   // Limpiar conversación activa

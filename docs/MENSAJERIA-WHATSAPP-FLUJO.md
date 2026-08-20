@@ -1,6 +1,6 @@
 # Mensajería WhatsApp en KloSync
 
-Documento canónico. Actualizado: 16 agosto 2026.
+Documento canónico. Actualizado: 19 agosto 2026.
 
 Los docs viejos (`WHATSAPP_LITE_CONNECTION_FLOW.md`, `whatsapp-credentials-flow.md`, `BAILEYS_CREDENTIALS_SOLUTION.md`, `WHATSAPP-TROUBLESHOOTING.md`) describen una etapa anterior (Baileys adentro de Next.js). Este archivo es el que vale hoy.
 
@@ -48,6 +48,7 @@ Archivos que importan:
 | Baileys (singleton) | `src/app/servicios/messaging/whatsapp/WhatsAppLiteService.ts` |
 | Socket WS vivo / 428 | `src/app/servicios/messaging/whatsapp/modules/socketHealth.ts` |
 | Eventos Baileys | `…/modules/EventManager.ts` |
+| Catch-up historial | `…/modules/historyCatchup.ts` |
 | Credenciales BD | `…/modules/DatabaseManager.ts`, `AuthManager.ts` |
 | API unificada | `src/app/api/whatsapp/route.ts` |
 | Incoming | `src/app/api/integrations/incoming/whatsapp/route.ts` |
@@ -144,6 +145,28 @@ Baileys messages.upsert
 ```
 
 El worker también emite Socket.IO `whatsapp-message` a `user-<googleId>`. Eso solo llega al browser si el cliente apunta al worker (`NEXT_PUBLIC_SOCKET_URL`). El poll cubre el caso en que no.
+
+KloSync cerrado **no pierde** leads si el worker en Railway está conectado: el mensaje se persiste igual. Lo que sí se perdía era el hueco **mientras el socket de Baileys estaba caído** (deploy, 428, 515, celular sin red). Eso se cubre en el catch-up.
+
+---
+
+## 5.1 Catch-up al reconectar
+
+`syncFullHistory` sigue en `false` (un full sync tira 515). Al volver `connection === 'open'`:
+
+1. `shouldSyncHistoryMessage` acepta solo chunks de las **últimas 48 h**, o desde `lastDisconnectAt - 10 min`. Rechaza FULL / bootstrap.
+2. Listener `messaging-history.set`: cada mensaje 1-1 (no grupos/`status`) pasa por el mismo POST incoming. Texto completo; imagen/audio del historial = placeholder (`[Imagen]` / `[Audio]`) + `wa_message_id`.
+3. Backup: chats ya en BD (`metadata.remote_jid`) → `fetchMessageHistory` desde el último `fecha_mensaje`, tope 50 msgs/chat, pacing entre chats.
+
+Dedupe: `mensajes_conversacion.wa_message_id` unique (where not null). Si el mismo mensaje llega live y por historial, el segundo se ignora. También hay un fallback por contenido + timestamp ±2 s (mensajes viejos sin `wa_message_id`).
+
+No leídos: incoming suma `conversaciones.unread_count`. Al abrir el hilo, PATCH pone `unread_count = 0` y `last_read_at`. El sidebar muestra badge y negrita.
+
+Cómo probar:
+
+1. Worker conectado, KloSync cerrado: un mensaje de un contacto conocido → al abrir aparece y con badge.
+2. Parar Railway 2–5 min, que escriban un contacto conocido y uno nuevo, levantar worker → ambos hilos en el inbox, sin duplicar si el mensaje también llegó live.
+3. Reconectar no debe tirar 515 en bucle. Si pasa, el filtro de `shouldSyncHistoryMessage` hay que endurecerlo (solo post-`lastDisconnectAt`).
 
 ---
 
@@ -313,5 +336,6 @@ where plataforma = 'whatsapp';
 5. Chat sin live: ¿`ChatWindow` recibe `mensajes` del hook? ¿el poll pega `/api/chat/mensajes`?
 6. Dos chats raros: ¿son dos LID? No fusionar hasta tener teléfono.
 7. Status verde mentiroso: ¿`hasLiveSocket` o solo BD?
+8. Mensaje durante un deploy/caída del worker: ¿apareció al reconectar? ¿`wa_message_id` en el row? ¿badge de no leído?
 
 No borrar credenciales en un close 428. Sí borrarlas en 401. No generar `session_id` nuevo si ya hay una fila con `baileys_credentials`.

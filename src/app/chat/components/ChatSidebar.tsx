@@ -12,7 +12,8 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  Button
+  Button,
+  Badge
 } from '@mui/material';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -34,6 +35,7 @@ interface Conversacion {
   lead_id?: string;
   ultimo_mensaje?: string;
   metadata?: any;
+  unread_count?: number;
 }
 
 interface ChatSidebarProps {
@@ -180,10 +182,12 @@ export default function ChatSidebar({
           <List sx={{ p: 0 }}>
             {conversaciones.map((conversacion) => {
               const displayName = conversationDisplayName(conversacion);
+              const isActive = conversacionActiva?.id === conversacion.id;
+              const unread = !isActive && (conversacion.unread_count || 0) > 0;
               return (
               <ListItem key={conversacion.id} disablePadding>
                 <ListItemButton
-                  selected={conversacionActiva?.id === conversacion.id}
+                  selected={isActive}
                   onClick={() => onSelectConversacion(conversacion)}
                   sx={{
                     py: 1.5,
@@ -200,13 +204,19 @@ export default function ChatSidebar({
                 >
                   <ListItemAvatar>
                     <Box sx={{ position: 'relative', mr: 1 }}>
-                      <Avatar sx={{ 
-                        bgcolor: servicioColors[conversacion.servicio_origen] || '#90caf9',
-                        width: 40,
-                        height: 40
-                      }}>
-                        {displayName.charAt(0).toUpperCase()}
-                      </Avatar>
+                      <Badge
+                        badgeContent={unread ? conversacion.unread_count : 0}
+                        color="primary"
+                        overlap="circular"
+                      >
+                        <Avatar sx={{ 
+                          bgcolor: servicioColors[conversacion.servicio_origen] || '#90caf9',
+                          width: 40,
+                          height: 40
+                        }}>
+                          {displayName.charAt(0).toUpperCase()}
+                        </Avatar>
+                      </Badge>
                       <Box sx={{
                         position: 'absolute',
                         bottom: -2,
@@ -218,6 +228,7 @@ export default function ChatSidebar({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        zIndex: 1,
                       }}>
                         {getServiceIcon(conversacion.servicio_origen)}
                       </Box>
@@ -228,8 +239,8 @@ export default function ChatSidebar({
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box component="span" sx={{ 
-                          color: conversacionActiva?.id === conversacion.id ? 'white' : 'text.primary',
-                          fontWeight: 600,
+                          color: isActive ? 'white' : 'text.primary',
+                          fontWeight: unread ? 800 : 600,
                           flex: 1,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -251,7 +262,8 @@ export default function ChatSidebar({
                     secondary={
                       <Box component="span" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
                         <Box component="span" sx={{ 
-                          color: conversacionActiva?.id === conversacion.id ? 'rgba(255,255,255,0.7)' : 'text.secondary',
+                          color: isActive ? 'rgba(255,255,255,0.7)' : unread ? 'text.primary' : 'text.secondary',
+                          fontWeight: unread ? 600 : 400,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
@@ -261,8 +273,9 @@ export default function ChatSidebar({
                           {conversacion.ultimo_mensaje || 'Sin mensajes'}
                         </Box>
                         <Box component="span" sx={{ 
-                          color: conversacionActiva?.id === conversacion.id ? 'rgba(255,255,255,0.5)' : 'text.secondary',
-                          fontSize: '0.7rem'
+                          color: isActive ? 'rgba(255,255,255,0.5)' : unread ? 'primary.main' : 'text.secondary',
+                          fontSize: '0.7rem',
+                          fontWeight: unread ? 700 : 400,
                         }}>
                           {formatTime(conversacion.fecha_mensaje)}
                         </Box>

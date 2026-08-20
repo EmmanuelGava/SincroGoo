@@ -10,6 +10,14 @@ import {
   isWaSocketOpen,
 } from './socketHealth';
 import { RECONNECT_DELAYS } from './BaileysConfig';
+import {
+  CATCHUP_OPEN_DELAY_MS,
+  catchupKnownChats,
+  extractHistoryBody,
+  isCatchupJid,
+  isWithinCatchupWindow,
+  markDisconnectAt,
+} from './historyCatchup';
 
 export type ConnectionCallback = (status: { connected: boolean; phoneNumber?: string }) => void;
 
@@ -36,6 +44,7 @@ export class EventManager {
   private isProcessingAuth: boolean = false; // Evitar procesamiento múltiple de autenticación
   private reconnectHandler: ((userId: string) => Promise<void>) | null = null;
   private contactBook = new Map<string, { name?: string; notify?: string }>();
+  private catchupSockets = new WeakSet<WASocket>();
 
   setReconnectHandler(handler: (userId: string) => Promise<void>): void {
     this.reconnectHandler = handler;
@@ -205,6 +214,7 @@ export class EventManager {
         const statusCode = getDisconnectStatusCode(error);
         console.log('🔌 [EventManager] Conexión cerrada:', statusCode, error instanceof Error ? error.message : error);
 
+        markDisconnectAt();
         state.lastError = error;
         state.isConnected = false;
         state.socket = null;
@@ -255,6 +265,7 @@ export class EventManager {
         state.isReconnecting = false;
         
         await this.verifyRealAuthentication(socket, state, userId);
+        this.scheduleKnownChatsCatchup(socket);
       }
       
       // ✅ SOLUCIÓN: Detectar cuando la conexión se restablece después del error 515
@@ -283,44 +294,75 @@ export class EventManager {
 
     socket.ev.on('messages.upsert', async (m) => {
       console.log('📨 Mensaje recibido:', m.messages.length, 'mensajes');
-
       for (const message of m.messages) {
-        if (message.key.fromMe) continue;
-        const jid = message.key.remoteJid || '';
-        if (jid.endsWith('@g.us') || jid === 'status@broadcast') continue;
+        await this.ingestIncomingWaMessage(socket, userId, message, { allowMediaPlaceholder: false, applyCatchupWindow: false });
+      }
+    });
 
-        const text = extractIncomingText(message.message);
-        if (!text) {
-          console.log('📨 Mensaje sin texto usable, se omite:', jid, Object.keys(message.message || {}));
-          continue;
-        }
-
-        const { resolveWhatsAppPeer } = await import('@/lib/whatsapp/peerIdentity');
-        const key = message.key as { remoteJid?: string | null; remoteJidAlt?: string | null };
-        const peer = await resolveWhatsAppPeer(socket, jid, { remoteJidAlt: key.remoteJidAlt });
-        const timestampMs = toWhatsAppTimestampMs(message.messageTimestamp);
-        const contactName = this.contactLabel(jid, peer.sendJid, message.pushName);
-        console.log('📨 Procesando mensaje de:', peer.phone, jid, peer.resolved ? 'teléfono' : 'sin resolver', contactName);
-        await forwardIncomingToApp({
-          from: peer.resolved ? peer.phone : (jid.split('@')[0] || peer.phone),
-          fromJid: peer.sendJid,
-          phone: peer.resolved ? peer.phone : undefined,
-          message: text,
-          contactName,
-          userId,
-          timestamp: timestampMs,
-        });
-        if (typeof global !== 'undefined' && (global as any).emitToUser) {
-          (global as any).emitToUser(userId, 'whatsapp-message', {
-            from: peer.phone,
-            fromJid: peer.sendJid,
-            message: text,
-          });
-        }
+    socket.ev.on('messaging-history.set', async (payload) => {
+      const messages = payload?.messages || [];
+      this.rememberContacts(payload?.contacts);
+      console.log('📚 [EventManager] messaging-history.set:', messages.length, 'msgs, syncType=', payload?.syncType);
+      for (const message of messages) {
+        await this.ingestIncomingWaMessage(socket, userId, message, { allowMediaPlaceholder: true, applyCatchupWindow: true });
       }
     });
 
     console.log('✅ Event listeners configurados (versión optimizada)');
+  }
+
+  private async ingestIncomingWaMessage(
+    socket: WASocket,
+    userId: string,
+    message: any,
+    options: { allowMediaPlaceholder: boolean; applyCatchupWindow: boolean }
+  ): Promise<void> {
+    if (message?.key?.fromMe) return;
+    const jid = message?.key?.remoteJid || '';
+    if (!isCatchupJid(jid)) return;
+
+    const timestampMs = toWhatsAppTimestampMs(message.messageTimestamp);
+    if (options.applyCatchupWindow && !isWithinCatchupWindow(timestampMs)) {
+      return;
+    }
+
+    const text = extractIncomingText(message.message);
+    const historyBody = options.allowMediaPlaceholder ? extractHistoryBody(message.message) : null;
+    const body = text
+      ? { text, type: 'text' as const }
+      : historyBody;
+
+    if (!body) {
+      if (!options.allowMediaPlaceholder) {
+        console.log('📨 Mensaje sin texto usable, se omite:', jid, Object.keys(message.message || {}));
+      }
+      return;
+    }
+
+    const { resolveWhatsAppPeer } = await import('@/lib/whatsapp/peerIdentity');
+    const key = message.key as { remoteJid?: string | null; remoteJidAlt?: string | null };
+    const peer = await resolveWhatsAppPeer(socket, jid, { remoteJidAlt: key.remoteJidAlt });
+    const contactName = this.contactLabel(jid, peer.sendJid, message.pushName);
+    const waMessageId = message.key?.id ? String(message.key.id) : undefined;
+    console.log('📨 Procesando mensaje de:', peer.phone, jid, peer.resolved ? 'teléfono' : 'sin resolver', contactName, waMessageId);
+    await forwardIncomingToApp({
+      from: peer.resolved ? peer.phone : (jid.split('@')[0] || peer.phone),
+      fromJid: peer.sendJid,
+      phone: peer.resolved ? peer.phone : undefined,
+      message: body.text,
+      type: 'text',
+      contactName,
+      userId,
+      timestamp: timestampMs,
+      waMessageId,
+    });
+    if (typeof global !== 'undefined' && (global as any).emitToUser) {
+      (global as any).emitToUser(userId, 'whatsapp-message', {
+        from: peer.phone,
+        fromJid: peer.sendJid,
+        message: body.text,
+      });
+    }
   }
 
   /**
@@ -424,6 +466,16 @@ export class EventManager {
     } catch (error) {
       console.error('❌ [EventManager] Error verificando autenticación REAL:', error);
     }
+  }
+
+  private scheduleKnownChatsCatchup(socket: WASocket): void {
+    if (this.catchupSockets.has(socket)) return;
+    this.catchupSockets.add(socket);
+    setTimeout(() => {
+      catchupKnownChats(socket).catch((error) => {
+        console.warn('⚠️ [EventManager] Catch-up de chats conocidos falló:', error);
+      });
+    }, CATCHUP_OPEN_DELAY_MS);
   }
 
   /**
@@ -712,9 +764,11 @@ async function forwardIncomingToApp(payload: {
   fromJid?: string;
   phone?: string;
   message: string;
+  type?: string;
   contactName?: string | null;
   userId: string;
   timestamp?: unknown;
+  waMessageId?: string;
 }) {
   const appUrl = (process.env.APP_URL || process.env.NEXTAUTH_URL || '').replace(/\/$/, '');
   if (!appUrl) {
@@ -734,11 +788,12 @@ async function forwardIncomingToApp(payload: {
         fromJid: payload.fromJid,
         phone: payload.phone,
         message: payload.message,
-        type: 'text',
+        type: payload.type || 'text',
         platform: 'whatsapp-lite-baileys',
         contact_name: payload.contactName,
         timestamp: payload.timestamp,
         userId: payload.userId,
+        wa_message_id: payload.waMessageId,
       }),
     });
     if (!response.ok) {

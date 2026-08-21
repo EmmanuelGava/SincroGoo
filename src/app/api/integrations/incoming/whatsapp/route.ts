@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleIncomingMessage } from '@/lib/chat/handleIncomingMessage';
+import { looksLikePhoneNumber } from '@/lib/chat/conversationIdentity';
 import { incomingLiteFileMetadata } from '@/lib/chat/incomingLiteMetadata';
 
 /**

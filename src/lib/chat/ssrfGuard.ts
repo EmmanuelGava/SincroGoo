@@ -90,8 +90,7 @@ export async function followSafeRedirects(
 
   for (let hop = 0; hop <= maxHops; hop += 1) {
     const result = await deps.fetchHop(current);
-    const redirected = result.status >= 300 && result.status < 400 && result.location;
-    if (!redirected) {
+    if (!(result.status >= 300 && result.status < 400) || !result.location) {
       return { url: current, contentType: result.contentType, body: result.body };
     }
     const next = new URL(result.location, current);

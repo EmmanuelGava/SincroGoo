@@ -27,7 +27,9 @@ export class FileUploadService {
       mime === 'application/msword' ||
       mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       mime === 'application/vnd.ms-excel' ||
-      mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mime === 'application/vnd.ms-powerpoint' ||
+      mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     ) {
       return 'file';
     }

@@ -65,6 +65,20 @@ export function validateCatalogoItem(body: {
   };
 }
 
+export const CATALOGO_FILE_ACCEPT = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+].join(',');
+
 export function catalogAttachment(item: Pick<CatalogoItem, 'imagen_url' | 'archivo_url' | 'nombre'>) {
   if (item.imagen_url) {
     return { url: item.imagen_url, fileName: item.nombre, fileType: 'image' as const };

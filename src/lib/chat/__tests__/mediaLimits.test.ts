@@ -57,7 +57,7 @@ describe('validateOutgoingMedia', () => {
     expect(result).toEqual({ ok: true, kind: 'file' });
   });
 
-  it('acepta Word y Excel', () => {
+  it('acepta Word, Excel y PowerPoint', () => {
     expect(validateOutgoingMedia(file({
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       size: 1000,
@@ -67,6 +67,11 @@ describe('validateOutgoingMedia', () => {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       size: 1000,
       name: 'a.xlsx',
+    }))).toEqual({ ok: true, kind: 'file' });
+    expect(validateOutgoingMedia(file({
+      type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      size: 1000,
+      name: 'a.pptx',
     }))).toEqual({ ok: true, kind: 'file' });
   });
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   IconButton,
@@ -19,7 +20,7 @@ import FileUpload, { type FileUploadHandle } from './FileUpload';
 import EmojiPickerComponent from './EmojiPicker';
 import AudioRecorder from './AudioRecorder';
 import { QuickReplyManager, QuickReplyPicker } from './QuickReplies';
-import { CatalogManager, CatalogPicker } from './CatalogPicker';
+import { CatalogPicker } from './CatalogPicker';
 import { WA } from '@/app/chat/chatTheme';
 import {
   draftNeedsCatalog,
@@ -85,6 +86,7 @@ export default function MessageInput({
   manageOpen,
   onManageOpenChange,
 }: MessageInputProps) {
+  const router = useRouter();
   const [mensaje, setMensaje] = useState('');
   const [attachEl, setAttachEl] = useState<HTMLElement | null>(null);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -93,7 +95,6 @@ export default function MessageInput({
   const [slashDismissed, setSlashDismissed] = useState(false);
   const [localManageOpen, setLocalManageOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
-  const [catalogManageOpen, setCatalogManageOpen] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const [selectedCatalog, setSelectedCatalog] = useState<CatalogoItem | null>(null);
   const manage = manageOpen ?? localManageOpen;
@@ -291,7 +292,7 @@ export default function MessageInput({
           onSelect={applyCatalogItem}
           onManage={() => {
             setCatalogOpen(false);
-            setCatalogManageOpen(true);
+            router.push('/catalogo');
           }}
         />
       ) : null}
@@ -492,13 +493,7 @@ export default function MessageInput({
         onClose={() => setManage(false)}
         items={respuestas}
         onChanged={() => { void loadRespuestas(); }}
-        onOpenCatalog={() => setCatalogManageOpen(true)}
-      />
-      <CatalogManager
-        open={catalogManageOpen}
-        onClose={() => setCatalogManageOpen(false)}
-        items={catalogo}
-        onChanged={() => { void loadCatalogo(); }}
+        onOpenCatalog={() => router.push('/catalogo')}
       />
     </Paper>
   );

@@ -43,6 +43,8 @@ const DOC_ACCEPT = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
   'application/vnd.ms-excel': ['.xls'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'application/vnd.ms-powerpoint': ['.ppt'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
 };
 
 const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUpload(
@@ -142,7 +144,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
         ref={docInputRef}
         type="file"
         hidden
-        accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf"
         multiple
         disabled={disabled}
         onChange={(e) => {

@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronDown,
   Users,
+  Package,
 } from "lucide-react"
 import { ThemeToggleButton } from "./ThemeToggleButton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/componentes/ui/avatar"
@@ -38,6 +39,7 @@ import { cn } from "@/app/lib/utils"
 const primaryNav = [
   { name: "Chat", href: "/chat" },
   { name: "Contactos", href: "/contactos" },
+  { name: "Catálogo", href: "/catalogo" },
   { name: "CRM", href: "/crm" },
   { name: "Dashboard", href: "/dashboard" },
 ]
@@ -97,6 +99,7 @@ export function EncabezadoSistema() {
                   )}
                 >
                   {item.href === "/contactos" ? <Users className="h-4 w-4" /> : null}
+                  {item.href === "/catalogo" ? <Package className="h-4 w-4" /> : null}
                   {item.name}
                 </button>
               ))}
@@ -169,6 +172,10 @@ export function EncabezadoSistema() {
                 <DropdownMenuItem onClick={() => router.push("/chat")}>
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Chat
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/catalogo")}>
+                  <Package className="mr-2 h-4 w-4" />
+                  Catálogo
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/crm")}>
                   <Kanban className="mr-2 h-4 w-4" />

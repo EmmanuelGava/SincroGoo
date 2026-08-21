@@ -19,6 +19,8 @@ export const MEDIA_LIMITS = {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     ],
   },
 } as const;
@@ -74,11 +76,11 @@ export function validateOutgoingMedia(input: MediaInput): ValidateOutgoingMediaR
   }
 
   if (kind === 'audio' && !AUDIO_TYPES.has(mime) && !mime.startsWith('audio/')) {
-    return { ok: false, error: 'Solo se permiten imágenes, audio o documentos PDF, Word o Excel' };
+    return { ok: false, error: 'Solo se permiten imágenes, audio o documentos PDF, Word, Excel o PowerPoint' };
   }
 
   if (kind !== 'image' && kind !== 'audio' && kind !== 'file') {
-    return { ok: false, error: 'Solo se permiten imágenes, audio o documentos PDF, Word o Excel' };
+    return { ok: false, error: 'Solo se permiten imágenes, audio o documentos PDF, Word, Excel o PowerPoint' };
   }
 
   if (kind === 'image' && input.size > MEDIA_LIMITS.image.maxBytes) {
@@ -107,11 +109,11 @@ export function dropzoneRejectMessage(errors: ReadonlyArray<{ code: string }>, f
     return 'La imagen no puede superar 5 MB';
   }
   if (errors.some((e) => e.code === 'file-invalid-type')) {
-    return 'Solo se permiten imágenes JPG, PNG, WEBP o GIF, o documentos PDF, Word o Excel';
+    return 'Solo se permiten imágenes JPG, PNG, WEBP o GIF, o documentos PDF, Word, Excel o PowerPoint';
   }
   return 'Archivo no válido';
 }
 
 export function outgoingMediaHint(): string {
-  return 'Imagen hasta 5 MB · audio 16 MB · PDF/Word/Excel 16 MB · sin video';
+  return 'Imagen hasta 5 MB · audio 16 MB · PDF/Word/Excel/PowerPoint 16 MB · sin video';
 }

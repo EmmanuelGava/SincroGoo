@@ -254,6 +254,12 @@ export default function KanbanLeads() {
     if (match) setEditLead(match);
   }, [searchParams, leads]);
   const [confirmDeleteLead, setConfirmDeleteLead] = useState<null | Lead>(null);
+  const [pendingIncomingChoice, setPendingIncomingChoice] = useState<null | {
+    conversationId: string;
+    estadoId: string;
+    contactoId: string;
+    openLead: { id: string; nombre: string; estado_id: string };
+  }>(null);
   
   // Estado para columnas colapsadas
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
@@ -302,7 +308,15 @@ export default function KanbanLeads() {
       const conversationId = String(draggableId).slice('incoming:'.length);
       if (destEstadoId === 'incoming-chats') return;
       try {
-        await convertirIncomingEnLead(conversationId, destEstadoId);
+        const result = await convertirIncomingEnLead(conversationId, destEstadoId);
+        if (result?.needsChoice) {
+          setPendingIncomingChoice({
+            conversationId,
+            estadoId: destEstadoId,
+            contactoId: result.contactoId,
+            openLead: result.openLead,
+          });
+        }
       } catch (error) {
         console.error('Error pasando chat al Kanban:', error);
       }
@@ -370,6 +384,36 @@ export default function KanbanLeads() {
     if (!confirmDeleteLead) return;
     await eliminarLead(confirmDeleteLead.id);
     setConfirmDeleteLead(null);
+  };
+
+  const pendingEtapaNombre = pendingIncomingChoice
+    ? (estados.find((estado) => estado.id === pendingIncomingChoice.openLead.estado_id)?.nombre || 'otra etapa')
+    : '';
+
+  const handleMoverLeadAbierto = async () => {
+    if (!pendingIncomingChoice) return;
+    const pending = pendingIncomingChoice;
+    setPendingIncomingChoice(null);
+    try {
+      await convertirIncomingEnLead(pending.conversationId, pending.estadoId, {
+        reuseLeadId: pending.openLead.id,
+      });
+    } catch (error) {
+      console.error('Error moviendo el deal existente:', error);
+    }
+  };
+
+  const handleCrearLeadNuevo = async () => {
+    if (!pendingIncomingChoice) return;
+    const pending = pendingIncomingChoice;
+    setPendingIncomingChoice(null);
+    try {
+      await convertirIncomingEnLead(pending.conversationId, pending.estadoId, {
+        forceNewLead: true,
+      });
+    } catch (error) {
+      console.error('Error creando un deal nuevo:', error);
+    }
   };
 
   return (
@@ -723,6 +767,28 @@ export default function KanbanLeads() {
           <DialogActions>
             <Button onClick={() => setConfirmDeleteLead(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
             <Button onClick={handleDeleteLead} variant="contained" color="error">Eliminar</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={!!pendingIncomingChoice}
+          onClose={() => setPendingIncomingChoice(null)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}
+        >
+          <DialogTitle>Este contacto ya tiene un deal</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Este contacto ya tiene un deal en {pendingEtapaNombre}. ¿Mover ese deal acá o crear uno nuevo?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPendingIncomingChoice(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
+            <Button onClick={handleCrearLeadNuevo} sx={{ color: colors.textSecondary }}>Crear nuevo</Button>
+            <Button onClick={handleMoverLeadAbierto} variant="contained" sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' } }}>
+              Mover
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

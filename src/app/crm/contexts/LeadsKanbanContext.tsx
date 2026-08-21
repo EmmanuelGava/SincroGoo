@@ -15,6 +15,17 @@ export interface Estado {
   icono?: string;
 }
 
+export type ConvertirIncomingExtra = {
+  reuseLeadId?: string;
+  forceNewLead?: boolean;
+};
+
+export type ConvertirIncomingResult = {
+  needsChoice: true;
+  openLead: { id: string; nombre: string; estado_id: string };
+  contactoId: string;
+};
+
 export interface LeadsKanbanContextProps {
   leads: Lead[];
   estados: Estado[];
@@ -26,7 +37,11 @@ export interface LeadsKanbanContextProps {
   agregarEstado: (estado: Partial<Estado>) => Promise<void>;
   actualizarEstado: (id: string, estado: Partial<Estado>) => Promise<void>;
   eliminarEstado: (id: string) => Promise<void>;
-  convertirIncomingEnLead: (conversationId: string, estadoId: string) => Promise<void>;
+  convertirIncomingEnLead: (
+    conversationId: string,
+    estadoId: string,
+    extra?: ConvertirIncomingExtra
+  ) => Promise<ConvertirIncomingResult | void>;
   loading: boolean;
   error: string | null;
   refrescarLeads: () => void;
@@ -96,17 +111,36 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     fetchAll();
   }, [fetchAll]);
 
-  const convertirIncomingEnLead = useCallback(async (conversationId: string, estadoId: string) => {
+  const convertirIncomingEnLead = useCallback(async (
+    conversationId: string,
+    estadoId: string,
+    extra?: ConvertirIncomingExtra
+  ) => {
     setError(null);
     const res = await fetch('/api/crm/conversaciones/entrantes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, estadoId }),
+      body: JSON.stringify({ conversationId, estadoId, ...extra }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error al pasar el chat al Kanban');
+    if (data.needsChoice && data.openLead && data.contactoId) {
+      return {
+        needsChoice: true as const,
+        openLead: data.openLead as { id: string; nombre: string; estado_id: string },
+        contactoId: data.contactoId as string,
+      };
+    }
     if (data.lead) {
-      setLeads((prev) => (prev.some((l) => l.id === data.lead.id) ? prev : [...prev, data.lead]));
+      setLeads((prev) => {
+        const idx = prev.findIndex((l) => l.id === data.lead.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...prev[idx], ...data.lead };
+          return next;
+        }
+        return [...prev, data.lead];
+      });
     } else {
       await fetchAll();
     }

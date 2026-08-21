@@ -4,6 +4,12 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
+import {
+  decideKanbanIncomingAction,
+  findOpenLead,
+  upsertContactoPorTelefono,
+  type LeadConEstado,
+} from '@/lib/contactos/matchContacto';
 
 async function requireCrm() {
   const session = await getServerSession(authOptions);
@@ -94,7 +100,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se pudo identificar al usuario' }, { status: 401 });
     }
 
-    const { conversationId, estadoId } = await req.json();
+    const { conversationId, estadoId, forceNewLead, reuseLeadId } = await req.json();
     if (!conversationId || !estadoId) {
       return NextResponse.json({ error: 'Faltan conversationId o estadoId' }, { status: 400 });
     }
@@ -156,6 +162,81 @@ export async function POST(req: NextRequest) {
     }
 
     const email = '';
+    const remoteJid = String((metadata as Record<string, unknown>).remote_jid || '');
+    const waJid = remoteJid.includes('@')
+      ? remoteJid
+      : (String(conversacion.remitente).includes('@') ? String(conversacion.remitente) : null);
+
+    const contactoId = await upsertContactoPorTelefono(client.supabase, {
+      usuarioId: client.usuarioId,
+      nombre,
+      telefonoDisplay: telefono,
+      waJid,
+    });
+
+    let openLead: { id: string; nombre: string; estado_id: string } | null = null;
+    if (contactoId) {
+      const { data: abiertos } = await client.supabase
+        .from('leads')
+        .select('id, nombre, estado_id, estados_lead(nombre)')
+        .eq('contacto_id', contactoId)
+        .eq('asignado_a', client.usuarioId);
+      const abierto = findOpenLead((abiertos || []) as LeadConEstado[]);
+      if (abierto) {
+        openLead = { id: abierto.id, nombre: abierto.nombre, estado_id: abierto.estado_id };
+      }
+    }
+
+    const decision = decideKanbanIncomingAction({
+      contactoId,
+      openLead,
+      reuseLeadId: typeof reuseLeadId === 'string' ? reuseLeadId : undefined,
+      forceNewLead: forceNewLead === true,
+    });
+
+    if (decision.action === 'needsChoice') {
+      return NextResponse.json({
+        needsChoice: true,
+        openLead: decision.openLead,
+        contactoId: decision.contactoId,
+      });
+    }
+
+    const linkConversacion = async (leadId: string) => {
+      const convUpdate: Record<string, unknown> = { lead_id: leadId };
+      if (contactoId) convUpdate.contacto_id = contactoId;
+      const { error: linkError } = await client.supabase
+        .from('conversaciones')
+        .update(convUpdate)
+        .eq('id', conversationId);
+      if (linkError) throw linkError;
+    };
+
+    if (decision.action === 'reuse') {
+      const { data: existingLead, error: existingErr } = await client.supabase
+        .from('leads')
+        .select('*')
+        .eq('id', decision.reuseLeadId)
+        .eq('asignado_a', client.usuarioId)
+        .maybeSingle();
+      if (existingErr || !existingLead) {
+        return NextResponse.json({ error: 'Lead no encontrado' }, { status: 404 });
+      }
+      if (contactoId && existingLead.contacto_id && existingLead.contacto_id !== contactoId) {
+        return NextResponse.json({ error: 'El lead no pertenece a este contacto' }, { status: 400 });
+      }
+
+      const { data: updated, error: updErr } = await client.supabase
+        .from('leads')
+        .update({ estado_id: estadoId, ...(contactoId ? { contacto_id: contactoId } : {}) })
+        .eq('id', existingLead.id)
+        .select('*')
+        .single();
+      if (updErr) throw updErr;
+
+      await linkConversacion(existingLead.id);
+      return NextResponse.json({ lead: updated });
+    }
 
     const { data: lead, error: leadError } = await client.supabase
       .from('leads')
@@ -167,18 +248,14 @@ export async function POST(req: NextRequest) {
         asignado_a: client.usuarioId,
         creado_por: client.usuarioId,
         notas: `Creado desde chat ${conversacion.servicio_origen || ''}`.trim(),
+        ...(contactoId ? { contacto_id: contactoId } : {}),
       })
       .select('*')
       .single();
 
     if (leadError) throw leadError;
 
-    const { error: linkError } = await client.supabase
-      .from('conversaciones')
-      .update({ lead_id: lead.id })
-      .eq('id', conversationId);
-
-    if (linkError) throw linkError;
+    await linkConversacion(lead.id);
 
     return NextResponse.json({ lead }, { status: 201 });
   } catch (error) {

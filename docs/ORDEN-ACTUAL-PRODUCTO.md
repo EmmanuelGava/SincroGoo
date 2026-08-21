@@ -45,7 +45,7 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 2. Arrastrar el chat a una columna crea el lead.
 3. Desde el lead volvés al chat (y al revés).
 4. No se pierde un envío si Railway pega un 428 (outbox en código; falta prueba worker down).
-5. Una **ficha de contacto** con teléfono real, no un LID suelto (resolución LID→número en prod; falta tabla `contactos`).
+5. Una **ficha de contacto** con teléfono real, no un LID suelto (resolución LID→número en prod; tabla `contactos` con CRUD y ficha en `/contactos`).
 
 Hasta que eso no se pueda demoar en klosync.vercel.app con un celular real, no hay producto para afuera.
 
@@ -187,7 +187,7 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Asignar chats | Sí | No |
 | Programados | Casi todos | No |
 | Broadcast | La mayoría | No |
-| Módulo contactos | Sí | No |
+| Módulo contactos | Sí | Sí (CRUD + match; sin import/timeline) |
 | Reportes de funnel | Sí | No |
 | Ticks entregado/leído | Sí | En prod (enviado / entregado / leído) |
 | Sheet → Slides / sync Google / explorador | No | Sí (nuestro diferencial) |

@@ -188,8 +188,8 @@ Mapa:
 - [x] **Step 2: Listener `socket.ev.on('messages.update')`** en EventManager. Buscar mensaje por `wa_message_id`. Solo **avanzar** estado (no bajar de leido a enviado).
 - [x] **Step 3: Al completar outbox sent**, set `wa_message_id` + `estado_envio = enviado` en el mensaje del inbox (match por `metadata.outbox_id`).
 - [x] **Step 4: MessageStatus** casos `leido` (DoneAll color `#4FC3F7`) y no tratar `undefined` como enviado si `id` empieza con `temp-`.
-- [ ] **Step 5: Probar** mandar a un contacto real: 1 tilde → 2 tildes al llegar al celular → azules al abrir. Apagar datos del destinatario: se queda en enviado, no en leído.
-- [ ] **Step 6: Commit** `feat: ticks de entrega y lectura WhatsApp`
+- [x] **Step 5: Probar** mandar a un contacto real: 1 tilde → 2 tildes al llegar al celular → azules al abrir. Apagar datos del destinatario: se queda en enviado, no en leído.
+- [x] **Step 6: Commit** `feat: ticks de entrega y lectura WhatsApp`
 
 ---
 
@@ -215,9 +215,9 @@ messages.upsert (no fromMe)
   → handleIncomingMessage guarda contenido placeholder + metadata.file_url
 ```
 
-- [ ] **Step 1:** Dejar de `continue` cuando no hay texto si hay imagen/audio. Caption si existe.
-- [ ] **Step 2:** Subir buffer con service role desde el **worker** (no desde Vercel: el binario no viaja en el JSON). Mandar solo la URL pública al inbox.
-- [ ] **Step 3:** `FileAttachment` ya renderiza image/audio por `metadata.file_url`. Asegurar que `MessageBubble` pasa `file_type`.
+- [x] **Step 1:** Dejar de `continue` cuando no hay texto si hay imagen/audio. Caption si existe.
+- [x] **Step 2:** Subir buffer con service role desde el **worker** (no desde Vercel: el binario no viaja en el JSON). Mandar solo la URL pública al inbox.
+- [x] **Step 3:** `FileAttachment` ya renderiza image/audio por `metadata.file_url`. Asegurar que `MessageBubble` pasa `file_type`.
 - [ ] **Step 4: Probar** que te manden una foto y un audio: aparecen en el hilo y el archivo sigue abriendo al día siguiente.
 - [ ] **Step 5: Commit** `feat: persistir imagen y audio entrantes en storage`
 

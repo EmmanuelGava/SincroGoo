@@ -257,19 +257,21 @@ async function saveMessage(supabase: any, data: {
   waMessageId?: string;
   usuarioId?: string | null;
 }): Promise<boolean> {
-  const from = new Date(data.timestamp.getTime() - 2000).toISOString();
-  const to = new Date(data.timestamp.getTime() + 2000).toISOString();
-  const similar = await supabase
-    .from('mensajes_conversacion')
-    .select('id')
-    .eq('conversacion_id', data.conversacionId)
-    .eq('contenido', data.content)
-    .gte('fecha_mensaje', from)
-    .lte('fecha_mensaje', to)
-    .limit(1)
-    .maybeSingle();
-  if (similar.data?.id) {
-    return false;
+  if (!data.waMessageId && !data.metadata?.file_url) {
+    const from = new Date(data.timestamp.getTime() - 2000).toISOString();
+    const to = new Date(data.timestamp.getTime() + 2000).toISOString();
+    const similar = await supabase
+      .from('mensajes_conversacion')
+      .select('id')
+      .eq('conversacion_id', data.conversacionId)
+      .eq('contenido', data.content)
+      .gte('fecha_mensaje', from)
+      .lte('fecha_mensaje', to)
+      .limit(1)
+      .maybeSingle();
+    if (similar.data?.id) {
+      return false;
+    }
   }
 
   const { error } = await supabase

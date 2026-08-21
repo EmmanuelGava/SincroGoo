@@ -134,6 +134,13 @@ async function handleLiteMessage(body: any) {
       phone_number: phone,
       fromMe: Boolean(body.fromMe),
       direction: body.fromMe ? 'outgoing' : 'incoming',
+      ...(body.file_url ? {
+        file_url: body.file_url,
+        file_type: body.file_type || body.type,
+        file_name: body.file_name,
+        duration: body.duration,
+        mime_type: body.mimetype,
+      } : {}),
     }
   });
 

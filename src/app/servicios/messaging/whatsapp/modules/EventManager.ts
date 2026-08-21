@@ -353,19 +353,39 @@ export class EventManager {
       return;
     }
 
+    const { classifyIncomingWaMedia, persistIncomingWaMedia } = await import('@/lib/whatsapp/incomingMedia');
+    const classified = classifyIncomingWaMedia(message.message);
     const text = extractIncomingText(message.message);
     const historyBody = (options.allowMediaPlaceholder || fromMe)
       ? extractHistoryBody(message.message)
       : null;
-    const body = text
-      ? { text, type: 'text' as const }
-      : historyBody;
+    const body = classified.kind
+      ? { text: classified.caption || classified.placeholder, type: classified.kind }
+      : (text ? { text, type: 'text' as const } : historyBody);
 
     if (!body) {
       if (!options.allowMediaPlaceholder && !fromMe) {
         console.log('📨 Mensaje sin texto usable, se omite:', jid, Object.keys(message.message || {}));
       }
       return;
+    }
+
+    let media:
+      | {
+          file_url: string;
+          file_type: string;
+          file_name: string;
+          duration?: number;
+          mime_type?: string;
+        }
+      | null = null;
+    if (classified.kind && classified.kind !== 'video' && !options.allowMediaPlaceholder) {
+      media = await persistIncomingWaMedia({
+        socket,
+        userId,
+        waMessage: message,
+        classified,
+      });
     }
 
     const { resolveWhatsAppPeer } = await import('@/lib/whatsapp/peerIdentity');
@@ -392,6 +412,11 @@ export class EventManager {
       timestamp: timestampMs,
       waMessageId,
       fromMe,
+      fileUrl: media?.file_url,
+      fileType: media?.file_type,
+      fileName: media?.file_name,
+      duration: media?.duration,
+      mimeType: media?.mime_type,
     });
     if (typeof global !== 'undefined' && (global as any).emitToUser) {
       (global as any).emitToUser(userId, 'whatsapp-message', {
@@ -808,6 +833,11 @@ async function forwardIncomingToApp(payload: {
   timestamp?: unknown;
   waMessageId?: string;
   fromMe?: boolean;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
+  duration?: number;
+  mimeType?: string;
 }) {
   const appUrl = (process.env.APP_URL || process.env.NEXTAUTH_URL || '').replace(/\/$/, '');
   if (!appUrl) {
@@ -834,6 +864,11 @@ async function forwardIncomingToApp(payload: {
         userId: payload.userId,
         wa_message_id: payload.waMessageId,
         fromMe: Boolean(payload.fromMe),
+        file_url: payload.fileUrl,
+        file_type: payload.fileType,
+        file_name: payload.fileName,
+        duration: payload.duration,
+        mimetype: payload.mimeType,
       }),
     });
     if (!response.ok) {

@@ -316,7 +316,7 @@ export class EventManager {
     });
 
     socket.ev.on('messages.update', async (updates) => {
-      const { applyWhatsAppDeliveryAck } = await import('@/lib/chat/messageDeliveryStatus');
+      const { applyWhatsAppDeliveryAck } = await import('@/lib/chat/applyWhatsAppDeliveryAck');
       for (const item of updates) {
         const waMessageId = item.key?.id ? String(item.key.id) : '';
         const status = Number(item.update?.status);

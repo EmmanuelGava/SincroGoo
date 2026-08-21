@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyIncomingWaMedia,
   extensionForIncomingMedia,
+  incomingMediaBucket,
+  incomingFileFallbackMeta,
 } from '../incomingMedia';
 
 describe('classifyIncomingWaMedia', () => {
@@ -35,6 +37,19 @@ describe('classifyIncomingWaMedia', () => {
     expect(classifyIncomingWaMedia({ conversation: 'hola' }).kind).toBeNull();
     expect(classifyIncomingWaMedia({ conversation: 'hola' }).caption).toBe('hola');
   });
+
+  it('clasifica documentMessage como file con fileName, nunca document', () => {
+    const classified = classifyIncomingWaMedia({
+      documentMessage: {
+        fileName: 'presupuesto.xlsx',
+        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        caption: 'acá va',
+      },
+    });
+    expect(classified.kind).toBe('file');
+    expect(classified.fileName).toBe('presupuesto.xlsx');
+    expect(classified.caption).toBe('acá va');
+  });
 });
 
 describe('extensionForIncomingMedia', () => {
@@ -42,5 +57,31 @@ describe('extensionForIncomingMedia', () => {
     expect(extensionForIncomingMedia('image', 'image/png')).toBe('png');
     expect(extensionForIncomingMedia('audio', 'audio/ogg; codecs=opus')).toBe('ogg');
     expect(extensionForIncomingMedia('image', undefined)).toBe('jpg');
+  });
+});
+
+describe('incomingMediaBucket', () => {
+  it('sube documentos a chat-files, no a chat-images', () => {
+    expect(incomingMediaBucket('file')).toBe('chat-files');
+    expect(incomingMediaBucket('image')).toBe('chat-images');
+    expect(incomingMediaBucket('audio')).toBe('chat-audio');
+  });
+});
+
+describe('incomingFileFallbackMeta', () => {
+  it('si falla la baja, igual arma metadata de nombre/mime sin file_url', () => {
+    const meta = incomingFileFallbackMeta({
+      kind: 'file',
+      caption: null,
+      fileName: 'contrato.pdf',
+      mimetype: 'application/pdf',
+      placeholder: '[Archivo]',
+    });
+    expect(meta).toEqual({
+      file_type: 'file',
+      file_name: 'contrato.pdf',
+      mime_type: 'application/pdf',
+    });
+    expect(meta).not.toHaveProperty('file_url');
   });
 });

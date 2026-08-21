@@ -168,7 +168,7 @@ export default function ChatWindow({
     }
   };
 
-  const handleSendFile = async (url: string, fileName: string, fileType: string) => {
+  const handleSendFile = async (url: string, fileName: string, fileType: string, mimeType?: string) => {
     if (!conversacion || enviando) return;
 
     console.log('🔧 Enviando archivo:', { url, fileName, fileType, conversacion: conversacion.id });
@@ -192,8 +192,9 @@ export default function ChatWindow({
             conversacion_id: conversacion.id,
             original_canal: conversacion.servicio_origen,
             file_name: fileName,
-            file_type: fileType,
+            file_type: fileType === 'image' || fileType === 'audio' ? fileType : 'file',
             file_url: url,
+            mime_type: mimeType || undefined,
           }
         })
       });

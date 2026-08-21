@@ -16,7 +16,7 @@ import AudioRecorder from './AudioRecorder';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string) => void;
-  onSendFile?: (url: string, fileName: string, fileType: string) => void;
+  onSendFile?: (url: string, fileName: string, fileType: string, mimeType?: string) => void;
   onSendAudio?: (audioBlob: Blob, duration: number) => void;
   conversationId?: string;
   disabled?: boolean;

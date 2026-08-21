@@ -353,14 +353,22 @@ export class EventManager {
       return;
     }
 
-    const { classifyIncomingWaMedia, persistIncomingWaMedia } = await import('@/lib/whatsapp/incomingMedia');
+    const { classifyIncomingWaMedia, persistIncomingWaMedia, incomingFileFallbackMeta } = await import('@/lib/whatsapp/incomingMedia');
+    const { incomingMediaBodyText } = await import('@/lib/chat/incomingFileContent');
     const classified = classifyIncomingWaMedia(message.message);
     const text = extractIncomingText(message.message);
     const historyBody = (options.allowMediaPlaceholder || fromMe)
       ? extractHistoryBody(message.message)
       : null;
     const body = classified.kind
-      ? { text: classified.caption || classified.placeholder, type: classified.kind }
+      ? {
+          text: incomingMediaBodyText({
+            caption: classified.caption,
+            fileName: classified.fileName,
+            placeholder: classified.placeholder,
+          }),
+          type: classified.kind,
+        }
       : (text ? { text, type: 'text' as const } : historyBody);
 
     if (!body) {
@@ -372,9 +380,10 @@ export class EventManager {
 
     let media:
       | {
-          file_url: string;
+          file_url?: string;
           file_type: string;
           file_name: string;
+          file_size?: number;
           duration?: number;
           mime_type?: string;
         }
@@ -386,6 +395,9 @@ export class EventManager {
         waMessage: message,
         classified,
       });
+    }
+    if (!media && classified.kind === 'file') {
+      media = incomingFileFallbackMeta(classified);
     }
 
     const { resolveWhatsAppPeer } = await import('@/lib/whatsapp/peerIdentity');
@@ -415,6 +427,7 @@ export class EventManager {
       fileUrl: media?.file_url,
       fileType: media?.file_type,
       fileName: media?.file_name,
+      fileSize: media?.file_size,
       duration: media?.duration,
       mimeType: media?.mime_type,
     });
@@ -836,6 +849,7 @@ async function forwardIncomingToApp(payload: {
   fileUrl?: string;
   fileType?: string;
   fileName?: string;
+  fileSize?: number;
   duration?: number;
   mimeType?: string;
 }) {
@@ -867,6 +881,7 @@ async function forwardIncomingToApp(payload: {
         file_url: payload.fileUrl,
         file_type: payload.fileType,
         file_name: payload.fileName,
+        file_size: payload.fileSize,
         duration: payload.duration,
         mimetype: payload.mimeType,
       }),

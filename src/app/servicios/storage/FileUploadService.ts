@@ -5,6 +5,7 @@ export interface FileUploadResult {
   url?: string;
   path?: string;
   bucket?: string;
+  fileType?: 'image' | 'audio' | 'file';
   error?: string;
 }
 
@@ -17,18 +18,18 @@ export class FileUploadService {
     return { valid: true };
   }
 
-  static getFileType(file: File): 'image' | 'document' | 'audio' | 'unknown' {
+  static getFileType(file: File): 'image' | 'file' | 'audio' | 'unknown' {
     const mime = (file.type || '').split(';')[0].trim().toLowerCase();
     if (mime.startsWith('image/')) return 'image';
     if (mime.startsWith('audio/')) return 'audio';
     if (
       mime === 'application/pdf' ||
-      mime === 'text/plain' ||
-      mime.includes('word') ||
-      mime.includes('excel') ||
-      mime.includes('spreadsheet')
+      mime === 'application/msword' ||
+      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mime === 'application/vnd.ms-excel' ||
+      mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ) {
-      return 'document';
+      return 'file';
     }
     return 'unknown';
   }
@@ -59,6 +60,7 @@ export class FileUploadService {
         url: data.url,
         path: data.path,
         bucket: data.bucket,
+        fileType: data.fileType,
       };
     } catch (error) {
       console.error('Error in uploadFile:', error);

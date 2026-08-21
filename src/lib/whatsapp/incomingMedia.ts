@@ -16,6 +16,26 @@ export type ClassifiedIncomingMedia = {
 
 const IMAGE_BUCKET = 'chat-images';
 const AUDIO_BUCKET = 'chat-audio';
+const FILE_BUCKET = 'chat-files';
+
+export function incomingMediaBucket(kind: IncomingMediaKind): string {
+  if (kind === 'audio') return AUDIO_BUCKET;
+  if (kind === 'file') return FILE_BUCKET;
+  return IMAGE_BUCKET;
+}
+
+export function incomingFileFallbackMeta(classified: ClassifiedIncomingMedia): {
+  file_type: 'file';
+  file_name: string;
+  mime_type: string;
+} {
+  const mime = String(classified.mimetype || '').split(';')[0].trim() || 'application/octet-stream';
+  return {
+    file_type: 'file',
+    file_name: classified.fileName || 'documento',
+    mime_type: mime,
+  };
+}
 
 function unwrapMessage(message: any): any {
   if (!message) return null;
@@ -120,25 +140,30 @@ function workerStorage() {
   });
 }
 
+export type PersistedIncomingMedia = {
+  file_url?: string;
+  file_type: IncomingMediaKind;
+  file_name: string;
+  file_size?: number;
+  duration?: number;
+  mime_type?: string;
+};
+
 export async function persistIncomingWaMedia(opts: {
   socket: WASocket;
   userId: string;
   waMessage: WAMessage;
   classified: ClassifiedIncomingMedia;
-}): Promise<{
-  file_url: string;
-  file_type: IncomingMediaKind;
-  file_name: string;
-  duration?: number;
-  mime_type?: string;
-} | null> {
+}): Promise<PersistedIncomingMedia | null> {
   const kind = opts.classified.kind;
   if (!kind || kind === 'video') return null;
+
+  const fileFallback = kind === 'file' ? incomingFileFallbackMeta(opts.classified) : null;
 
   const supabase = workerStorage();
   if (!supabase) {
     console.warn('⚠️ No hay service role para subir media entrante');
-    return null;
+    return fileFallback;
   }
 
   let buffer: Buffer;
@@ -155,17 +180,17 @@ export async function persistIncomingWaMedia(opts: {
     buffer = Buffer.isBuffer(downloaded) ? downloaded : Buffer.from(downloaded as ArrayBuffer);
   } catch (error) {
     console.warn('⚠️ No se pudo bajar media de WhatsApp:', error);
-    return null;
+    return fileFallback;
   }
 
-  if (!buffer.length) return null;
+  if (!buffer.length) return fileFallback;
   if (buffer.length > INCOMING_MEDIA_MAX_BYTES) {
     console.warn('⚠️ Media entrante omitida por tamaño:', buffer.length);
-    return null;
+    return fileFallback;
   }
 
   const ext = extensionForIncomingMedia(kind, opts.classified.mimetype);
-  const bucket = kind === 'audio' ? AUDIO_BUCKET : IMAGE_BUCKET;
+  const bucket = incomingMediaBucket(kind);
   const waId = String(opts.waMessage.key?.id || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
   const path = `${opts.userId}/in/${waId}.${ext}`;
   const mime = String(opts.classified.mimetype || '').split(';')[0].trim()
@@ -179,16 +204,17 @@ export async function persistIncomingWaMedia(opts: {
   });
   if (error) {
     console.warn('⚠️ No se pudo subir media entrante:', error.message);
-    return null;
+    return fileFallback;
   }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-  if (!data?.publicUrl) return null;
+  if (!data?.publicUrl) return fileFallback;
 
   return {
     file_url: data.publicUrl,
     file_type: kind,
     file_name: fileName,
+    file_size: buffer.length,
     duration: opts.classified.duration,
     mime_type: mime,
   };

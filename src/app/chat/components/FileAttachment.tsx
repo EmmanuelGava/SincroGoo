@@ -8,19 +8,32 @@ import {
   Dialog,
   DialogContent,
   Slider,
+  Chip,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import CloseIcon from '@mui/icons-material/Close';
 import MicIcon from '@mui/icons-material/Mic';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import DescriptionIcon from '@mui/icons-material/Description';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import DownloadIcon from '@mui/icons-material/Download';
+import {
+  attachmentIconKind,
+  extensionFromFileName,
+  formatAttachmentSize,
+  isDocumentImageMime,
+} from '@/lib/chat/fileKind';
 
 interface FileAttachmentProps {
-  url: string;
+  url?: string;
   fileName: string;
-  fileType: 'image' | 'document' | 'audio' | 'unknown' | string;
+  fileType: 'image' | 'document' | 'audio' | 'file' | 'unknown' | string;
   fileSize?: number;
   duration?: number;
+  mimeType?: string;
   isOwn?: boolean;
 }
 
@@ -35,6 +48,21 @@ function formatClock(seconds: number) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function FileTypeIcon({ kind, size = 28 }: { kind: ReturnType<typeof attachmentIconKind>; size?: number }) {
+  const sx = { fontSize: size, color: '#fff' };
+  if (kind === 'pdf') return <PictureAsPdfIcon sx={sx} />;
+  if (kind === 'word') return <DescriptionIcon sx={sx} />;
+  if (kind === 'excel') return <TableChartIcon sx={sx} />;
+  return <InsertDriveFileIcon sx={sx} />;
+}
+
+function iconBg(kind: ReturnType<typeof attachmentIconKind>): string {
+  if (kind === 'pdf') return '#e53935';
+  if (kind === 'word') return '#1565c0';
+  if (kind === 'excel') return '#2e7d32';
+  return '#757575';
 }
 
 function WhatsAppAudioPlayer({
@@ -163,11 +191,14 @@ export default function FileAttachment({
   url,
   fileName,
   fileType,
+  fileSize,
   duration,
+  mimeType,
   isOwn = false,
 }: FileAttachmentProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
 
   if (fileType === 'image') {
     return (
@@ -190,7 +221,7 @@ export default function FileAttachment({
           ) : (
             <Box
               component="img"
-              src={toSameOriginMedia(url)}
+              src={toSameOriginMedia(url || '')}
               alt={fileName}
               onError={() => setImageError(true)}
               sx={{
@@ -212,7 +243,7 @@ export default function FileAttachment({
           <DialogContent sx={{ p: 0, bgcolor: '#000' }}>
             <Box
               component="img"
-              src={toSameOriginMedia(url)}
+              src={toSameOriginMedia(url || '')}
               alt={fileName}
               sx={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }}
             />
@@ -223,12 +254,138 @@ export default function FileAttachment({
   }
 
   if (fileType === 'audio') {
-    return <WhatsAppAudioPlayer url={url} durationSec={duration} isOwn={isOwn} />;
+    return <WhatsAppAudioPlayer url={url || ''} durationSec={duration} isOwn={isOwn} />;
   }
 
+  const kind = attachmentIconKind(mimeType, fileName);
+  const ext = extensionFromFileName(fileName);
+  const sizeLabel = formatAttachmentSize(fileSize);
+  const label = fileName || 'Documento';
+
+  if (!url) {
+    return (
+      <Chip
+        icon={<FileTypeIcon kind={kind} size={18} />}
+        label={`${label} · archivo no disponible`}
+        size="small"
+        sx={{
+          maxWidth: 280,
+          height: 28,
+          '& .MuiChip-icon': { color: '#fff', ml: 0.75 },
+          bgcolor: iconBg(kind),
+          color: '#fff',
+          '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
+        }}
+      />
+    );
+  }
+
+  const mediaSrc = toSameOriginMedia(url);
+  const isPdf = kind === 'pdf';
+  const isOffice = kind === 'word' || kind === 'excel';
+  const isDocImage = isDocumentImageMime(mimeType);
+
   return (
-    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-      {fileName}
-    </Typography>
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          minWidth: 220,
+          maxWidth: 280,
+          py: 0.25,
+        }}
+      >
+        <Box
+          onClick={() => setPreviewOpen(true)}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flex: 1,
+            minWidth: 0,
+            cursor: 'pointer',
+          }}
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 1,
+              bgcolor: iconBg(kind),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <FileTypeIcon kind={kind} />
+          </Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+              {label}
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.75, fontSize: '0.7rem' }}>
+              {[sizeLabel, ext].filter(Boolean).join(' · ')}
+            </Typography>
+          </Box>
+        </Box>
+        <IconButton
+          size="small"
+          component="a"
+          href={mediaSrc}
+          download={fileName || undefined}
+          onClick={(event) => event.stopPropagation()}
+          sx={{ color: isOwn ? '#fff' : 'text.secondary' }}
+          aria-label="Descargar"
+        >
+          <DownloadIcon fontSize="small" />
+        </IconButton>
+      </Box>
+
+      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} maxWidth="md" fullWidth>
+        <IconButton
+          onClick={() => setPreviewOpen(false)}
+          sx={{ position: 'absolute', right: 8, top: 8, zIndex: 1 }}
+        >
+          <CloseIcon />
+        </IconButton>
+        <DialogContent sx={{ pt: 6 }}>
+          {isDocImage && (
+            <Box
+              component="img"
+              src={mediaSrc}
+              alt={fileName}
+              sx={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }}
+            />
+          )}
+          {isPdf && !pdfError && (
+            <Box
+              component="iframe"
+              src={mediaSrc}
+              title={fileName}
+              onError={() => setPdfError(true)}
+              sx={{ width: '100%', height: '70vh', border: 0 }}
+            />
+          )}
+          {(isOffice || pdfError) && (
+            <Box sx={{ py: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1.5 }}>
+                {pdfError ? 'No se pudo previsualizar' : 'Este archivo no se puede previsualizar'}
+              </Typography>
+              <Typography
+                component="a"
+                href={mediaSrc}
+                download={fileName || undefined}
+                sx={{ color: 'primary.main' }}
+              >
+                Descargar {label}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

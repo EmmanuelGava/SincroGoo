@@ -6,6 +6,7 @@ import { normalizeOutgoingMime, validateOutgoingMedia } from '@/lib/chat/mediaLi
 
 const IMAGE_BUCKET = 'chat-images';
 const AUDIO_BUCKET = 'chat-audio';
+const FILE_BUCKET = 'chat-files';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,10 +29,10 @@ export async function POST(request: NextRequest) {
     }
     const kind = check.kind;
 
-    const bucket = kind === 'image' ? IMAGE_BUCKET : AUDIO_BUCKET;
-    const ext = (file.name.split('.').pop() || (kind === 'image' ? 'jpg' : 'webm'))
+    const bucket = kind === 'image' ? IMAGE_BUCKET : kind === 'audio' ? AUDIO_BUCKET : FILE_BUCKET;
+    const ext = (file.name.split('.').pop() || (kind === 'image' ? 'jpg' : kind === 'audio' ? 'webm' : 'bin'))
       .replace(/[^a-zA-Z0-9]/g, '')
-      .slice(0, 8) || (kind === 'image' ? 'jpg' : 'webm');
+      .slice(0, 8) || (kind === 'image' ? 'jpg' : kind === 'audio' ? 'webm' : 'bin');
     const safeConversation = conversationId.replace(/[^a-zA-Z0-9-_]/g, '').slice(0, 64) || 'general';
     const path = `${session.user.id}/${safeConversation}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase.storage.from(bucket).upload(path, buffer, {
       cacheControl: '3600',
       upsert: false,
-      contentType: mime || (kind === 'image' ? 'image/jpeg' : 'audio/webm'),
+      contentType: mime || (kind === 'image' ? 'image/jpeg' : kind === 'audio' ? 'audio/webm' : 'application/octet-stream'),
     });
 
     if (error) {

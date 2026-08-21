@@ -11,7 +11,10 @@ import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import MessageStatus from './MessageStatus';
 import FileAttachment from './FileAttachment';
+import LinkPreview from './LinkPreview';
 import { conversationDisplayName } from '@/lib/chat/conversationIdentity';
+import { messageBubbleView } from '@/lib/chat/messageBubbleView';
+import { splitTextWithLinks } from '@/lib/chat/extractFirstUrl';
 
 interface Mensaje {
   id: string;
@@ -44,6 +47,34 @@ const servicioColors: Record<string, string> = {
   sms: '#FF9800',
 };
 
+function LinkedCaption({ text, isOwn }: { text: string; isOwn: boolean }) {
+  const parts = splitTextWithLinks(text);
+  return (
+    <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+      {parts.map((part, index) => (
+        part.type === 'link' ? (
+          <Box
+            key={`${part.value}-${index}`}
+            component="a"
+            href={part.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{
+              color: isOwn ? 'inherit' : 'primary.main',
+              textDecoration: 'underline',
+              wordBreak: 'break-all',
+            }}
+          >
+            {part.value}
+          </Box>
+        ) : (
+          <React.Fragment key={index}>{part.value}</React.Fragment>
+        )
+      ))}
+    </Typography>
+  );
+}
+
 export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
   const IconComponent = servicioIcons[mensaje.canal] || SmsIcon;
   const servicioColor = servicioColors[mensaje.canal] || '#90caf9';
@@ -60,18 +91,13 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
     });
   };
 
+  const view = messageBubbleView(mensaje);
   const fileUrl = mensaje.metadata?.file_url as string | undefined;
   const fileType = String(mensaje.metadata?.file_type || mensaje.tipo || '');
   const fileName = String(mensaje.metadata?.file_name || '');
   const duration = Number(mensaje.metadata?.duration || 0);
   const caption = String(mensaje.contenido || '').trim();
-  const redundantCaption =
-    !!fileUrl && (
-      caption === fileName
-      || /^Audio\s*\(/i.test(caption)
-      || caption.startsWith('📎 ')
-      || caption.startsWith('🎤 ')
-    );
+  const showFile = view.showImage || view.showAudio || view.filePresentation;
 
   return (
     <Box sx={{ 
@@ -108,26 +134,26 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
           overflow: 'hidden',
         }}
       >
-        {fileUrl && (
-          <Box sx={{ mb: !redundantCaption && caption ? 1 : 0 }}>
+        {showFile && (
+          <Box sx={{ mb: view.showRawText ? 1 : 0 }}>
             <FileAttachment
-              url={fileUrl}
-              fileName={fileName || 'Archivo'}
+              url={fileUrl || ''}
+              fileName={fileName || (view.filePresentation === 'unavailable' ? 'Documento' : 'Archivo')}
               fileType={fileType || 'unknown'}
               fileSize={mensaje.metadata?.file_size}
+              mimeType={mensaje.metadata?.mime_type}
               duration={duration}
               isOwn={isOwn}
             />
           </Box>
         )}
 
-        {caption && !redundantCaption && (
-          <Typography variant="body2" sx={{ 
-            wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap'
-          }}>
-            {caption}
-          </Typography>
+        {view.showRawText && (
+          <LinkedCaption text={caption} isOwn={isOwn} />
+        )}
+
+        {view.previewUrl && (
+          <LinkPreview url={view.previewUrl} fallbackLink={view.urlOnly} />
         )}
 
         <Box sx={{ 

@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-
-function isAllowedStorageUrl(raw: string): boolean {
-  try {
-    const parsed = new URL(raw);
-    const supabase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || '');
-    if (parsed.protocol !== 'https:') return false;
-    if (parsed.host !== supabase.host) return false;
-    const path = parsed.pathname;
-    return (
-      path.startsWith('/storage/v1/object/public/chat-audio/')
-      || path.startsWith('/storage/v1/object/public/chat-images/')
-    );
-  } catch {
-    return false;
-  }
-}
+import { isAllowedStorageUrl } from '@/lib/chat/allowedStorageUrl';
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);

@@ -104,7 +104,12 @@ function unwrapMessage(message: any): any {
   return message;
 }
 
-export function extractHistoryBody(message: any): { text: string; type: 'text' | 'image' | 'audio' | 'video' | 'file' } | null {
+export function extractHistoryBody(message: any): {
+  text: string;
+  type: 'text' | 'image' | 'audio' | 'video' | 'file';
+  fileName?: string;
+  mimetype?: string;
+} | null {
   const inner = unwrapMessage(message);
   if (!inner) return null;
 
@@ -129,7 +134,14 @@ export function extractHistoryBody(message: any): { text: string; type: 'text' |
     return { text: caption || '[Video]', type: 'video' };
   }
   if (inner.documentMessage) {
-    return { text: caption || '[Archivo]', type: 'file' };
+    const fileName = inner.documentMessage?.fileName ? String(inner.documentMessage.fileName) : undefined;
+    const mimetype = inner.documentMessage?.mimetype ? String(inner.documentMessage.mimetype) : undefined;
+    return {
+      text: caption || fileName || '[Archivo]',
+      type: 'file',
+      fileName,
+      mimetype,
+    };
   }
   if (caption) {
     return { text: caption, type: 'text' };

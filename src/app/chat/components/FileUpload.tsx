@@ -17,7 +17,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { FileUploadService } from '@/app/servicios/storage/FileUploadService';
 
 interface FileUploadProps {
-  onFileUploaded: (url: string, fileName: string, fileType: string) => void;
+  onFileUploaded: (url: string, fileName: string, fileType: string, mimeType?: string) => void;
   conversationId: string;
   disabled?: boolean;
 }
@@ -82,8 +82,8 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
           );
 
           // Notificar éxito
-          const fileType = FileUploadService.getFileType(file);
-          onFileUploaded(result.url, file.name, fileType);
+          const fileType = result.fileType || FileUploadService.getFileType(file);
+          onFileUploaded(result.url, file.name, fileType, file.type);
 
           // Remover de la lista después de un momento
           setTimeout(() => {
@@ -119,12 +119,17 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
     onDropRejected,
     disabled,
     multiple: true,
-    maxSize: MEDIA_LIMITS.image.maxBytes,
+    maxSize: MEDIA_LIMITS.file.maxBytes,
     accept: {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
       'image/webp': ['.webp'],
       'image/gif': ['.gif'],
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     },
   });
 
@@ -136,7 +141,7 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
     const type = FileUploadService.getFileType(file);
     switch (type) {
       case 'image': return <ImageIcon />;
-      case 'document': return <DescriptionIcon />;
+      case 'file': return <DescriptionIcon />;
       case 'audio': return <AudioFileIcon />;
       default: return <AttachFileIcon />;
     }

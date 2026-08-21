@@ -9,6 +9,7 @@ import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
+import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 import { WA, WA_CHAT_BG } from '@/app/chat/chatTheme';
 
 interface Conversacion {
@@ -55,6 +56,7 @@ export default function ChatWindow({
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<Mensaje[]>([]);
+  const [manageReplies, setManageReplies] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -319,7 +321,11 @@ export default function ChatWindow({
       height: '100%'
     }}>
       {/* Header de la conversación */}
-      <ConversationHeader conversacion={conversacion} onDelete={onDeleteConversacion} />
+      <ConversationHeader
+        conversacion={conversacion}
+        onDelete={onDeleteConversacion}
+        onManageReplies={() => setManageReplies(true)}
+      />
 
       {/* Área de mensajes */}
       <Box sx={{ 
@@ -376,8 +382,14 @@ export default function ChatWindow({
         onSendAudio={handleSendAudio}
         conversationId={conversacion.id}
         disabled={loading}
-        placeholder="Escribe un mensaje"
+        placeholder="Escribe un mensaje o / para respuestas"
         enviando={enviando}
+        respuestaVars={{
+          nombre: conversationDisplayName(conversacion),
+          telefono: conversacion.display_phone || conversationRealPhone(conversacion),
+        }}
+        manageOpen={manageReplies}
+        onManageOpenChange={setManageReplies}
       />
     </Box>
   );

@@ -95,7 +95,7 @@ Sin esto el resto de Kommo se construye mal. Un chat no es un contacto.
 
 Cuando el loop y los contactos existen:
 
-- [ ] Respuestas rápidas (`/` + templates).
+- [x] Respuestas rápidas (`/` + templates).
 - [ ] Búsqueda en historial de conversaciones.
 - [ ] Valor monetario y fecha de cierre en la tarjeta del Kanban.
 - [ ] Filtros del tablero: canal, valor, fecha.
@@ -182,7 +182,7 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Telegram | Kommo parcial | Recepción sí |
 | Multiagente mismo número | Sí | No |
 | Automatización / bienvenida / follow-up | Sí | No |
-| Respuestas rápidas | Sí | No |
+| Respuestas rápidas | Sí | Sí (`/` en el chat) |
 | Chatbot | Sí | No |
 | Asignar chats | Sí | No |
 | Programados | Casi todos | No |

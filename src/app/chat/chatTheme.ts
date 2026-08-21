@@ -12,6 +12,7 @@ export const WA = {
   tickRead: '#53bdeb',
   menu: '#233138',
   selected: '#2a3942',
+  accent: '#00a884',
 } as const;
 
 export const WA_CHAT_BG = {

@@ -3,7 +3,6 @@ import {
   Box, 
   Typography, 
   Avatar, 
-  Chip,
   IconButton,
   Tooltip,
   Menu,
@@ -22,10 +21,10 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import PersonIcon from '@mui/icons-material/Person';
-import BusinessIcon from '@mui/icons-material/Business';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import BoltIcon from '@mui/icons-material/Bolt';
 import { useRouter } from 'next/navigation';
 import LeadProfileModal from './LeadProfileModal';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
@@ -46,6 +45,7 @@ interface Conversacion {
 interface ConversationHeaderProps {
   conversacion: Conversacion;
   onDelete?: (conversacionId: string) => Promise<boolean> | boolean;
+  onManageReplies?: () => void;
 }
 
 const servicioIcons: Record<string, React.ElementType> = {
@@ -69,7 +69,7 @@ const servicioNames: Record<string, string> = {
   sms: 'SMS',
 };
 
-export default function ConversationHeader({ conversacion, onDelete }: ConversationHeaderProps) {
+export default function ConversationHeader({ conversacion, onDelete, onManageReplies }: ConversationHeaderProps) {
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -136,73 +136,34 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
       </Box>
 
       {/* Información del contacto */}
-      <Box sx={{ flexGrow: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="subtitle1" sx={{ 
-            color: WA.text,
-            fontWeight: 500,
-            fontSize: '1rem',
-            lineHeight: 1.3,
-          }}>
-            {displayName}
-          </Typography>
-          
-          <Chip 
-            label={servicioName}
-            size="small"
-            sx={{ 
-              bgcolor: servicioColor + '20',
-              color: servicioColor,
-              fontWeight: 500,
-              height: 24
-            }}
-          />
-          
-          {conversacion.lead_id && (
-            <Chip 
-              icon={<PersonIcon />}
-              label="Lead"
-              size="small"
-              color="success"
-              sx={{ height: 24 }}
-            />
-          )}
-        </Box>
-        
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Typography variant="subtitle1" sx={{ 
+          color: WA.text,
+          fontWeight: 500,
+          fontSize: '1rem',
+          lineHeight: 1.3,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {displayName}
+        </Typography>
         <Typography variant="body2" sx={{ 
           color: WA.muted,
           fontSize: '0.8rem',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
         }}>
-          {displayPhone && displayPhone !== displayName ? `${displayPhone} · ` : ''}
-          {getLastSeenText()}
+          {[
+            servicioName,
+            displayPhone && displayPhone !== displayName ? displayPhone : null,
+            getLastSeenText(),
+          ].filter(Boolean).join(' · ')}
         </Typography>
       </Box>
 
-      {/* Acciones */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {conversacion.lead_id && (
-          <Tooltip title="Ver perfil del lead">
-            <IconButton 
-              size="small"
-              onClick={() => setLeadModalOpen(true)}
-              sx={{ color: WA.icon }}
-            >
-              <BusinessIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-        {conversacion.lead_id && (
-          <Tooltip title="Ver en el Kanban">
-            <IconButton
-              size="small"
-              onClick={() => router.push(`/crm?lead=${conversacion.lead_id}`)}
-              sx={{ color: WA.icon }}
-            >
-              <ViewKanbanIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-        
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
         <Tooltip title="Más opciones">
           <IconButton
             size="small"
@@ -219,6 +180,9 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
         onClose={() => setMenuAnchor(null)}
+        PaperProps={{
+          sx: { bgcolor: WA.menu, color: WA.text, borderRadius: 2, minWidth: 220 },
+        }}
       >
         {conversacion.lead_id && (
           <MenuItem
@@ -227,7 +191,7 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
               router.push(`/crm?lead=${conversacion.lead_id}`);
             }}
           >
-            <ListItemIcon><ViewKanbanIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon sx={{ color: WA.icon }}><ViewKanbanIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Ver en el Kanban</ListItemText>
           </MenuItem>
         )}
@@ -238,10 +202,21 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
               setLeadModalOpen(true);
             }}
           >
-            <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon sx={{ color: WA.icon }}><PersonIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Ver perfil del lead</ListItemText>
           </MenuItem>
         )}
+        {onManageReplies ? (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onManageReplies();
+            }}
+          >
+            <ListItemIcon sx={{ color: WA.icon }}><BoltIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Respuestas rápidas</ListItemText>
+          </MenuItem>
+        ) : null}
         <MenuItem
           onClick={() => {
             setMenuAnchor(null);

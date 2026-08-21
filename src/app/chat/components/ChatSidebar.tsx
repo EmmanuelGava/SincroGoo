@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { 
   Box, 
   Typography, 
-  Paper, 
   Avatar, 
   List,
   ListItem,
@@ -13,13 +12,15 @@ import {
   IconButton,
   Tooltip,
   Button,
-  Badge
+  Badge,
+  InputBase,
 } from '@mui/material';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
@@ -79,6 +80,7 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [busqueda, setBusqueda] = useState('');
 
   useEffect(() => {
     setSoundOn(isChatSoundEnabled());
@@ -117,6 +119,16 @@ export default function ChatSidebar({
       });
     }
   };
+
+  const q = busqueda.trim().toLowerCase();
+  const visibles = !q
+    ? conversaciones
+    : conversaciones.filter((c) => {
+        const name = conversationDisplayName(c).toLowerCase();
+        const phone = (c.display_phone || conversationRealPhone(c) || '').toLowerCase();
+        const last = (c.ultimo_mensaje || '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || last.includes(q);
+      });
 
   if (loading) {
     return (
@@ -186,6 +198,27 @@ export default function ChatSidebar({
         </Box>
       </Box>
 
+      <Box sx={{ px: 1.5, py: 1, bgcolor: WA.panel }}>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          bgcolor: WA.inputField,
+          borderRadius: 2,
+          px: 1.5,
+          py: 0.6,
+        }}>
+          <SearchIcon sx={{ color: WA.icon, fontSize: 20 }} />
+          <InputBase
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar un chat"
+            fullWidth
+            sx={{ color: WA.text, fontSize: '0.9rem', '& input::placeholder': { color: WA.muted, opacity: 1 } }}
+          />
+        </Box>
+      </Box>
+
       {/* Lista de conversaciones */}
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
         {conversaciones.length === 0 ? (
@@ -208,7 +241,11 @@ export default function ChatSidebar({
           </Box>
         ) : (
           <List sx={{ p: 0 }}>
-            {conversaciones.map((conversacion) => {
+            {visibles.length === 0 ? (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography sx={{ color: WA.muted }}>No hay chats con “{busqueda.trim()}”</Typography>
+              </Box>
+            ) : visibles.map((conversacion) => {
               const displayName = conversationDisplayName(conversacion);
               const displayPhone = conversacion.display_phone || conversationRealPhone(conversacion);
               const isActive = conversacionActiva?.id === conversacion.id;

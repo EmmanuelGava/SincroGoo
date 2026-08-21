@@ -13,10 +13,19 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import HeadsetIcon from '@mui/icons-material/Headset';
 import SendIcon from '@mui/icons-material/Send';
+import BoltIcon from '@mui/icons-material/Bolt';
 import FileUpload, { type FileUploadHandle } from './FileUpload';
 import EmojiPickerComponent from './EmojiPicker';
 import AudioRecorder from './AudioRecorder';
+import { QuickReplyManager, QuickReplyPicker } from './QuickReplies';
 import { WA } from '@/app/chat/chatTheme';
+import {
+  filterRespuestasRapidas,
+  insertRespuestaInDraft,
+  parseSlashDraft,
+  type RespuestaRapida,
+  type RespuestaVars,
+} from '@/lib/chat/respuestasRapidas';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string) => void;
@@ -27,6 +36,9 @@ interface MessageInputProps {
   placeholder?: string;
   enviando?: boolean;
   onTyping?: (isTyping: boolean) => void;
+  respuestaVars?: RespuestaVars;
+  manageOpen?: boolean;
+  onManageOpenChange?: (open: boolean) => void;
 }
 
 function AttachCircle({
@@ -62,25 +74,97 @@ export default function MessageInput({
   onSendAudio,
   conversationId,
   disabled = false,
-  placeholder = 'Escribe un mensaje',
+  placeholder = 'Escribe un mensaje o / para respuestas',
   onTyping,
+  respuestaVars,
+  manageOpen,
+  onManageOpenChange,
 }: MessageInputProps) {
   const [mensaje, setMensaje] = useState('');
   const [attachEl, setAttachEl] = useState<HTMLElement | null>(null);
+  const [audioBusy, setAudioBusy] = useState(false);
+  const [respuestas, setRespuestas] = useState<RespuestaRapida[]>([]);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashDismissed, setSlashDismissed] = useState(false);
+  const [localManageOpen, setLocalManageOpen] = useState(false);
+  const manage = manageOpen ?? localManageOpen;
+  const setManage = onManageOpenChange ?? setLocalManageOpen;
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<FileUploadHandle>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioStartRef = useRef<(() => void) | null>(null);
 
+  const loadRespuestas = async () => {
+    try {
+      const res = await fetch('/api/chat/respuestas-rapidas', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setRespuestas(data.respuestas || []);
+    } catch {
+      /* el composer sigue andando sin atajos */
+    }
+  };
+
+  useEffect(() => {
+    void loadRespuestas();
+  }, []);
+
+  const slash = parseSlashDraft(mensaje);
+  const slashOpen = slash.active && !slashDismissed && !audioBusy;
+  const slashItems = slashOpen ? filterRespuestasRapidas(respuestas, slash.query) : [];
+
+  useEffect(() => {
+    setSlashIndex(0);
+  }, [slash.query, slashOpen]);
+
+  const applyRespuesta = (item: RespuestaRapida) => {
+    const next = insertRespuestaInDraft(mensaje, item.texto, respuestaVars || {});
+    setMensaje(next);
+    setSlashDismissed(true);
+    onTyping?.(next.length > 0);
+  };
+
   const handleSend = () => {
-    if (mensaje.trim() && !disabled) {
+    if (disabled) return;
+    if (slashOpen && slashItems[slashIndex]) {
+      const next = insertRespuestaInDraft(mensaje, slashItems[slashIndex].texto, respuestaVars || {}).trim();
+      if (!next) return;
+      onSendMessage(next);
+      setMensaje('');
+      setSlashDismissed(false);
+      onTyping?.(false);
+      return;
+    }
+    if (mensaje.trim()) {
       onSendMessage(mensaje.trim());
       setMensaje('');
       onTyping?.(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (slashOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashIndex((i) => Math.min(i + 1, Math.max(slashItems.length - 1, 0)));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSlashDismissed(true);
+        return;
+      }
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && slashItems[slashIndex]) {
+        e.preventDefault();
+        applyRespuesta(slashItems[slashIndex]);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -90,6 +174,7 @@ export default function MessageInput({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setMensaje(value);
+    setSlashDismissed(false);
     const nowTyping = value.length > 0;
     if (onTyping) {
       onTyping(nowTyping);
@@ -133,9 +218,19 @@ export default function MessageInput({
         px: 1,
         py: 1,
         bgcolor: WA.inputBar,
-        borderTop: 'none',
+        position: 'relative',
       }}
     >
+      {slashOpen ? (
+        <QuickReplyPicker
+          items={slashItems}
+          selectedIndex={slashIndex}
+          onHover={setSlashIndex}
+          onSelect={applyRespuesta}
+          onManage={() => setManage(true)}
+        />
+      ) : null}
+
       {conversationId && onSendFile ? (
         <FileUpload
           ref={fileRef}
@@ -145,125 +240,165 @@ export default function MessageInput({
         />
       ) : null}
 
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.25 }}>
-        {conversationId && onSendFile ? (
-          <>
-            <Tooltip title="Adjuntar">
-              <span>
-                <IconButton
-                  disabled={disabled}
-                  onClick={(e) => setAttachEl(e.currentTarget)}
-                  sx={{ color: WA.icon }}
-                  aria-label="Adjuntar"
-                >
-                  <AddIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Menu
-              anchorEl={attachEl}
-              open={Boolean(attachEl)}
-              onClose={() => setAttachEl(null)}
-              anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-              transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-              PaperProps={{
-                sx: {
-                  bgcolor: WA.menu,
-                  color: WA.text,
-                  borderRadius: 3,
-                  minWidth: 220,
-                  py: 1,
-                },
-              }}
-            >
-              <MenuItem
-                disabled={disabled}
-                onClick={() => {
-                  setAttachEl(null);
-                  fileRef.current?.openDocuments();
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.25, width: '100%' }}>
+        <Box
+          sx={{
+            display: audioBusy ? 'none' : 'flex',
+            alignItems: 'flex-end',
+            gap: 0.25,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          {conversationId && onSendFile ? (
+            <>
+              <Tooltip title="Adjuntar">
+                <span>
+                  <IconButton
+                    disabled={disabled}
+                    onClick={(e) => setAttachEl(e.currentTarget)}
+                    sx={{ color: WA.icon }}
+                    aria-label="Adjuntar"
+                  >
+                    <AddIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Menu
+                anchorEl={attachEl}
+                open={Boolean(attachEl)}
+                onClose={() => setAttachEl(null)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                PaperProps={{
+                  sx: {
+                    bgcolor: WA.menu,
+                    color: WA.text,
+                    borderRadius: 3,
+                    minWidth: 220,
+                    py: 1,
+                  },
                 }}
               >
-                <AttachCircle color="#7f66ff"><InsertDriveFileIcon fontSize="small" /></AttachCircle>
-                Documento
-              </MenuItem>
-              <MenuItem
-                disabled={disabled}
-                onClick={() => {
-                  setAttachEl(null);
-                  fileRef.current?.openImages();
-                }}
-              >
-                <AttachCircle color="#007bfc"><PhotoLibraryIcon fontSize="small" /></AttachCircle>
-                Fotos y videos
-              </MenuItem>
-              {onSendAudio ? (
                 <MenuItem
                   disabled={disabled}
                   onClick={() => {
                     setAttachEl(null);
-                    audioStartRef.current?.();
+                    fileRef.current?.openDocuments();
                   }}
                 >
-                  <AttachCircle color="#ff8a00"><HeadsetIcon fontSize="small" /></AttachCircle>
-                  Audio
+                  <AttachCircle color="#7f66ff"><InsertDriveFileIcon fontSize="small" /></AttachCircle>
+                  Documento
                 </MenuItem>
-              ) : null}
-            </Menu>
-          </>
+                <MenuItem
+                  disabled={disabled}
+                  onClick={() => {
+                    setAttachEl(null);
+                    fileRef.current?.openImages();
+                  }}
+                >
+                  <AttachCircle color="#007bfc"><PhotoLibraryIcon fontSize="small" /></AttachCircle>
+                  Fotos y videos
+                </MenuItem>
+                {onSendAudio ? (
+                  <MenuItem
+                    disabled={disabled}
+                    onClick={() => {
+                      setAttachEl(null);
+                      audioStartRef.current?.();
+                    }}
+                  >
+                    <AttachCircle color="#ff8a00"><HeadsetIcon fontSize="small" /></AttachCircle>
+                    Audio
+                  </MenuItem>
+                ) : null}
+              </Menu>
+            </>
+          ) : null}
+
+          <EmojiPickerComponent onEmojiSelect={handleEmojiSelect} disabled={disabled} />
+          <Tooltip title="Respuestas rápidas">
+            <span>
+              <IconButton
+                disabled={disabled}
+                onClick={() => setManage(true)}
+                sx={{ color: WA.icon }}
+                aria-label="Respuestas rápidas"
+              >
+                <BoltIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <TextField
+            ref={inputRef}
+            fullWidth
+            multiline
+            maxRows={4}
+            value={mensaje}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            variant="outlined"
+            size="small"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 8,
+                bgcolor: WA.inputField,
+                color: WA.text,
+                '& fieldset': { border: 'none' },
+                '&:hover fieldset': { border: 'none' },
+                '&.Mui-focused fieldset': { border: 'none' },
+              },
+              '& .MuiInputBase-input': {
+                py: 1.15,
+                px: 1.5,
+                color: WA.text,
+                '&::placeholder': { color: WA.muted, opacity: 1 },
+              },
+            }}
+          />
+        </Box>
+
+        {onSendAudio ? (
+          <Box
+            sx={{
+              display: hasText && !audioBusy ? 'none' : 'flex',
+              flex: audioBusy ? 1 : undefined,
+              width: audioBusy ? '100%' : 'auto',
+              minWidth: audioBusy ? 0 : undefined,
+            }}
+          >
+            <AudioRecorder
+              onAudioRecorded={onSendAudio}
+              disabled={disabled}
+              startRef={audioStartRef}
+              onBusyChange={setAudioBusy}
+            />
+          </Box>
         ) : null}
 
-        <EmojiPickerComponent onEmojiSelect={handleEmojiSelect} disabled={disabled} />
-
-        <TextField
-          ref={inputRef}
-          fullWidth
-          multiline
-          maxRows={4}
-          value={mensaje}
-          onChange={handleChange}
-          onKeyPress={handleKeyPress}
-          placeholder={placeholder}
-          disabled={disabled}
-          variant="outlined"
-          size="small"
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 8,
-              bgcolor: WA.inputField,
-              color: WA.text,
-              '& fieldset': { border: 'none' },
-              '&:hover fieldset': { border: 'none' },
-              '&.Mui-focused fieldset': { border: 'none' },
-            },
-            '& .MuiInputBase-input': {
-              py: 1.15,
-              px: 1.5,
-              color: WA.text,
-              '&::placeholder': { color: WA.muted, opacity: 1 },
-            },
-          }}
-        />
-
-        {onSendAudio && !hasText ? (
-          <AudioRecorder
-            onAudioRecorded={onSendAudio}
-            disabled={disabled}
-            startRef={audioStartRef}
-          />
-        ) : (
+        {hasText && !audioBusy ? (
           <Tooltip title="Enviar mensaje">
             <span>
               <IconButton
                 onClick={handleSend}
-                disabled={disabled || !hasText}
-                sx={{ color: hasText ? '#00a884' : WA.icon }}
+                disabled={disabled}
+                sx={{ color: WA.accent }}
               >
                 <SendIcon />
               </IconButton>
             </span>
           </Tooltip>
-        )}
+        ) : null}
       </Box>
+      <QuickReplyManager
+        open={manage}
+        onClose={() => setManage(false)}
+        items={respuestas}
+        onChanged={() => { void loadRespuestas(); }}
+      />
     </Paper>
   );
 }

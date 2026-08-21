@@ -1,27 +1,65 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   IconButton,
   Typography,
-  LinearProgress,
   Tooltip,
-  Paper
 } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
-import StopIcon from '@mui/icons-material/Stop';
 import SendIcon from '@mui/icons-material/Send';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
+import { WA } from '@/app/chat/chatTheme';
 
 interface AudioRecorderProps {
   onAudioRecorded: (audioBlob: Blob, duration: number) => void;
   disabled?: boolean;
   startRef?: React.MutableRefObject<(() => void) | null>;
+  onBusyChange?: (busy: boolean) => void;
 }
 
-export default function AudioRecorder({ onAudioRecorded, disabled, startRef }: AudioRecorderProps) {
+function Waveform({ active }: { active: boolean }) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '3px',
+        flexGrow: 1,
+        height: 28,
+        px: 1,
+        '@keyframes waBar': {
+          from: { transform: 'scaleY(0.35)' },
+          to: { transform: 'scaleY(1)' },
+        },
+      }}
+    >
+      {Array.from({ length: 28 }).map((_, i) => (
+        <Box
+          key={i}
+          sx={{
+            width: 3,
+            height: 8 + ((i * 7) % 16),
+            bgcolor: WA.accent,
+            borderRadius: 1,
+            transformOrigin: 'center',
+            animation: active ? `waBar ${0.45 + (i % 5) * 0.08}s ${i * 0.03}s ease-in-out infinite alternate` : 'none',
+            opacity: active ? 1 : 0.45,
+          }}
+        />
+      ))}
+    </Box>
+  );
+}
+
+export default function AudioRecorder({
+  onAudioRecorded,
+  disabled,
+  startRef,
+  onBusyChange,
+}: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -30,60 +68,92 @@ export default function AudioRecorder({ onAudioRecorded, disabled, startRef }: A
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sendOnStopRef = useRef(false);
+  const discardOnStopRef = useRef(false);
+  const durationRef = useRef(0);
+  const mimeRef = useRef('audio/webm');
+
+  const busy = isRecording || Boolean(recordedAudio);
+
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
 
   useEffect(() => {
     return () => {
-      // Cleanup
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (audioRef.current) audioRef.current.pause();
     };
   }, []);
+
+  const resetUi = () => {
+    setRecordedAudio(null);
+    setRecordingTime(0);
+    durationRef.current = 0;
+    setIsPlaying(false);
+    setError(null);
+    if (audioRef.current) audioRef.current.pause();
+  };
 
   const startRecording = async () => {
     try {
       setError(null);
+      sendOnStopRef.current = false;
+      discardOnStopRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
           ? 'audio/ogg;codecs=opus'
           : 'audio/webm';
+      mimeRef.current = mime;
       const mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mime });
+        stream.getTracks().forEach((track) => track.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeRef.current });
+        if (discardOnStopRef.current) {
+          discardOnStopRef.current = false;
+          resetUi();
+          return;
+        }
+        if (sendOnStopRef.current) {
+          sendOnStopRef.current = false;
+          const check = validateOutgoingMedia({
+            type: audioBlob.type,
+            size: audioBlob.size,
+            name: 'audio.webm',
+          });
+          if (!check.ok) {
+            setError(check.error);
+            setRecordedAudio(audioBlob);
+            return;
+          }
+          onAudioRecorded(audioBlob, durationRef.current);
+          resetUi();
+          return;
+        }
         setRecordedAudio(audioBlob);
-        
-        // Detener todas las pistas del stream
-        stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
-
-      // Iniciar timer
+      durationRef.current = 0;
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        durationRef.current += 1;
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
-
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
+    } catch {
       setError('No se pudo acceder al micrófono. Verifica los permisos.');
     }
   };
@@ -94,56 +164,38 @@ export default function AudioRecorder({ onAudioRecorded, disabled, startRef }: A
     return () => { startRef.current = null; };
   });
 
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      stopTimer();
     }
   };
 
-  const playRecording = () => {
-    if (recordedAudio) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-
-      const audioUrl = URL.createObjectURL(recordedAudio);
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      audio.play();
-      setIsPlaying(true);
+  const cancelRecording = () => {
+    if (isRecording) {
+      discardOnStopRef.current = true;
+      sendOnStopRef.current = false;
+      stopRecording();
+      return;
     }
+    resetUi();
   };
 
-  const pauseRecording = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
+  const sendNow = () => {
+    if (isRecording) {
+      sendOnStopRef.current = true;
+      discardOnStopRef.current = false;
+      stopRecording();
+      return;
     }
-  };
-
-  const deleteRecording = () => {
-    setRecordedAudio(null);
-    setRecordingTime(0);
-    setIsPlaying(false);
-    setError(null);
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-  };
-
-  const sendRecording = () => {
     if (!recordedAudio) return;
     const check = validateOutgoingMedia({
       type: recordedAudio.type,
@@ -154,8 +206,29 @@ export default function AudioRecorder({ onAudioRecorded, disabled, startRef }: A
       setError(check.error);
       return;
     }
-    onAudioRecorded(recordedAudio, recordingTime);
-    deleteRecording();
+    onAudioRecorded(recordedAudio, durationRef.current || recordingTime);
+    resetUi();
+  };
+
+  const playRecording = () => {
+    if (!recordedAudio) return;
+    if (audioRef.current) audioRef.current.pause();
+    const audioUrl = URL.createObjectURL(recordedAudio);
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+    audio.onended = () => {
+      setIsPlaying(false);
+      URL.revokeObjectURL(audioUrl);
+    };
+    void audio.play();
+    setIsPlaying(true);
+  };
+
+  const pauseRecording = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -164,135 +237,81 @@ export default function AudioRecorder({ onAudioRecorded, disabled, startRef }: A
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (error && !recordedAudio && !isRecording) {
+  if (busy) {
     return (
-      <Box sx={{ p: 1 }}>
-        <Typography variant="caption" color="error">
-          {error}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%', minHeight: 48 }}>
+        <Tooltip title="Descartar">
+          <IconButton onClick={cancelRecording} sx={{ color: '#f15c6d' }} aria-label="Descartar audio">
+            <DeleteOutlineIcon />
+          </IconButton>
+        </Tooltip>
+
+        {recordedAudio ? (
+          <Tooltip title={isPlaying ? 'Pausar' : 'Reproducir'}>
+            <IconButton
+              onClick={isPlaying ? pauseRecording : playRecording}
+              sx={{ color: WA.text }}
+            >
+              {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: '#f15c6d',
+              mx: 0.5,
+              animation: 'pulse 1s infinite',
+              '@keyframes pulse': {
+                '0%': { opacity: 1 },
+                '50%': { opacity: 0.35 },
+                '100%': { opacity: 1 },
+              },
+            }}
+          />
+        )}
+
+        <Typography sx={{ color: WA.text, fontSize: '0.9rem', minWidth: 40 }}>
+          {formatTime(recordingTime)}
         </Typography>
-      </Box>
-    );
-  }
 
-  // Si hay una grabación, mostrar controles de reproducción
-  if (recordedAudio) {
-    return (
-      <Paper
-        elevation={1}
-        sx={{
-          p: 1.5,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          bgcolor: 'background.paper',
-          borderRadius: 2
-        }}
-      >
-        <Tooltip title={isPlaying ? "Pausar" : "Reproducir"}>
-          <IconButton
-            size="small"
-            onClick={isPlaying ? pauseRecording : playRecording}
-            color="primary"
-          >
-            {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
-          </IconButton>
-        </Tooltip>
+        <Waveform active={isRecording || isPlaying} />
 
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            Audio grabado
+        {error ? (
+          <Typography variant="caption" sx={{ color: '#f15c6d', mr: 1 }}>
+            {error}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatTime(recordingTime)}
-          </Typography>
-          {error && (
-            <Typography variant="caption" color="error" display="block">
-              {error}
-            </Typography>
-          )}
-        </Box>
-
-        <Tooltip title="Eliminar">
-          <IconButton size="small" onClick={deleteRecording}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        ) : null}
 
         <Tooltip title="Enviar audio">
           <IconButton
-            size="small"
-            onClick={sendRecording}
-            color="primary"
+            onClick={sendNow}
+            aria-label="Enviar audio"
             sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
-              '&:hover': {
-                bgcolor: 'primary.dark'
-              }
+              bgcolor: WA.accent,
+              color: '#fff',
+              width: 42,
+              height: 42,
+              '&:hover': { bgcolor: '#017561' },
             }}
           >
             <SendIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-      </Paper>
+      </Box>
     );
   }
 
-  // Si está grabando, mostrar controles de grabación
-  if (isRecording) {
-    return (
-      <Paper
-        elevation={1}
-        sx={{
-          p: 1.5,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          bgcolor: 'error.dark',
-          color: 'white',
-          borderRadius: 2
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
-          <Box
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              bgcolor: 'error.light',
-              animation: 'pulse 1s infinite'
-            }}
-          />
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            Grabando...
-          </Typography>
-          <Typography variant="body2">
-            {formatTime(recordingTime)}
-          </Typography>
-        </Box>
-
-        <Tooltip title="Detener grabación">
-          <IconButton
-            size="small"
-            onClick={stopRecording}
-            sx={{ color: 'white' }}
-          >
-            <StopIcon />
-          </IconButton>
-        </Tooltip>
-      </Paper>
-    );
-  }
-
-  // Botón inicial para empezar a grabar
   return (
-    <Tooltip title="Grabar audio">
+    <Tooltip title={error || 'Grabar audio'}>
       <span>
         <IconButton
-          size="small"
           disabled={disabled}
-          onClick={startRecording}
-          sx={{ color: '#8696a0' }}
+          onClick={() => { void startRecording(); }}
+          sx={{ color: error ? '#f15c6d' : WA.icon }}
+          aria-label="Grabar audio"
         >
           <MicIcon />
         </IconButton>

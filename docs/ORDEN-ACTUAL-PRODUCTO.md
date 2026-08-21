@@ -1,6 +1,6 @@
 # KloSync — Orden de trabajo actual
 
-> Actualizado: 20 agosto 2026.  
+> Actualizado: 21 agosto 2026.  
 > Este archivo es el **orden de ahora**. No reemplaza los docs de detalle; apunta a ellos.  
 > Monetización, precios y lanzamiento comercial **no están en el camino**. Primero hay que tener un MVP que un vendedor use todos los días.
 
@@ -13,6 +13,7 @@
 | Listado histórico de mejoras | [`LISTADO-COMPLETO-MEJORAS-02-26.md`](./LISTADO-COMPLETO-MEJORAS-02-26.md) |
 | Qué es el producto (módulos) | [`FUNCIONALIDADES-PROYECTO.md`](./FUNCIONALIDADES-PROYECTO.md) |
 | Inbox, canales, widget, bot (orden) | [`superpowers/specs/2026-08-20-widget-chatbot-canales-design.md`](./superpowers/specs/2026-08-20-widget-chatbot-canales-design.md) |
+| Contactos CRM | [`superpowers/specs/2026-08-21-contactos-crm-design.md`](./superpowers/specs/2026-08-21-contactos-crm-design.md) |
 
 ---
 
@@ -84,11 +85,11 @@ Sin esto el resto de Kommo se construye mal. Un chat no es un contacto.
 
 - Migración `contactos_persona_deal` aplicada en prod (tabla `contactos`, FKs, RPC `buscar_contactos`).
 
-- [ ] Tabla `contactos` + CRUD + búsqueda.
-- [ ] Ficha: conversaciones, lead del Kanban, presentaciones vinculadas.
-- [ ] Cruzar teléfono/WhatsApp entrante con contactos existentes.
-- [ ] Al mover el lead de etapa, registrar en la ficha.
-- [ ] Importar Sheets y CSV (después del CRUD, no antes).
+- [x] Tabla `contactos` + CRUD + búsqueda (unaccent).
+- [x] Ficha: conversaciones + lead del Kanban (presentaciones después).
+- [x] Cruzar teléfono/WhatsApp entrante con contactos existentes (sin crear).
+- [ ] Al mover el lead de etapa, registrar en la ficha. *(fuera de este corte — timeline)*
+- [ ] Importar Sheets y CSV.
 
 ### Fase 3 — Que se sienta Kommo en el día a día
 

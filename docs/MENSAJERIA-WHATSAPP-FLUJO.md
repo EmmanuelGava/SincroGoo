@@ -140,6 +140,7 @@ Baileys messages.upsert
   → POST APP_URL/api/integrations/incoming/whatsapp
   → handleIncomingMessage
        busca conversación por teléfono, si no por remote_jid, si no por LID
+       match de contacto por `telefono_digits` (no crea contacto si no hay match)
        inserta mensajes_conversacion
        notifyInboxRealtime(googleId)
   → useChat refresh (broadcast + poll 3s)

@@ -58,11 +58,30 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
     if (leadsError) throw leadsError;
 
+    const { data: historial, error: historialError } = await client.supabase
+      .from('lead_etapa_historial')
+      .select('id, lead_id, fecha, estado_anterior_nombre, estado_nuevo_nombre')
+      .eq('contacto_id', id)
+      .order('fecha', { ascending: false })
+      .limit(50);
+
+    if (historialError && historialError.code !== 'PGRST205' && historialError.code !== '42P01') {
+      throw historialError;
+    }
+
+    const leadNombre = new Map(
+      (leads || []).map((lead: { id: string; nombre?: string | null }) => [lead.id, lead.nombre || 'Lead'])
+    );
+
     return NextResponse.json(
       {
         contacto,
         conversaciones: conversaciones || [],
         leads: leads || [],
+        historial: (historial || []).map((row) => ({
+          ...row,
+          lead_nombre: leadNombre.get(row.lead_id) || 'Lead',
+        })),
       },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
     );

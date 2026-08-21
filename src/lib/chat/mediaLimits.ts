@@ -111,3 +111,7 @@ export function dropzoneRejectMessage(errors: ReadonlyArray<{ code: string }>, f
   }
   return 'Archivo no válido';
 }
+
+export function outgoingMediaHint(): string {
+  return 'Imagen hasta 5 MB · audio 16 MB · PDF/Word/Excel 16 MB · sin video';
+}

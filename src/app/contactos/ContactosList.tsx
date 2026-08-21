@@ -11,6 +11,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  List,
+  ListItemButton,
+  ListItemText,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -46,6 +51,13 @@ export function ContactosList() {
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [importAnchor, setImportAnchor] = useState<null | HTMLElement>(null);
+  const [sheetsOpen, setSheetsOpen] = useState(false);
+  const [sheets, setSheets] = useState<Array<{ id: string; name: string }>>([]);
+  const [sheetsError, setSheetsError] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const firstLoad = useRef(true);
 
   const cargar = useCallback(async (query: string, signal?: AbortSignal) => {
@@ -101,6 +113,88 @@ export function ContactosList() {
     resetForm();
   };
 
+  const applyImportResult = async (res: Response) => {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setImportMsg(typeof data.error === 'string' ? data.error : 'No se pudo importar');
+      return;
+    }
+    setImportMsg(
+      `Importados ${data.created || 0} nuevos, ${data.updated || 0} actualizados`
+      + (data.skipped ? `, ${data.skipped} omitidos` : '')
+      + '.'
+    );
+    await cargar(q);
+  };
+
+  const importFromCsv = async (file: File) => {
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const form = new FormData();
+      form.append('source', 'csv');
+      form.append('file', file);
+      const res = await fetch('/api/contactos/import', { method: 'POST', body: form });
+      await applyImportResult(res);
+    } catch {
+      setImportMsg('No se pudo importar el CSV');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importFromGoogle = async () => {
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const res = await fetch('/api/contactos/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'google' }),
+      });
+      await applyImportResult(res);
+    } catch {
+      setImportMsg('No se pudo importar Google Contacts');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const openSheetsPicker = async () => {
+    setSheetsOpen(true);
+    setSheetsError(null);
+    setSheets([]);
+    try {
+      const res = await fetch('/api/google/documents?type=sheets', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSheetsError(typeof data.error === 'string' ? data.error : 'No se pudieron listar los Sheets');
+        return;
+      }
+      setSheets(Array.isArray(data.documents) ? data.documents : []);
+    } catch {
+      setSheetsError('No se pudieron listar los Sheets');
+    }
+  };
+
+  const importFromSheet = async (spreadsheetId: string) => {
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const res = await fetch('/api/contactos/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'sheets', spreadsheetId }),
+      });
+      await applyImportResult(res);
+      setSheetsOpen(false);
+    } catch {
+      setImportMsg('No se pudo importar el Sheet');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleCreate = async () => {
     setSaving(true);
     setFormError(null);
@@ -145,9 +239,59 @@ export function ContactosList() {
         <Button variant="contained" onClick={() => setDialogOpen(true)} sx={{ flexShrink: 0 }}>
           Nuevo
         </Button>
+        <Button
+          variant="outlined"
+          onClick={(e) => setImportAnchor(e.currentTarget)}
+          disabled={importing}
+          sx={{ flexShrink: 0 }}
+        >
+          {importing ? 'Importando…' : 'Importar'}
+        </Button>
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) void importFromCsv(file);
+          }}
+        />
+        <Menu
+          anchorEl={importAnchor}
+          open={Boolean(importAnchor)}
+          onClose={() => setImportAnchor(null)}
+        >
+          <MenuItem
+            onClick={() => {
+              setImportAnchor(null);
+              csvInputRef.current?.click();
+            }}
+          >
+            CSV
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setImportAnchor(null);
+              void openSheetsPicker();
+            }}
+          >
+            Google Sheet
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setImportAnchor(null);
+              void importFromGoogle();
+            }}
+          >
+            Google Contacts
+          </MenuItem>
+        </Menu>
       </Stack>
 
       {error ? <Alert severity="error">{error}</Alert> : null}
+      {importMsg ? <Alert severity="info" onClose={() => setImportMsg(null)}>{importMsg}</Alert> : null}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -222,6 +366,36 @@ export function ContactosList() {
           <Button variant="contained" onClick={() => void handleCreate()} disabled={saving || !nombre.trim()}>
             {saving ? 'Guardando…' : 'Crear'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={sheetsOpen} onClose={() => !importing && setSheetsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Importar desde Google Sheet</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            La primera fila tiene que ser encabezados: nombre, telefono, email, empresa.
+          </Typography>
+          {sheetsError ? <Alert severity="error">{sheetsError}</Alert> : null}
+          {!sheetsError && sheets.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : (
+            <List>
+              {sheets.map((sheet) => (
+                <ListItemButton
+                  key={sheet.id}
+                  disabled={importing}
+                  onClick={() => void importFromSheet(sheet.id)}
+                >
+                  <ListItemText primary={sheet.name} />
+                </ListItemButton>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSheetsOpen(false)} disabled={importing}>Cerrar</Button>
         </DialogActions>
       </Dialog>
     </Box>

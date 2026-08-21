@@ -1,13 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone, type FileRejection } from 'react-dropzone';
-import { MEDIA_LIMITS, dropzoneRejectMessage, validateOutgoingMedia } from '@/lib/chat/mediaLimits';
+import { MEDIA_LIMITS, dropzoneRejectMessage, outgoingMediaHint, validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import {
   Box,
   Typography,
   IconButton,
   LinearProgress,
   Paper,
-  Alert
+  Alert,
+  Tooltip,
 } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ImageIcon from '@mui/icons-material/Image';
@@ -158,16 +159,20 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
         }}
       >
         <input {...getInputProps()} />
-        <IconButton 
-          size="small" 
-          disabled={disabled}
-          sx={{ 
-            mb: 0.5,
-            color: isDragActive ? 'primary.main' : 'inherit'
-          }}
-        >
-          <AttachFileIcon />
-        </IconButton>
+        <Tooltip title={outgoingMediaHint()}>
+          <span>
+            <IconButton 
+              size="small" 
+              disabled={disabled}
+              sx={{ 
+                mb: 0.5,
+                color: isDragActive ? 'primary.main' : 'inherit'
+              }}
+            >
+              <AttachFileIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Box>
 
       {/* Error general */}

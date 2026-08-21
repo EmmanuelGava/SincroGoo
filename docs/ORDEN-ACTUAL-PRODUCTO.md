@@ -73,7 +73,7 @@ Hacer, en este orden (detalle en el plan de confiabilidad):
 - [x] Outbox + reintento (worker caído → el mensaje queda queued y sale al volver). *Código listo; falta probar en prod: worker down 1 min, texto no se pierde.*
 - [x] Ticks reales: enviado / entregado / leído / error (en `main`; falta demo 1 tilde → 2 grises → 2 celestes).
 - [x] Media **entrante** persistida (no solo placeholder `[Imagen]` / `[Audio]` en el catch-up). *En `main`; falta prueba con foto/audio reales (se ven y siguen abriendo al día siguiente).*
-- [ ] Límites de tamaño/tipo visibles en la UI. *Código: imagen 5 MB, audio 16 MB, video rechazado. Falta probar PNG de 6 MB → error claro, no outbox.*
+- [x] Límites de tamaño/tipo visibles en la UI. *Código: imagen 5 MB, audio 16 MB, video rechazado. PNG de 6 MB se rechaza antes del outbox.*
 - [x] Delay anti-ban entre envíos. *En `main`; en BD los envíos seguidos salen ~2.4–3.6 s, no en 200 ms. El chat no espera ni muestra los ms.*
 - [x] Borrar servicios WhatsApp legacy (V2 / Old). La única clase viva es `WhatsAppLiteService`.
 
@@ -88,8 +88,8 @@ Sin esto el resto de Kommo se construye mal. Un chat no es un contacto.
 - [x] Tabla `contactos` + CRUD + búsqueda (unaccent).
 - [x] Ficha: conversaciones + lead del Kanban (presentaciones después).
 - [x] Cruzar teléfono/WhatsApp entrante con contactos existentes (sin crear).
-- [ ] Al mover el lead de etapa, registrar en la ficha. *(fuera de este corte — timeline)*
-- [ ] Importar Sheets y CSV.
+- [x] Al mover el lead de etapa, registrar en la ficha (timeline).
+- [x] Importar Sheets, CSV y Google Contacts.
 
 ### Fase 3 — Que se sienta Kommo en el día a día
 

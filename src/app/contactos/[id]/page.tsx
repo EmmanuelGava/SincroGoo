@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
+import { formatEtapaHistorialLine } from '@/lib/crm/leadEtapaHistorial';
 
 type Contacto = {
   id: string;
@@ -41,6 +42,15 @@ type Lead = {
   estados_lead?: EstadoLeadRel | EstadoLeadRel[] | null;
 };
 
+type HistorialItem = {
+  id: string;
+  lead_id: string;
+  fecha: string;
+  estado_anterior_nombre: string | null;
+  estado_nuevo_nombre: string;
+  lead_nombre?: string | null;
+};
+
 function etapaLead(lead: Lead): { nombre: string; color?: string } {
   const rel = Array.isArray(lead.estados_lead) ? lead.estados_lead[0] : lead.estados_lead;
   return {
@@ -64,6 +74,7 @@ export default function ContactoFichaPage() {
   const [contacto, setContacto] = useState<Contacto | null>(null);
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [historial, setHistorial] = useState<HistorialItem[]>([]);
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
@@ -102,12 +113,14 @@ export default function ContactoFichaPage() {
         setContacto(null);
         setConversaciones([]);
         setLeads([]);
+        setHistorial([]);
         setError(typeof data.error === 'string' ? data.error : 'No se pudo cargar el contacto');
         return;
       }
       applyContacto(data.contacto as Contacto);
       setConversaciones(Array.isArray(data.conversaciones) ? data.conversaciones : []);
       setLeads(Array.isArray(data.leads) ? data.leads : []);
+      setHistorial(Array.isArray(data.historial) ? data.historial : []);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       setContacto(null);
@@ -332,6 +345,26 @@ export default function ContactoFichaPage() {
                         </Stack>
                       );
                     })}
+                  </Stack>
+                )}
+              </Paper>
+
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Historial de etapas
+                </Typography>
+                {historial.length === 0 ? (
+                  <Typography color="text.secondary">Todavía no hay cambios de etapa.</Typography>
+                ) : (
+                  <Stack spacing={1.5}>
+                    {historial.map((item) => (
+                      <Box key={item.id}>
+                        <Typography>{formatEtapaHistorialLine(item)}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatFecha(item.fecha)}
+                        </Typography>
+                      </Box>
+                    ))}
                   </Stack>
                 )}
               </Paper>

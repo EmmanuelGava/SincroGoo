@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
 import { attachLeadConversationMeta } from '@/lib/crm/leadConversationUnread';
+import { shouldRecordEtapaChange } from '@/lib/crm/leadEtapaHistorial';
 
 // Helper: supabaseToken si existe; si no, fallback a admin + usuario_id (cuando signInWithIdToken falló)
 async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
@@ -127,10 +128,39 @@ export async function PATCH(request: NextRequest) {
     const client = await getUserSupabaseClient();
     if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
-    const { supabase } = client;
+    const { supabase, userId } = client;
     const body = await request.json();
     const { id, ...fields } = body;
     if (!id) return NextResponse.json({ error: 'Falta el id del lead' }, { status: 400 });
+
+    if (fields.estado_id) {
+      const { data: current } = await supabase
+        .from('leads')
+        .select('id, estado_id, contacto_id')
+        .eq('id', id)
+        .eq('asignado_a', userId)
+        .maybeSingle();
+      if (current && shouldRecordEtapaChange(current.estado_id, fields.estado_id)) {
+        const estadoIds = [current.estado_id, fields.estado_id].filter(Boolean);
+        const { data: estados } = estadoIds.length
+          ? await supabase.from('estados_lead').select('id, nombre').in('id', estadoIds)
+          : { data: [] as Array<{ id: string; nombre: string }> };
+        const nameOf = (estadoId: string | null | undefined) =>
+          estados?.find((estado) => estado.id === estadoId)?.nombre || 'Sin etapa';
+        const { error: historialError } = await supabase.from('lead_etapa_historial').insert({
+          lead_id: id,
+          contacto_id: current.contacto_id || null,
+          usuario_id: userId,
+          estado_anterior_id: current.estado_id || null,
+          estado_nuevo_id: fields.estado_id,
+          estado_anterior_nombre: current.estado_id ? nameOf(current.estado_id) : 'Sin etapa',
+          estado_nuevo_nombre: nameOf(fields.estado_id),
+        });
+        if (historialError) {
+          console.warn('No se pudo guardar historial de etapa:', historialError.message);
+        }
+      }
+    }
     
     const { data, error } = await supabase.from('leads').update(fields).eq('id', id).select('*').single();
     if (error) throw error;

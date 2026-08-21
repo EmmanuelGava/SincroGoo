@@ -13,6 +13,7 @@ import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import FileUpload from './FileUpload';
 import EmojiPickerComponent from './EmojiPicker';
 import AudioRecorder from './AudioRecorder';
+import { outgoingMediaHint } from '@/lib/chat/mediaLimits';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string) => void;
@@ -207,6 +208,11 @@ export default function MessageInput({
           </span>
         </Tooltip>
       </Box>
+      {conversationId && onSendFile ? (
+        <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.75, display: 'block' }}>
+          {outgoingMediaHint()}
+        </Typography>
+      ) : null}
 
       {/* Indicador de escritura */}
       {isTyping && (

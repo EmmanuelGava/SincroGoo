@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateOutgoingMedia } from '../mediaLimits';
+import { outgoingMediaHint, validateOutgoingMedia } from '../mediaLimits';
 
 function file(partial: { type: string; size: number; name?: string }) {
   return partial;
@@ -80,5 +80,11 @@ describe('validateOutgoingMedia', () => {
     if (!result.ok) {
       expect(result.error).toMatch(/16 MB/);
     }
+  });
+
+  it('expone los límites en un texto para la UI', () => {
+    expect(outgoingMediaHint()).toMatch(/5 MB/);
+    expect(outgoingMediaHint()).toMatch(/16 MB/);
+    expect(outgoingMediaHint()).toMatch(/sin video/i);
   });
 });

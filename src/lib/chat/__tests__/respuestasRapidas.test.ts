@@ -98,6 +98,22 @@ describe('fillCatalogPlaceholders', () => {
       })
     ).toBe('el precio de Silla es $90');
   });
+
+  it('rellena incluye con la descripción del catálogo', () => {
+    expect(
+      fillCatalogPlaceholders('[producto]: incluye ____. Precio {{precio}}.', {
+        item: { nombre: 'colchoneta', precio: 26000, descripcion: 'espuma 2 cm y funda' },
+      })
+    ).toBe('colchoneta: incluye espuma 2 cm y funda. Precio $26.000.');
+  });
+
+  it('si no hay descripción, deja [incluye] para editar a mano', () => {
+    expect(
+      fillCatalogPlaceholders('[producto]: incluye ____. Precio $___.', {
+        item: { nombre: 'colchoneta', precio: 26000 },
+      })
+    ).toBe('colchoneta: incluye [incluye]. Precio $26.000.');
+  });
 });
 
 describe('insertRespuestaInDraft', () => {

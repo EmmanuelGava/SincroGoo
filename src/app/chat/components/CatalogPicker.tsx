@@ -89,10 +89,8 @@ export function CatalogPicker({
           visibles.map((item) => (
             <Box
               key={item.id}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onSelect(item);
-              }}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onSelect(item)}
               sx={{
                 display: 'flex',
                 gap: 1,
@@ -294,12 +292,13 @@ export function CatalogManager({
           <TextField label="Nombre" size="small" value={nombre} onChange={(e) => setNombre(e.target.value)} />
           <TextField label="Precio" size="small" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="12500" />
           <TextField
-            label="Descripción"
+            label="Qué incluye / detalle"
             size="small"
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             multiline
             minRows={2}
+            placeholder="Espuma 2 cm, funda lavable…"
           />
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button component="label" size="small" variant="outlined">

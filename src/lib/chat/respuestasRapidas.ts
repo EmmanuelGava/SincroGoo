@@ -9,6 +9,7 @@ export type RespuestaVars = {
   telefono?: string | null;
   producto?: string | null;
   precio?: string | null;
+  incluye?: string | null;
 };
 
 export type RespuestaCategoria = 'general' | 'venta' | 'producto';
@@ -44,7 +45,7 @@ export const DEFAULT_RESPUESTAS_RAPIDAS: Array<{
   {
     atajo: 'producto',
     categoria: 'producto',
-    texto: '{{producto}}: incluye ____. Precio {{precio}}. ¿Querés que te lo aparte?',
+    texto: '{{producto}}: incluye {{incluye}}. Precio {{precio}}. ¿Querés que te lo aparte?',
   },
 ];
 
@@ -88,11 +89,36 @@ export function applyRespuestaTexto(template: string, vars: RespuestaVars): stri
   const telefono = (vars.telefono || '').trim();
   const producto = (vars.producto || '').trim() || '[producto]';
   const precio = (vars.precio || '').trim() || '$____';
+  const incluye = (vars.incluye || '').trim() || '[incluye]';
   return template
     .replace(/\{\{\s*nombre\s*\}\}/gi, nombre)
     .replace(/\{\{\s*telefono\s*\}\}/gi, telefono)
     .replace(/\{\{\s*producto\s*\}\}/gi, producto)
-    .replace(/\{\{\s*precio\s*\}\}/gi, precio);
+    .replace(/\{\{\s*precio\s*\}\}/gi, precio)
+    .replace(/\{\{\s*incluye\s*\}\}/gi, incluye);
+}
+
+export function fillCatalogPlaceholders(
+  draft: string,
+  opts: {
+    nombre?: string | null;
+    telefono?: string | null;
+    item: { nombre: string; precio?: number | string | null; descripcion?: string | null };
+  }
+): string {
+  const precio = formatCatalogPrecio(opts.item.precio);
+  const incluye = (opts.item.descripcion || '').trim() || '[incluye]';
+  return applyRespuestaTexto(draft, {
+    nombre: opts.nombre,
+    telefono: opts.telefono,
+    producto: opts.item.nombre,
+    precio,
+    incluye,
+  })
+    .replace(/\[producto\]/gi, opts.item.nombre)
+    .replace(/\$_{2,}/g, precio)
+    .replace(/incluye\s*_{2,}/gi, `incluye ${incluye}`)
+    .replace(/\[incluye\]/gi, incluye);
 }
 
 export function draftNeedsCatalog(text: string): boolean {
@@ -109,21 +135,6 @@ export function formatCatalogPrecio(precio: number | string | null | undefined):
   const int = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   const body = decRaw ? `$${int},${decRaw}` : `$${int}`;
   return negative ? `-${body}` : body;
-}
-
-export function fillCatalogPlaceholders(
-  draft: string,
-  opts: { nombre?: string | null; telefono?: string | null; item: { nombre: string; precio?: number | string | null } }
-): string {
-  const precio = formatCatalogPrecio(opts.item.precio);
-  return applyRespuestaTexto(draft, {
-    nombre: opts.nombre,
-    telefono: opts.telefono,
-    producto: opts.item.nombre,
-    precio,
-  })
-    .replace(/\[producto\]/gi, opts.item.nombre)
-    .replace(/\$____/g, precio);
 }
 
 export function insertRespuestaInDraft(

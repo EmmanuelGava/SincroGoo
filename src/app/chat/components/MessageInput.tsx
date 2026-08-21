@@ -7,6 +7,7 @@ import {
   Paper,
   TextField,
   Tooltip,
+  Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -150,12 +151,19 @@ export default function MessageInput({
     const next = fillCatalogPlaceholders(mensaje, {
       nombre: respuestaVars?.nombre,
       telefono: respuestaVars?.telefono,
-      item: { nombre: item.nombre, precio: item.precio },
+      item: { nombre: item.nombre, precio: item.precio, descripcion: item.descripcion },
     });
     setMensaje(next);
     setSelectedCatalog(item);
     setCatalogOpen(false);
     onTyping?.(next.length > 0);
+    setTimeout(() => {
+      const input = inputRef.current?.querySelector('textarea') || inputRef.current?.querySelector('input');
+      if (!input) return;
+      input.focus();
+      const end = next.length;
+      if (input.setSelectionRange) input.setSelectionRange(end, end);
+    }, 0);
   };
 
   const handleSend = () => {
@@ -472,6 +480,11 @@ export default function MessageInput({
         >
           {selectedCatalog ? `${selectedCatalog.nombre} · cambiar` : 'Elegir producto'}
         </Box>
+      ) : null}
+      {hasText && !audioBusy && (draftNeedsCatalog(mensaje) || selectedCatalog) ? (
+        <Typography sx={{ color: WA.muted, fontSize: '0.7rem', ml: 6, mt: 0.4 }}>
+          Podés editar el texto y después enviar
+        </Typography>
       ) : null}
 
       <QuickReplyManager

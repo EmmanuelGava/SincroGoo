@@ -13,6 +13,7 @@ import SendIcon from '@mui/icons-material/Send';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
+import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 
 interface AudioRecorderProps {
   onAudioRecorded: (audioBlob: Blob, duration: number) => void;
@@ -129,16 +130,25 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
     setRecordedAudio(null);
     setRecordingTime(0);
     setIsPlaying(false);
+    setError(null);
     if (audioRef.current) {
       audioRef.current.pause();
     }
   };
 
   const sendRecording = () => {
-    if (recordedAudio) {
-      onAudioRecorded(recordedAudio, recordingTime);
-      deleteRecording();
+    if (!recordedAudio) return;
+    const check = validateOutgoingMedia({
+      type: recordedAudio.type,
+      size: recordedAudio.size,
+      name: 'audio.webm',
+    });
+    if (!check.ok) {
+      setError(check.error);
+      return;
     }
+    onAudioRecorded(recordedAudio, recordingTime);
+    deleteRecording();
   };
 
   const formatTime = (seconds: number) => {
@@ -147,7 +157,7 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (error) {
+  if (error && !recordedAudio && !isRecording) {
     return (
       <Box sx={{ p: 1 }}>
         <Typography variant="caption" color="error">
@@ -188,6 +198,11 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
           <Typography variant="caption" color="text.secondary">
             {formatTime(recordingTime)}
           </Typography>
+          {error && (
+            <Typography variant="caption" color="error" display="block">
+              {error}
+            </Typography>
+          )}
         </Box>
 
         <Tooltip title="Eliminar">

@@ -1,3 +1,5 @@
+import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
+
 export interface FileUploadResult {
   success: boolean;
   url?: string;
@@ -7,38 +9,27 @@ export interface FileUploadResult {
 }
 
 export class FileUploadService {
-  private static readonly MAX_FILE_SIZE = 16 * 1024 * 1024;
-
-  private static readonly ALLOWED_TYPES = {
-    images: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'],
-    documents: ['application/pdf', 'text/plain', 'application/msword',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-    audio: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/opus'],
-  };
-
   static validateFile(file: File): { valid: boolean; error?: string } {
-    if (file.size > this.MAX_FILE_SIZE) {
-      return {
-        valid: false,
-        error: `El archivo es demasiado grande. Máximo ${this.MAX_FILE_SIZE / 1024 / 1024}MB`,
-      };
+    const result = validateOutgoingMedia(file);
+    if (!result.ok) {
+      return { valid: false, error: result.error };
     }
-
-    const kind = this.getFileType(file);
-    if (kind !== 'image' && kind !== 'audio') {
-      return { valid: false, error: 'Solo se permiten imágenes o audio' };
-    }
-
     return { valid: true };
   }
 
   static getFileType(file: File): 'image' | 'document' | 'audio' | 'unknown' {
     const mime = (file.type || '').split(';')[0].trim().toLowerCase();
-    if (this.ALLOWED_TYPES.images.includes(mime) || mime.startsWith('image/')) return 'image';
-    if (this.ALLOWED_TYPES.audio.includes(mime) || mime.startsWith('audio/')) return 'audio';
-    if (this.ALLOWED_TYPES.documents.includes(mime)) return 'document';
+    if (mime.startsWith('image/')) return 'image';
+    if (mime.startsWith('audio/')) return 'audio';
+    if (
+      mime === 'application/pdf' ||
+      mime === 'text/plain' ||
+      mime.includes('word') ||
+      mime.includes('excel') ||
+      mime.includes('spreadsheet')
+    ) {
+      return 'document';
+    }
     return 'unknown';
   }
 

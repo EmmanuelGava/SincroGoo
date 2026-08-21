@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useDropzone, type FileRejection } from 'react-dropzone';
+import { MEDIA_LIMITS, dropzoneRejectMessage, validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import {
   Box,
   Typography,
   IconButton,
   LinearProgress,
-  Chip,
   Paper,
   Alert
 } from '@mui/material';
@@ -32,14 +32,19 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const onDropRejected = useCallback((fileRejections: FileRejection[]) => {
+    const first = fileRejections[0];
+    if (!first) return;
+    setError(dropzoneRejectMessage(first.errors, first.file.type));
+  }, []);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setError(null);
     
     for (const file of acceptedFiles) {
-      // Validar archivo
-      const validation = FileUploadService.validateFile(file);
-      if (!validation.valid) {
-        setError(validation.error || 'Archivo no válido');
+      const validation = validateOutgoingMedia(file);
+      if (!validation.ok) {
+        setError(validation.error);
         continue;
       }
 
@@ -111,11 +116,15 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     disabled,
     multiple: true,
-    maxSize: 10 * 1024 * 1024,
+    maxSize: MEDIA_LIMITS.image.maxBytes,
     accept: {
-      'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'image/gif': ['.gif'],
     },
   });
 

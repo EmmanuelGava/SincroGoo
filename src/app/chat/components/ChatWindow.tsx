@@ -11,6 +11,7 @@ import ConversationHeader from './ConversationHeader';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
+import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 
 interface Conversacion {
   id: string;
@@ -219,13 +220,19 @@ export default function ChatWindow({
   const handleSendAudio = async (audioBlob: Blob, duration: number) => {
     if (!conversacion || enviando) return;
 
+    const mime = (audioBlob.type || 'audio/webm').split(';')[0];
+    const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : 'webm';
+    const fileName = `audio_${Date.now()}.${ext}`;
+    const check = validateOutgoingMedia({ type: mime, size: audioBlob.size, name: fileName });
+    if (!check.ok) {
+      setErrorEnvio(check.error);
+      return;
+    }
+
     setEnviando(true);
     setErrorEnvio(null);
 
     try {
-      const mime = (audioBlob.type || 'audio/webm').split(';')[0];
-      const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : 'webm';
-      const fileName = `audio_${Date.now()}.${ext}`;
       const { FileUploadService } = await import('@/app/servicios/storage/FileUploadService');
       const audioFile = new File([audioBlob], fileName, { type: mime });
       const uploadResult = await FileUploadService.uploadFile(audioFile, conversacion.id);

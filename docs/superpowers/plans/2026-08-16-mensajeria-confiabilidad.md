@@ -245,11 +245,11 @@ export const MEDIA_LIMITS = {
 
 WhatsApp personal es más estricto que el bucket (bucket imagen 10 MB). El límite **de envío** es 5 MB imagen para no pelear con el cliente de WA.
 
-- [ ] **Step 1:** Crear `mediaLimits.ts`. Usarlo en upload API y FileUploadService.
-- [ ] **Step 2:** UI: toast/alert “La imagen no puede superar 5 MB” / “Audio máximo 16 MB”.
-- [ ] **Step 3:** Rechazar video en el clip por ahora (no hay bucket ni send de video).
+- [x] **Step 1:** Crear `mediaLimits.ts`. Usarlo en upload API y FileUploadService.
+- [x] **Step 2:** UI: toast/alert “La imagen no puede superar 5 MB” / “Audio máximo 16 MB”.
+- [x] **Step 3:** Rechazar video en el clip por ahora (no hay bucket ni send de video).
 - [ ] **Step 4: Probar** PNG de 6 MB → error claro, no outbox.
-- [ ] **Step 5: Commit** `fix: limites de media WhatsApp antes de subir`
+- [x] **Step 5: Commit** `fix: limites de media WhatsApp antes de subir`
 
 ---
 

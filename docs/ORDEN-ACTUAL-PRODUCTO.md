@@ -71,8 +71,8 @@ Hacer, en este orden (detalle en el plan de confiabilidad):
 
 - [x] Outbox + reintento (worker caído → el mensaje queda queued y sale al volver). *Código listo; falta probar en prod: worker down 1 min, texto no se pierde.*
 - [x] Ticks reales: enviado / entregado / leído / error (en `main`; falta demo 1 tilde → 2 grises → 2 celestes).
-- [ ] Media **entrante** persistida (no solo placeholder `[Imagen]` / `[Audio]` en el catch-up). *Código listo; falta push y prueba con foto/audio reales.*
-- [ ] Límites de tamaño/tipo visibles en la UI.
+- [x] Media **entrante** persistida (no solo placeholder `[Imagen]` / `[Audio]` en el catch-up). *En `main`; falta prueba con foto/audio reales (se ven y siguen abriendo al día siguiente).*
+- [ ] Límites de tamaño/tipo visibles en la UI. *Código: imagen 5 MB, audio 16 MB, video rechazado. Falta probar PNG de 6 MB → error claro, no outbox.*
 - [ ] Delay anti-ban entre envíos.
 - [ ] Borrar servicios WhatsApp legacy (V2 / Old) cuando el camino caliente esté estable.
 

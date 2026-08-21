@@ -2,36 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { normalizeOutgoingMime, validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 
 const IMAGE_BUCKET = 'chat-images';
 const AUDIO_BUCKET = 'chat-audio';
-const MAX_IMAGE = 10 * 1024 * 1024;
-const MAX_AUDIO = 16 * 1024 * 1024;
-
-const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-const AUDIO_TYPES = [
-  'audio/mpeg',
-  'audio/mp3',
-  'audio/wav',
-  'audio/ogg',
-  'audio/webm',
-  'audio/mp4',
-  'audio/aac',
-  'audio/opus',
-];
-
-function normalizeMime(type: string): string {
-  const base = (type || '').split(';')[0].trim().toLowerCase();
-  if (base === 'image/jpg') return 'image/jpeg';
-  if (base === 'audio/mp3') return 'audio/mpeg';
-  return base;
-}
-
-function kindFromMime(mime: string): 'image' | 'audio' | null {
-  if (IMAGE_TYPES.includes(mime)) return 'image';
-  if (AUDIO_TYPES.includes(mime) || mime.startsWith('audio/')) return 'audio';
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,19 +21,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No se envió ningún archivo' }, { status: 400 });
     }
 
-    const mime = normalizeMime(file.type);
-    const kind = kindFromMime(mime);
-    if (!kind) {
-      return NextResponse.json({ success: false, error: 'Solo se permiten imágenes o audio' }, { status: 400 });
+    const mime = normalizeOutgoingMime(file.type);
+    const check = validateOutgoingMedia(file);
+    if (!check.ok) {
+      return NextResponse.json({ success: false, error: check.error }, { status: 400 });
     }
-
-    const max = kind === 'image' ? MAX_IMAGE : MAX_AUDIO;
-    if (file.size > max) {
-      return NextResponse.json({
-        success: false,
-        error: `El archivo no debe superar ${Math.round(max / 1024 / 1024)}MB`,
-      }, { status: 400 });
-    }
+    const kind = check.kind;
 
     const bucket = kind === 'image' ? IMAGE_BUCKET : AUDIO_BUCKET;
     const ext = (file.name.split('.').pop() || (kind === 'image' ? 'jpg' : 'webm'))

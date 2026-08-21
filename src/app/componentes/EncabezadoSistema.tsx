@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Users,
 } from "lucide-react"
 import { ThemeToggleButton } from "./ThemeToggleButton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/componentes/ui/avatar"
@@ -36,6 +37,7 @@ import { cn } from "@/app/lib/utils"
 
 const primaryNav = [
   { name: "Chat", href: "/chat" },
+  { name: "Contactos", href: "/contactos" },
   { name: "CRM", href: "/crm" },
   { name: "Dashboard", href: "/dashboard" },
 ]
@@ -90,10 +92,11 @@ export function EncabezadoSistema() {
                   type="button"
                   onClick={() => go(item.href)}
                   className={cn(
-                    "rounded-md px-3 py-2 text-left text-sm",
+                    "inline-flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm",
                     pathname === item.href ? "bg-accent font-medium" : "hover:bg-accent"
                   )}
                 >
+                  {item.href === "/contactos" ? <Users className="h-4 w-4" /> : null}
                   {item.name}
                 </button>
               ))}

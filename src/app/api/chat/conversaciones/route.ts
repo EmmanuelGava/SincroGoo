@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
-import { conversationDisplayName, conversationIdentityKey, conversationRealPhone } from '@/lib/chat/conversationIdentity';
+import { conversationChatDisplayName, conversationIdentityKey, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
         servicio_origen,
         fecha_mensaje,
         lead_id,
+        contacto_id,
+        contactos(nombre),
         metadata,
         unread_count,
         last_read_at,
@@ -64,7 +66,10 @@ export async function GET(req: NextRequest) {
       return {
         id: conv.id,
         remitente: conv.remitente,
-        display_name: conversationDisplayName(view),
+        display_name: conversationChatDisplayName({
+          ...view,
+          contactos: conv.contactos,
+        }),
         display_phone: conversationRealPhone(view),
         servicio_origen: conv.servicio_origen,
         fecha_mensaje: conv.fecha_mensaje,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
+import { attachLeadConversationMeta } from '@/lib/crm/leadConversationUnread';
 
 // Helper: supabaseToken si existe; si no, fallback a admin + usuario_id (cuando signInWithIdToken falló)
 async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
@@ -42,28 +43,36 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const leads = data || [];
-    const ids = leads.map((lead: { id: string }) => lead.id);
-    const convByLead: Record<string, string> = {};
+    const leads = (data || []) as Array<{ id: string; contacto_id?: string | null }>;
+    const ids = leads.map((lead) => lead.id);
+    const contactoIds = [...new Set(leads.map((lead) => lead.contacto_id).filter((id): id is string => Boolean(id)))];
+    const convSelect = 'id, lead_id, contacto_id, unread_count, fecha_mensaje';
+    const convs: Array<{
+      id: string;
+      lead_id?: string | null;
+      contacto_id?: string | null;
+      unread_count?: number | null;
+      fecha_mensaje?: string | null;
+    }> = [];
+
     if (ids.length > 0) {
-      const { data: convs } = await supabase
+      const { data: byLead } = await supabase
         .from('conversaciones')
-        .select('id, lead_id, fecha_mensaje')
+        .select(convSelect)
         .in('lead_id', ids)
         .order('fecha_mensaje', { ascending: false });
-      for (const conv of convs || []) {
-        if (conv.lead_id && !convByLead[conv.lead_id]) {
-          convByLead[conv.lead_id] = conv.id;
-        }
-      }
+      convs.push(...(byLead || []));
+    }
+    if (contactoIds.length > 0) {
+      const { data: byContacto } = await supabase
+        .from('conversaciones')
+        .select(convSelect)
+        .in('contacto_id', contactoIds)
+        .order('fecha_mensaje', { ascending: false });
+      convs.push(...(byContacto || []));
     }
 
-    return NextResponse.json(
-      leads.map((lead: { id: string }) => ({
-        ...lead,
-        conversacion_id: convByLead[lead.id] || null,
-      }))
-    );
+    return NextResponse.json(attachLeadConversationMeta(leads, convs));
   } catch (error) {
     console.error('Error completo en GET leads:', error);
     const { error: errorMessage, status } = formatErrorResponse(error);

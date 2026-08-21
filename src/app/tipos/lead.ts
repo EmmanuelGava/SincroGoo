@@ -19,4 +19,5 @@ export interface Lead {
   ultimo_mensaje?: string;
   fecha_ultimo_mensaje?: string;
   conversacion_id?: string | null;
+  unread_count?: number;
 } 

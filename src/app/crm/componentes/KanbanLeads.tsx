@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme } from "@mui/material";
+import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme, Badge } from "@mui/material";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -88,9 +88,19 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
             transition: 'background-color 0.2s'
           }}
         >
-          <Typography variant="body2" sx={{ color: colors.textPrimary, fontWeight: 500, mb: 1 }}>
-            {lead.nombre}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pr: 8 }}>
+            <Typography variant="body2" sx={{ color: colors.textPrimary, fontWeight: 500, flex: 1, minWidth: 0 }}>
+              {lead.nombre}
+            </Typography>
+            {(lead.unread_count || 0) > 0 && (
+              <Badge
+                badgeContent={lead.unread_count}
+                color="primary"
+                max={99}
+                sx={{ '& .MuiBadge-badge': { position: 'static', transform: 'none' } }}
+              />
+            )}
+          </Box>
 
           {lead.empresa && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>

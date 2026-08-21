@@ -89,6 +89,22 @@ export function conversationDisplayName(conv: {
   return conversationRealPhone(conv) || 'Contacto WhatsApp';
 }
 
+function contactoNombre(
+  contactos?: { nombre?: string | null } | { nombre?: string | null }[] | null
+): string {
+  const row = Array.isArray(contactos) ? contactos[0] : contactos;
+  return String(row?.nombre || '').trim();
+}
+
+export function conversationChatDisplayName(conv: {
+  remitente?: string | null;
+  display_name?: string | null;
+  metadata?: Record<string, unknown> | null;
+  contactos?: { nombre?: string | null } | { nombre?: string | null }[] | null;
+}): string {
+  return contactoNombre(conv.contactos) || conversationDisplayName(conv);
+}
+
 export function isPlaceholderLeadEmail(email: string | null | undefined): boolean {
   const value = String(email || '').trim().toLowerCase();
   return !value || value.endsWith('@klosync.local');

@@ -33,6 +33,7 @@ import {
   setChatSoundEnabled,
   unlockChatAudio,
 } from '@/lib/chat/chatNotifications';
+import { WA } from '@/app/chat/chatTheme';
 
 interface Conversacion {
   id: string;
@@ -121,12 +122,12 @@ export default function ChatSidebar({
     return (
       <Box sx={{ 
         width: 350, 
-        borderRight: 1,
+        borderRight: '1px solid #2a3942',
         borderColor: 'divider', 
-        bgcolor: 'background.paper',
+        bgcolor: WA.panel,
         p: 2
       }}>
-        <Typography sx={{ color: 'text.secondary' }}>
+        <Typography sx={{ color: WA.muted }}>
           Cargando conversaciones...
         </Typography>
       </Box>
@@ -136,30 +137,29 @@ export default function ChatSidebar({
   return (
     <Box sx={{ 
       width: 350, 
-      borderRight: 1,
-      borderColor: 'divider',
-      bgcolor: 'background.paper',
+      borderRight: '1px solid #2a3942',
+      bgcolor: WA.panel,
       height: '100%',
       display: 'flex',
       flexDirection: 'column'
     }}>
       {/* Header */}
       <Box sx={{ 
-        p: 2, 
-        borderBottom: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.default'
+        p: 1.5, 
+        px: 2,
+        bgcolor: WA.header
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Typography variant="h6" sx={{ 
-            color: 'primary.main', 
-            fontWeight: 700 
+            color: WA.text, 
+            fontWeight: 500,
+            fontSize: '1.15rem',
           }}>
-            Chat Unificado
+            Chat
           </Typography>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Tooltip title={soundOn ? 'Silenciar avisos' : 'Activar sonido de avisos'}>
-              <IconButton size="small" onClick={toggleSound} aria-label="Sonido de notificaciones">
+              <IconButton size="small" onClick={toggleSound} aria-label="Sonido de notificaciones" sx={{ color: WA.icon }}>
                 {soundOn ? <VolumeUpIcon fontSize="small" /> : <VolumeOffIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
@@ -167,13 +167,7 @@ export default function ChatSidebar({
               <IconButton
                 size="small"
                 onClick={() => setNewConversationOpen(true)}
-                sx={{
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: 'primary.dark'
-                  }
-                }}
+                sx={{ color: WA.icon }}
               >
                 <AddIcon fontSize="small" />
               </IconButton>
@@ -182,7 +176,7 @@ export default function ChatSidebar({
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="body2" sx={{ 
-            color: 'text.secondary'
+            color: WA.muted
           }}>
             {conversaciones.length} conversaciones activas
           </Typography>
@@ -196,10 +190,10 @@ export default function ChatSidebar({
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
         {conversaciones.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography sx={{ color: 'text.secondary', mb: 2 }}>
+            <Typography sx={{ color: WA.muted, mb: 2 }}>
               Todavía no hay conversaciones
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: WA.muted, mb: 2 }}>
               Conectá tu WhatsApp personal para que los mensajes de leads aparezcan acá.
             </Typography>
             <Button
@@ -225,14 +219,16 @@ export default function ChatSidebar({
                   selected={isActive}
                   onClick={() => onSelectConversacion(conversacion)}
                   sx={{
-                    py: 1.5,
-                    px: 2,
-                    borderBottom: 1,
-                    borderColor: 'divider',
+                    py: 1.1,
+                    px: 1.5,
+                    bgcolor: isActive ? WA.selected : 'transparent',
+                    '&:hover': {
+                      bgcolor: isActive ? WA.selected : '#202c33',
+                    },
                     '&.Mui-selected': {
-                      bgcolor: 'primary.main',
+                      bgcolor: WA.selected,
                       '&:hover': {
-                        bgcolor: 'primary.dark',
+                        bgcolor: WA.selected,
                       }
                     }
                   }}
@@ -241,7 +237,7 @@ export default function ChatSidebar({
                     <Box sx={{ position: 'relative', mr: 1 }}>
                       <Badge
                         badgeContent={unread ? conversacion.unread_count : 0}
-                        color="primary"
+                        sx={{ '& .MuiBadge-badge': { bgcolor: '#00a884', color: '#111b21' } }}
                         overlap="circular"
                       >
                         <Avatar sx={{ 
@@ -256,7 +252,7 @@ export default function ChatSidebar({
                         position: 'absolute',
                         bottom: -2,
                         right: -2,
-                        bgcolor: 'background.paper',
+                        bgcolor: WA.panel,
                         borderRadius: '50%',
                         width: 18,
                         height: 18,
@@ -275,7 +271,7 @@ export default function ChatSidebar({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box component="span" sx={{ 
                           display: 'block',
-                          color: isActive ? 'white' : 'text.primary',
+                          color: WA.text,
                           fontWeight: unread ? 800 : 600,
                           flex: 1,
                           overflow: 'hidden',
@@ -317,7 +313,7 @@ export default function ChatSidebar({
                     secondary={
                       <Box component="span" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
                         <Box component="span" sx={{ 
-                          color: isActive ? 'rgba(255,255,255,0.7)' : unread ? 'text.primary' : 'text.secondary',
+                          color: unread ? WA.text : WA.muted,
                           fontWeight: unread ? 600 : 400,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -328,7 +324,7 @@ export default function ChatSidebar({
                           {conversacion.ultimo_mensaje || 'Sin mensajes'}
                         </Box>
                         <Box component="span" sx={{ 
-                          color: isActive ? 'rgba(255,255,255,0.5)' : unread ? 'primary.main' : 'text.secondary',
+                          color: unread ? '#00a884' : WA.muted,
                           fontSize: '0.7rem',
                           fontWeight: unread ? 700 : 400,
                         }}>

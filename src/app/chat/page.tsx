@@ -38,7 +38,7 @@ function ChatPageInner() {
         width: '100vw',
         height: '100vh',
         display: 'flex',
-        bgcolor: 'background.default',
+        bgcolor: '#0b141a',
         pt: '70px',
       }}>
         <ChatSidebar

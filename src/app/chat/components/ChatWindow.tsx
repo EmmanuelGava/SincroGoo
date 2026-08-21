@@ -2,9 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
   Typography, 
-  Paper,
-  IconButton,
-  Divider
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 import ConversationHeader from './ConversationHeader';
@@ -12,6 +9,7 @@ import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
+import { WA, WA_CHAT_BG } from '@/app/chat/chatTheme';
 
 interface Conversacion {
   id: string;
@@ -298,9 +296,9 @@ export default function ChatWindow({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        bgcolor: 'background.default'
+        ...WA_CHAT_BG
       }}>
-        <Box sx={{ textAlign: 'center', color: 'text.secondary' }}>
+        <Box sx={{ textAlign: 'center', color: WA.muted }}>
           <InfoIcon sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
           <Typography variant="h6">
             Selecciona una conversación para comenzar
@@ -322,15 +320,13 @@ export default function ChatWindow({
     }}>
       {/* Header de la conversación */}
       <ConversationHeader conversacion={conversacion} onDelete={onDeleteConversacion} />
-      
-      <Divider />
 
       {/* Área de mensajes */}
       <Box sx={{ 
         flexGrow: 1, 
         overflowY: 'auto',
         p: 2,
-        bgcolor: 'background.default',
+        ...WA_CHAT_BG,
         display: 'flex',
         flexDirection: 'column'
       }}>
@@ -374,16 +370,13 @@ export default function ChatWindow({
         )}
       </Box>
 
-      <Divider />
-
-      {/* Input para enviar mensajes */}
       <MessageInput 
         onSendMessage={handleSendMessage}
         onSendFile={handleSendFile}
         onSendAudio={handleSendAudio}
         conversationId={conversacion.id}
         disabled={loading}
-        placeholder={`Responder por ${conversacion.servicio_origen}...`}
+        placeholder="Escribe un mensaje"
         enviando={enviando}
       />
     </Box>

@@ -42,8 +42,7 @@ export default function EmojiPickerComponent({ onEmojiSelect, disabled }: EmojiP
             disabled={disabled}
             onClick={handleClick}
             sx={{ 
-              mb: 0.5,
-              color: open ? 'primary.main' : 'inherit'
+              color: open ? '#00a884' : '#8696a0'
             }}
           >
             <EmojiEmotionsIcon />

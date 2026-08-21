@@ -3,7 +3,6 @@ import {
   Box, 
   Typography, 
   Paper,
-  Avatar,
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import TelegramIcon from '@mui/icons-material/Telegram';
@@ -12,9 +11,9 @@ import SmsIcon from '@mui/icons-material/Sms';
 import MessageStatus from './MessageStatus';
 import FileAttachment from './FileAttachment';
 import LinkPreview from './LinkPreview';
-import { conversationDisplayName } from '@/lib/chat/conversationIdentity';
 import { messageBubbleView } from '@/lib/chat/messageBubbleView';
 import { splitTextWithLinks } from '@/lib/chat/extractFirstUrl';
+import { WA } from '@/app/chat/chatTheme';
 
 interface Mensaje {
   id: string;
@@ -60,7 +59,7 @@ function LinkedCaption({ text, isOwn }: { text: string; isOwn: boolean }) {
             target="_blank"
             rel="noopener noreferrer"
             sx={{
-              color: isOwn ? 'inherit' : 'primary.main',
+              color: isOwn ? '#53bdeb' : '#53bdeb',
               textDecoration: 'underline',
               wordBreak: 'break-all',
             }}
@@ -78,10 +77,6 @@ function LinkedCaption({ text, isOwn }: { text: string; isOwn: boolean }) {
 export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
   const IconComponent = servicioIcons[mensaje.canal] || SmsIcon;
   const servicioColor = servicioColors[mensaje.canal] || '#90caf9';
-  const contactName = conversationDisplayName({
-    remitente: mensaje.remitente,
-    metadata: mensaje.metadata,
-  });
 
   const formatTime = (fecha: string) => {
     const date = new Date(fecha);
@@ -103,34 +98,20 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
     <Box sx={{ 
       display: 'flex', 
       justifyContent: isOwn ? 'flex-end' : 'flex-start',
-      mb: 0.5,
-      alignItems: 'flex-end',
-      gap: 1
+      mb: 0.35,
+      px: 1,
     }}>
-      {!isOwn && (
-        <Avatar sx={{ 
-          bgcolor: servicioColor,
-          width: 28,
-          height: 28,
-          fontSize: '0.75rem'
-        }}>
-          {contactName.charAt(0).toUpperCase()}
-        </Avatar>
-      )}
-
       <Paper
         elevation={0}
         sx={{
-          px: fileUrl && fileType === 'image' ? 0.5 : 1.5,
-          py: fileUrl && fileType === 'image' ? 0.5 : 1,
-          maxWidth: '75%',
-          bgcolor: isOwn ? 'primary.main' : 'background.paper',
-          color: isOwn ? 'white' : 'text.primary',
-          borderRadius: 2,
-          borderTopLeftRadius: !isOwn ? 0.5 : 2,
-          borderTopRightRadius: isOwn ? 0.5 : 2,
-          border: isOwn ? 'none' : '1px solid',
-          borderColor: 'divider',
+          px: fileUrl && fileType === 'image' ? 0.5 : 1.25,
+          py: fileUrl && fileType === 'image' ? 0.5 : 0.7,
+          maxWidth: '65%',
+          bgcolor: isOwn ? WA.outgoing : WA.incoming,
+          color: WA.text,
+          borderRadius: '7.5px',
+          borderTopLeftRadius: !isOwn ? '0px' : '7.5px',
+          borderTopRightRadius: isOwn ? '0px' : '7.5px',
           overflow: 'hidden',
         }}
       >
@@ -167,8 +148,9 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
             <IconComponent sx={{ color: servicioColor, fontSize: 12 }} />
           )}
           <Typography variant="caption" sx={{ 
-            color: isOwn ? 'rgba(255,255,255,0.7)' : 'text.secondary',
-            fontSize: '0.7rem'
+            color: 'rgba(233,237,239,0.6)',
+            fontSize: '0.68rem',
+            ml: 0.5,
           }}>
             {formatTime(mensaje.fecha_mensaje)}
           </Typography>

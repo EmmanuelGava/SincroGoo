@@ -1,6 +1,8 @@
-import React, { useCallback, useState } from 'react';
+'use client';
+
+import React, { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { useDropzone, type FileRejection } from 'react-dropzone';
-import { MEDIA_LIMITS, dropzoneRejectMessage, outgoingMediaHint, validateOutgoingMedia } from '@/lib/chat/mediaLimits';
+import { MEDIA_LIMITS, dropzoneRejectMessage, validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import {
   Box,
   Typography,
@@ -8,7 +10,6 @@ import {
   LinearProgress,
   Paper,
   Alert,
-  Tooltip,
 } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ImageIcon from '@mui/icons-material/Image';
@@ -16,6 +17,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
 import CloseIcon from '@mui/icons-material/Close';
 import { FileUploadService } from '@/app/servicios/storage/FileUploadService';
+import { WA } from '@/app/chat/chatTheme';
 
 interface FileUploadProps {
   onFileUploaded: (url: string, fileName: string, fileType: string, mimeType?: string) => void;
@@ -23,25 +25,37 @@ interface FileUploadProps {
   disabled?: boolean;
 }
 
-interface UploadingFile {
-  file: File;
-  progress: number;
-  error?: string;
-}
+export type FileUploadHandle = {
+  openDocuments: () => void;
+  openImages: () => void;
+};
 
-export default function FileUpload({ onFileUploaded, conversationId, disabled }: FileUploadProps) {
-  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+const IMAGE_ACCEPT = {
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/webp': ['.webp'],
+  'image/gif': ['.gif'],
+};
+
+const DOC_ACCEPT = {
+  'application/pdf': ['.pdf'],
+  'application/msword': ['.doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/vnd.ms-excel': ['.xls'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+};
+
+const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUpload(
+  { onFileUploaded, conversationId, disabled },
+  ref
+) {
+  const [uploadingFiles, setUploadingFiles] = useState<{ file: File; progress: number; error?: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
-  const onDropRejected = useCallback((fileRejections: FileRejection[]) => {
-    const first = fileRejections[0];
-    if (!first) return;
-    setError(dropzoneRejectMessage(first.errors, first.file.type));
-  }, []);
-
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  const uploadFiles = useCallback(async (acceptedFiles: File[]) => {
     setError(null);
-    
     for (const file of acceptedFiles) {
       const validation = validateOutgoingMedia(file);
       if (!validation.ok) {
@@ -49,185 +63,138 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
         continue;
       }
 
-      // Añadir a la lista de archivos subiendo
-      const uploadingFile: UploadingFile = { file, progress: 0 };
-      setUploadingFiles(prev => [...prev, uploadingFile]);
+      const uploadingFile = { file, progress: 0 };
+      setUploadingFiles((prev) => [...prev, uploadingFile]);
 
       try {
-        // Simular progreso (ya que Supabase no proporciona progreso real)
         const progressInterval = setInterval(() => {
-          setUploadingFiles(prev => 
-            prev.map(f => 
-              f.file === file && f.progress < 90 
-                ? { ...f, progress: f.progress + 10 }
-                : f
-            )
+          setUploadingFiles((prev) =>
+            prev.map((f) => (f.file === file && f.progress < 90 ? { ...f, progress: f.progress + 10 } : f))
           );
         }, 200);
 
-        // Subir archivo
         const result = await FileUploadService.uploadFile(file, conversationId);
-        
         clearInterval(progressInterval);
 
-        console.log('Upload result:', result); // Debug log
-
         if (result.success && result.url) {
-          // Completar progreso
-          setUploadingFiles(prev => 
-            prev.map(f => 
-              f.file === file 
-                ? { ...f, progress: 100 }
-                : f
-            )
-          );
-
-          // Notificar éxito
+          setUploadingFiles((prev) => prev.map((f) => (f.file === file ? { ...f, progress: 100 } : f)));
           const fileType = result.fileType || FileUploadService.getFileType(file);
           onFileUploaded(result.url, file.name, fileType, file.type);
-
-          // Remover de la lista después de un momento
           setTimeout(() => {
-            setUploadingFiles(prev => prev.filter(f => f.file !== file));
+            setUploadingFiles((prev) => prev.filter((f) => f.file !== file));
           }, 1000);
-
         } else {
-          // Error en la subida
-          setUploadingFiles(prev => 
-            prev.map(f => 
-              f.file === file 
-                ? { ...f, error: result.error || 'Error subiendo archivo' }
-                : f
-            )
+          setUploadingFiles((prev) =>
+            prev.map((f) => (f.file === file ? { ...f, error: result.error || 'Error subiendo archivo' } : f))
           );
         }
-
-      } catch (error) {
-        console.error('Error uploading file:', error);
-        setUploadingFiles(prev => 
-          prev.map(f => 
-            f.file === file 
-              ? { ...f, error: 'Error inesperado' }
-              : f
-          )
+      } catch {
+        setUploadingFiles((prev) =>
+          prev.map((f) => (f.file === file ? { ...f, error: 'Error inesperado' } : f))
         );
       }
     }
   }, [conversationId, onFileUploaded]);
 
+  const onDropRejected = useCallback((fileRejections: FileRejection[]) => {
+    const first = fileRejections[0];
+    if (!first) return;
+    setError(dropzoneRejectMessage(first.errors, first.file.type));
+  }, []);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: uploadFiles,
     onDropRejected,
     disabled,
     multiple: true,
+    noClick: true,
+    noKeyboard: true,
     maxSize: MEDIA_LIMITS.file.maxBytes,
-    accept: {
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'image/webp': ['.webp'],
-      'image/gif': ['.gif'],
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-    },
+    accept: { ...IMAGE_ACCEPT, ...DOC_ACCEPT },
   });
 
-  const removeUploadingFile = (file: File) => {
-    setUploadingFiles(prev => prev.filter(f => f.file !== file));
-  };
+  useImperativeHandle(ref, () => ({
+    openDocuments: () => docInputRef.current?.click(),
+    openImages: () => imageInputRef.current?.click(),
+  }));
 
-  const getFileIcon = (file: File) => {
-    const type = FileUploadService.getFileType(file);
-    switch (type) {
-      case 'image': return <ImageIcon />;
-      case 'file': return <DescriptionIcon />;
-      case 'audio': return <AudioFileIcon />;
-      default: return <AttachFileIcon />;
-    }
+  const onPicked = (files: FileList | null) => {
+    if (!files?.length) return;
+    void uploadFiles(Array.from(files));
   };
 
   return (
-    <Box>
-      {/* Dropzone */}
-      <Box
-        {...getRootProps()}
-        sx={{
-          display: 'inline-block',
-          cursor: disabled ? 'not-allowed' : 'pointer'
+    <Box {...getRootProps()} sx={{ outline: 'none' }}>
+      <input {...getInputProps()} />
+      <input
+        ref={imageInputRef}
+        type="file"
+        hidden
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        disabled={disabled}
+        onChange={(e) => {
+          onPicked(e.target.files);
+          e.target.value = '';
         }}
-      >
-        <input {...getInputProps()} />
-        <Tooltip title={outgoingMediaHint()}>
-          <span>
-            <IconButton 
-              size="small" 
-              disabled={disabled}
-              sx={{ 
-                mb: 0.5,
-                color: isDragActive ? 'primary.main' : 'inherit'
-              }}
-            >
-              <AttachFileIcon />
-            </IconButton>
-          </span>
-        </Tooltip>
-      </Box>
-
-      {/* Error general */}
+      />
+      <input
+        ref={docInputRef}
+        type="file"
+        hidden
+        accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf"
+        multiple
+        disabled={disabled}
+        onChange={(e) => {
+          onPicked(e.target.files);
+          e.target.value = '';
+        }}
+      />
+      {isDragActive ? (
+        <Typography variant="caption" sx={{ color: WA.muted, display: 'block', mb: 0.5 }}>
+          Soltá el archivo acá
+        </Typography>
+      ) : null}
       {error && (
-        <Alert 
-          severity="error" 
-          onClose={() => setError(null)}
-          sx={{ mt: 1, mb: 1 }}
-        >
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 1 }}>
           {error}
         </Alert>
       )}
-
-      {/* Lista de archivos subiendo */}
       {uploadingFiles.length > 0 && (
-        <Box sx={{ mt: 1 }}>
+        <Box sx={{ mb: 1 }}>
           {uploadingFiles.map((uploadingFile, index) => (
             <Paper
-              key={index}
-              elevation={1}
+              key={`${uploadingFile.file.name}-${index}`}
+              elevation={0}
               sx={{
                 p: 1.5,
                 mb: 1,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                bgcolor: 'background.paper'
+                bgcolor: WA.inputField,
+                color: WA.text,
               }}
             >
-              {getFileIcon(uploadingFile.file)}
-              
+              {FileUploadService.getFileType(uploadingFile.file) === 'image' ? <ImageIcon />
+                : FileUploadService.getFileType(uploadingFile.file) === 'file' ? <DescriptionIcon />
+                  : FileUploadService.getFileType(uploadingFile.file) === 'audio' ? <AudioFileIcon />
+                    : <AttachFileIcon />}
               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <Typography variant="body2" noWrap>
-                  {uploadingFile.file.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {FileUploadService.formatFileSize(uploadingFile.file.size)}
-                </Typography>
-                
+                <Typography variant="body2" noWrap>{uploadingFile.file.name}</Typography>
                 {uploadingFile.error ? (
-                  <Typography variant="caption" color="error">
-                    {uploadingFile.error}
-                  </Typography>
+                  <Typography variant="caption" color="error">{uploadingFile.error}</Typography>
                 ) : (
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={uploadingFile.progress}
-                    sx={{ mt: 0.5 }}
-                  />
+                  <LinearProgress variant="determinate" value={uploadingFile.progress} sx={{ mt: 0.5 }} />
                 )}
               </Box>
-
               <IconButton
                 size="small"
-                onClick={() => removeUploadingFile(uploadingFile.file)}
+                sx={{ color: WA.icon }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUploadingFiles((prev) => prev.filter((f) => f.file !== uploadingFile.file));
+                }}
               >
                 <CloseIcon fontSize="small" />
               </IconButton>
@@ -237,4 +204,8 @@ export default function FileUpload({ onFileUploaded, conversationId, disabled }:
       )}
     </Box>
   );
-}
+});
+
+FileUpload.displayName = 'FileUpload';
+
+export default FileUpload;

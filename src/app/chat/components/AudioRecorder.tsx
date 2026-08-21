@@ -18,9 +18,10 @@ import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 interface AudioRecorderProps {
   onAudioRecorded: (audioBlob: Blob, duration: number) => void;
   disabled?: boolean;
+  startRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps) {
+export default function AudioRecorder({ onAudioRecorded, disabled, startRef }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -86,6 +87,12 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
       setError('No se pudo acceder al micrófono. Verifica los permisos.');
     }
   };
+
+  useEffect(() => {
+    if (!startRef) return undefined;
+    startRef.current = () => { void startRecording(); };
+    return () => { startRef.current = null; };
+  });
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
@@ -285,7 +292,7 @@ export default function AudioRecorder({ onAudioRecorded, disabled }: AudioRecord
           size="small"
           disabled={disabled}
           onClick={startRecording}
-          sx={{ mb: 0.5 }}
+          sx={{ color: '#8696a0' }}
         >
           <MicIcon />
         </IconButton>

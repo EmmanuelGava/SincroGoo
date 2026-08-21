@@ -29,6 +29,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useRouter } from 'next/navigation';
 import LeadProfileModal from './LeadProfileModal';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
+import { WA } from '@/app/chat/chatTheme';
 
 interface Conversacion {
   id: string;
@@ -99,20 +100,20 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
 
   return (
     <Box sx={{ 
-      p: 2, 
-      bgcolor: 'background.paper',
+      p: 1.25, 
+      px: 2,
+      bgcolor: WA.header,
       display: 'flex',
       alignItems: 'center',
       gap: 2,
-      borderBottom: 1,
-      borderColor: 'divider',
     }}>
       {/* Avatar con indicador de servicio */}
       <Box sx={{ position: 'relative' }}>
         <Avatar sx={{ 
           bgcolor: servicioColor,
-          width: 48,
-          height: 48
+          width: 40,
+          height: 40,
+          fontSize: '1rem',
         }}>
           {displayName.charAt(0).toUpperCase()}
         </Avatar>
@@ -120,7 +121,7 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
           position: 'absolute',
           bottom: -2,
           right: -2,
-          bgcolor: 'background.paper',
+          bgcolor: WA.header,
           borderRadius: '50%',
           p: 0.5,
           display: 'flex',
@@ -137,9 +138,11 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
       {/* Información del contacto */}
       <Box sx={{ flexGrow: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="h6" sx={{ 
-            color: 'text.primary',
-            fontWeight: 600
+          <Typography variant="subtitle1" sx={{ 
+            color: WA.text,
+            fontWeight: 500,
+            fontSize: '1rem',
+            lineHeight: 1.3,
           }}>
             {displayName}
           </Typography>
@@ -167,7 +170,8 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
         </Box>
         
         <Typography variant="body2" sx={{ 
-          color: 'text.secondary'
+          color: WA.muted,
+          fontSize: '0.8rem',
         }}>
           {displayPhone && displayPhone !== displayName ? `${displayPhone} · ` : ''}
           {getLastSeenText()}
@@ -181,6 +185,7 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
             <IconButton 
               size="small"
               onClick={() => setLeadModalOpen(true)}
+              sx={{ color: WA.icon }}
             >
               <BusinessIcon />
             </IconButton>
@@ -191,6 +196,7 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
             <IconButton
               size="small"
               onClick={() => router.push(`/crm?lead=${conversacion.lead_id}`)}
+              sx={{ color: WA.icon }}
             >
               <ViewKanbanIcon />
             </IconButton>
@@ -202,6 +208,7 @@ export default function ConversationHeader({ conversacion, onDelete }: Conversat
             size="small"
             onClick={(event) => setMenuAnchor(event.currentTarget)}
             aria-label="Más opciones"
+            sx={{ color: WA.icon }}
           >
             <MoreVertIcon />
           </IconButton>

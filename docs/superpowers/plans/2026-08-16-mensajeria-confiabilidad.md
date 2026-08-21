@@ -278,10 +278,10 @@ export function nextSendDelayMs(lastSentAt: number | null): number {
 }
 ```
 
-- [ ] **Step 1:** Módulo `sendPacing.ts` con in-memory `Map<userId, { lastSentAt, window }>`. El worker es un proceso: memoria alcanza.
-- [ ] **Step 2:** Enganchar en `processOutboxBatch` **después** del claim, **antes** del send.
+- [x] **Step 1:** Módulo `sendPacing.ts` con in-memory `Map<userId, { lastSentAt, window }>`. El worker es un proceso: memoria alcanza.
+- [x] **Step 2:** Enganchar en `processOutboxBatch` **después** del claim, **antes** del send. El delay es solo worker (logs `⏳ pacing`); el front sigue encolando al toque.
 - [ ] **Step 3: Probar** mandar 5 textos seguidos: salen escalonados, no en 200 ms. Logs `⏳ pacing 1.4s`.
-- [ ] **Step 4: Commit** `feat: pacing anti-ban en envios WhatsApp`
+- [x] **Step 4: Commit** `feat: pacing anti-ban en envios WhatsApp`
 
 No implementar cola global Redis. Un worker, una sesión.
 

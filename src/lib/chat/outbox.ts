@@ -180,24 +180,66 @@ export async function completeOutboxSend(
   return status;
 }
 
+/** Devuelve el claim a queued sin marcar failed (rate limit / pacing). */
+export async function deferOutboxSend(
+  supabase: SupabaseClient,
+  row: WhatsAppOutboxRow,
+  delayMs: number
+): Promise<void> {
+  const attempts = Math.max((row.attempts || 1) - 1, 0);
+  await outboxTable(supabase)
+    .update({
+      status: 'queued',
+      attempts,
+      next_attempt_at: new Date(Date.now() + delayMs).toISOString(),
+      updated_at: new Date().toISOString(),
+    } as never)
+    .eq('id', row.id);
+}
+
 export type OutboxSendFn = (
   row: WhatsAppOutboxRow
 ) => Promise<{ success: boolean; waMessageId?: string; error?: string }>;
 
+export type OutboxPacer = {
+  decide: (userId: string) => { action: 'send' | 'defer'; delayMs: number };
+  recordSent: (userId: string) => void;
+  sleep?: (ms: number) => Promise<void>;
+};
+
 export async function processOutboxBatch(
   supabase: SupabaseClient,
   send: OutboxSendFn,
-  limit = 10
+  limit = 10,
+  pacer?: OutboxPacer
 ): Promise<{ processed: number; sent: number }> {
   let processed = 0;
   let sent = 0;
+  const sleep = pacer?.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   for (let i = 0; i < limit; i++) {
     const row = await claimWhatsAppOutbox(supabase);
     if (!row) break;
     processed += 1;
+
+    if (pacer) {
+      const decision = pacer.decide(row.usuario_id);
+      if (decision.action === 'defer') {
+        console.log(`⏳ pacing defer ${(decision.delayMs / 1000).toFixed(1)}s user=${row.usuario_id}`);
+        await deferOutboxSend(supabase, row, decision.delayMs);
+        continue;
+      }
+      if (decision.delayMs > 0) {
+        console.log(`⏳ pacing ${(decision.delayMs / 1000).toFixed(1)}s`);
+        await sleep(decision.delayMs);
+      }
+    }
+
     const result = await send(row);
     const status = await completeOutboxSend(supabase, row, result);
-    if (status === 'sent') sent += 1;
+    if (status === 'sent') {
+      sent += 1;
+      pacer?.recordSent(row.usuario_id);
+    }
   }
   return { processed, sent };
 }

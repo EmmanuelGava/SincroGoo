@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { whatsappLiteService } from '../src/app/servicios/messaging/whatsapp/WhatsAppLiteService';
 import { getSupabaseAdmin } from '../src/lib/supabase/client';
 import { processOutboxBatch, type WhatsAppOutboxRow } from '../src/lib/chat/outbox';
+import { SendPacer } from '../src/app/servicios/messaging/whatsapp/modules/sendPacing';
 
 const PORT = Number(process.env.PORT || 3001);
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
@@ -341,14 +342,20 @@ async function sendOutboxRow(row: WhatsAppOutboxRow) {
 }
 
 function startOutboxLoop() {
+  const pacer = new SendPacer();
+  let running = false;
   const tick = async () => {
+    if (running) return;
+    running = true;
     try {
-      const result = await processOutboxBatch(getSupabaseAdmin(), sendOutboxRow, 10);
+      const result = await processOutboxBatch(getSupabaseAdmin(), sendOutboxRow, 10, pacer);
       if (result.processed > 0) {
         console.log(`📬 Outbox: procesados ${result.processed}, enviados ${result.sent}`);
       }
     } catch (error) {
       console.error('❌ Loop outbox:', error);
+    } finally {
+      running = false;
     }
   };
   setInterval(tick, 2000);

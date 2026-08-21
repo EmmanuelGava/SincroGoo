@@ -15,3 +15,7 @@ export function shouldAlertIncomingMessage(input: ChatNotifyInput): boolean {
   }
   return true;
 }
+
+export function shouldPlayIncomingSound(input: Pick<ChatNotifyInput, 'direction'>): boolean {
+  return input.direction !== 'outgoing';
+}

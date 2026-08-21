@@ -29,7 +29,9 @@ import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conve
 import {
   ensureChatNotificationPermission,
   isChatSoundEnabled,
+  playChatIncomingSound,
   setChatSoundEnabled,
+  unlockChatAudio,
 } from '@/lib/chat/chatNotifications';
 
 interface Conversacion {
@@ -85,7 +87,9 @@ export default function ChatSidebar({
     const next = !soundOn;
     setSoundOn(next);
     setChatSoundEnabled(next);
+    unlockChatAudio();
     if (next) {
+      playChatIncomingSound();
       void ensureChatNotificationPermission();
     }
   };

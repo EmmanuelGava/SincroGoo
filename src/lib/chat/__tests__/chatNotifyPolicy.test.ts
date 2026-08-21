@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldAlertIncomingMessage } from '../chatNotifyPolicy';
+import { shouldAlertIncomingMessage, shouldPlayIncomingSound } from '../chatNotifyPolicy';
 
 describe('shouldAlertIncomingMessage', () => {
   it('no alerta mensajes salientes', () => {
@@ -35,5 +35,23 @@ describe('shouldAlertIncomingMessage', () => {
       conversacionId: 'a',
       activeConversacionId: 'b',
     })).toBe(true);
+  });
+});
+
+describe('shouldPlayIncomingSound', () => {
+  it('suena en un mensaje entrante aunque estés mirando ese chat', () => {
+    expect(shouldPlayIncomingSound({
+      direction: 'incoming',
+      pageVisible: true,
+      conversacionId: 'a',
+      activeConversacionId: 'a',
+    })).toBe(true);
+  });
+
+  it('no suena en mensajes salientes', () => {
+    expect(shouldPlayIncomingSound({
+      direction: 'outgoing',
+      pageVisible: false,
+    })).toBe(false);
   });
 });

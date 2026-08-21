@@ -3,7 +3,7 @@ import { useSession } from 'next-auth/react';
 import { initSocket, shouldInitializeSocket } from '@/lib/socket';
 import { supabase } from '@/lib/supabase/browserClient';
 import { inboxChannelName } from '@/lib/chat/inboxChannel';
-import { shouldAlertIncomingMessage } from '@/lib/chat/chatNotifyPolicy';
+import { shouldAlertIncomingMessage, shouldPlayIncomingSound } from '@/lib/chat/chatNotifyPolicy';
 import {
   isChatSoundEnabled,
   playChatIncomingSound,
@@ -272,8 +272,12 @@ export function useChat() {
 
   useEffect(() => {
     const unlock = () => unlockChatAudio();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    return () => window.removeEventListener('pointerdown', unlock);
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
   }, []);
 
   const refreshLive = useCallback(() => {
@@ -290,6 +294,9 @@ export function useChat() {
     contactName?: string;
     direction?: string;
   }) => {
+    if (shouldPlayIncomingSound({ direction: payload.direction }) && isChatSoundEnabled()) {
+      playChatIncomingSound();
+    }
     if (!shouldAlertIncomingMessage({
       direction: payload.direction,
       conversacionId: payload.conversacionId,
@@ -297,9 +304,6 @@ export function useChat() {
       pageVisible: typeof document === 'undefined' ? true : !document.hidden,
     })) {
       return;
-    }
-    if (isChatSoundEnabled()) {
-      playChatIncomingSound();
     }
     const title = payload.contactName || 'Nuevo mensaje';
     const body = payload.preview || 'Tenés un mensaje nuevo';

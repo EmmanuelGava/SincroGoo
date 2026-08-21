@@ -82,6 +82,8 @@ No hacer acá: Cloud API de Meta, multiagente, broadcast.
 
 Sin esto el resto de Kommo se construye mal. Un chat no es un contacto.
 
+- Migración `contactos_persona_deal` aplicada en prod (tabla `contactos`, FKs, RPC `buscar_contactos`).
+
 - [ ] Tabla `contactos` + CRUD + búsqueda.
 - [ ] Ficha: conversaciones, lead del Kanban, presentaciones vinculadas.
 - [ ] Cruzar teléfono/WhatsApp entrante con contactos existentes.

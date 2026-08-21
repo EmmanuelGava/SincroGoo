@@ -166,7 +166,7 @@ export const authOptions: NextAuthOptions = {
               );
               await supabaseAdmin
                 .from('usuarios')
-                .update({ google_refresh_token: account.refresh_token })
+                .update({ google_refresh_token: account.refresh_token, google_id: user.id })
                 .eq('auth_id', user.id);
             } catch (e) {
               console.error('[NextAuth] Error guardando refresh_token:', e);

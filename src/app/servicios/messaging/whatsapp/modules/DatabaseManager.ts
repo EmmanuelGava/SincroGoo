@@ -26,6 +26,7 @@ export class DatabaseManager {
         .from('usuarios')
         .insert({
           auth_id: userId,
+          google_id: userId,
           email: extra?.email || `auth-${userId}@klosync.user`,
           nombre: extra?.nombre || 'Usuario',
           provider: 'google',

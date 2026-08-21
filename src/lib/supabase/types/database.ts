@@ -461,6 +461,7 @@ export interface Database {
           fecha_creacion: string | null;
           fecha_actualizacion: string | null;
           auth_id: string;
+          google_id: string | null;
         };
         Insert: {
           id?: string;
@@ -472,6 +473,7 @@ export interface Database {
           fecha_creacion?: string | null;
           fecha_actualizacion?: string | null;
           auth_id: string;
+          google_id?: string | null;
         };
         Update: {
           id?: string;
@@ -483,6 +485,7 @@ export interface Database {
           fecha_creacion?: string | null;
           fecha_actualizacion?: string | null;
           auth_id?: string;
+          google_id?: string | null;
         };
       };
     };

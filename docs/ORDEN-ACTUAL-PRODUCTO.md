@@ -73,8 +73,8 @@ Hacer, en este orden (detalle en el plan de confiabilidad):
 - [x] Ticks reales: enviado / entregado / leído / error (en `main`; falta demo 1 tilde → 2 grises → 2 celestes).
 - [x] Media **entrante** persistida (no solo placeholder `[Imagen]` / `[Audio]` en el catch-up). *En `main`; falta prueba con foto/audio reales (se ven y siguen abriendo al día siguiente).*
 - [ ] Límites de tamaño/tipo visibles en la UI. *Código: imagen 5 MB, audio 16 MB, video rechazado. Falta probar PNG de 6 MB → error claro, no outbox.*
-- [ ] Delay anti-ban entre envíos. *Código en worker: gap 0,8–2,5 s y techo 20/min. El chat no espera ni muestra los ms.*
-- [ ] Borrar servicios WhatsApp legacy (V2 / Old) cuando el camino caliente esté estable.
+- [x] Delay anti-ban entre envíos. *En `main`; en BD los envíos seguidos salen ~2.4–3.6 s, no en 200 ms. El chat no espera ni muestra los ms.*
+- [x] Borrar servicios WhatsApp legacy (V2 / Old). La única clase viva es `WhatsAppLiteService`.
 
 No hacer acá: Cloud API de Meta, multiagente, broadcast.
 

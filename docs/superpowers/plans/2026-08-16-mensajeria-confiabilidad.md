@@ -300,11 +300,11 @@ No implementar cola global Redis. Un worker, una sesión.
 
 **Files que se quedan:** `WhatsAppLiteService.ts`, `modules/EventManager.ts`, `ConnectionManager.ts`, `DatabaseManager.ts`, `AuthManager.ts`, `socketHealth.ts`, `worker/whatsapp.ts`
 
-- [ ] **Step 1:** `rg "WhatsAppLiteServiceV2|WhatsAppLiteServiceOld|EventManager.backup|EventManager.clean" src worker`
-- [ ] **Step 2:** Si solo hay auto-referencias, borrar archivos. Si algo de tests los usa, actualizar tests o borrar tests muertos.
-- [ ] **Step 3:** `npx tsc --noEmit` OK.
-- [ ] **Step 4: Commit** `chore: borrar servicios WhatsApp legacy`
-- [ ] **Step 5:** Una línea en el doc canónico: “la única clase viva es `WhatsAppLiteService`”.
+- [x] **Step 1:** `rg "WhatsAppLiteServiceV2|WhatsAppLiteServiceOld|EventManager.backup|EventManager.clean" src worker`
+- [x] **Step 2:** Si solo hay auto-referencias, borrar archivos. Si algo de tests los usa, actualizar tests o borrar tests muertos.
+- [x] **Step 3:** `npx tsc --noEmit` OK.
+- [x] **Step 4: Commit** `chore: borrar servicios WhatsApp legacy`
+- [x] **Step 5:** Una línea en el doc canónico: “la única clase viva es `WhatsAppLiteService`”.
 
 ---
 

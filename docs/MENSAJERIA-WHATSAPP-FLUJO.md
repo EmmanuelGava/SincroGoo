@@ -1,6 +1,6 @@
 # Mensajería WhatsApp en KloSync
 
-Documento canónico. Actualizado: 19 agosto 2026.
+Documento canónico. Actualizado: 21 agosto 2026.
 
 Los docs viejos (`WHATSAPP_LITE_CONNECTION_FLOW.md`, `whatsapp-credentials-flow.md`, `BAILEYS_CREDENTIALS_SOLUTION.md`, `WHATSAPP-TROUBLESHOOTING.md`) describen una etapa anterior (Baileys adentro de Next.js). Este archivo es el que vale hoy.
 
@@ -59,6 +59,8 @@ Archivos que importan:
 | Realtime | `src/lib/chat/notifyInbox.ts`, `src/app/chat/hooks/useChat.tsx` |
 | UI chat | `src/app/chat/page.tsx`, `ChatWindow.tsx`, `MessageBubble.tsx` |
 | UI vincular | `src/app/configuracion/mensajeria/components/WhatsAppConnect.tsx` |
+
+La única clase viva de Baileys es `WhatsAppLiteService`. No hay V2 ni Old.
 
 ---
 

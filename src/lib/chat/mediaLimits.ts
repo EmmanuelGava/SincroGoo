@@ -89,7 +89,7 @@ export function validateOutgoingMedia(input: MediaInput): ValidateOutgoingMediaR
   return { ok: true, kind };
 }
 
-export function dropzoneRejectMessage(errors: Array<{ code: string }>, fileType?: string): string {
+export function dropzoneRejectMessage(errors: ReadonlyArray<{ code: string }>, fileType?: string): string {
   const mime = normalizeOutgoingMime(fileType || '');
   if (mime.startsWith('video/')) {
     return 'El video aún no se puede enviar por este chat';

@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { looksLikePhoneNumber, onlyDigits } from '@/lib/chat/conversationIdentity';
+import { linkConversacionAContactoSiExiste } from '@/lib/contactos/matchContacto';
 
 export interface IncomingMessageData {
   platform: 'whatsapp' | 'telegram' | 'email';
@@ -57,7 +58,7 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
         ? remitente
         : undefined);
 
-    const conversacionId = await findOrCreateConversation(supabase, {
+    const conversacion = await findOrCreateConversation(supabase, {
       remitente,
       platform: data.platform,
       timestamp: data.timestamp || new Date(),
@@ -65,6 +66,14 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
       remoteJid: data.metadata?.remote_jid,
       phoneNumber,
       contactName: data.contact.name,
+    });
+    const conversacionId = conversacion.id;
+
+    await linkConversacionAContactoSiExiste(supabase, {
+      conversacionId,
+      googleUserId: data.metadata?.userId,
+      existingContactoId: conversacion.contacto_id,
+      rawPhone: phoneNumber,
     });
 
     // 2. Guardar el mensaje
@@ -149,11 +158,11 @@ async function findOrCreateConversation(supabase: any, data: {
 }) {
   const remitente = data.phoneNumber || data.remitente;
 
-  let existingConversation: { id: string; metadata?: Record<string, unknown>; fecha_mensaje?: string } | null = null;
+  let existingConversation: { id: string; contacto_id?: string | null; metadata?: Record<string, unknown>; fecha_mensaje?: string } | null = null;
 
   const byPhone = await supabase
     .from('conversaciones')
-    .select('id, metadata, fecha_mensaje')
+    .select('id, contacto_id, metadata, fecha_mensaje')
     .eq('remitente', remitente)
     .eq('servicio_origen', data.platform)
     .order('fecha_mensaje', { ascending: false })
@@ -165,7 +174,7 @@ async function findOrCreateConversation(supabase: any, data: {
   if (!existingConversation && data.remoteJid) {
     const byJid = await supabase
       .from('conversaciones')
-      .select('id, metadata, fecha_mensaje')
+      .select('id, contacto_id, metadata, fecha_mensaje')
       .eq('servicio_origen', data.platform)
       .filter('metadata->>remote_jid', 'eq', data.remoteJid)
       .order('fecha_mensaje', { ascending: false })
@@ -178,7 +187,7 @@ async function findOrCreateConversation(supabase: any, data: {
     const lidDigits = data.remoteJid.split('@')[0].split(':')[0];
     const byLid = await supabase
       .from('conversaciones')
-      .select('id, metadata, fecha_mensaje')
+      .select('id, contacto_id, metadata, fecha_mensaje')
       .eq('remitente', lidDigits)
       .eq('servicio_origen', data.platform)
       .order('fecha_mensaje', { ascending: false })
@@ -210,7 +219,7 @@ async function findOrCreateConversation(supabase: any, data: {
       .update(patch)
       .eq('id', existingConversation.id);
     
-    return existingConversation.id;
+    return { id: existingConversation.id, contacto_id: existingConversation.contacto_id ?? null };
   }
 
   // Crear nueva conversación
@@ -232,7 +241,7 @@ async function findOrCreateConversation(supabase: any, data: {
         ...(data.contactName ? { contact_name: data.contactName } : {}),
       }
     })
-    .select('id')
+    .select('id, contacto_id')
     .single();
 
   if (error) {
@@ -240,7 +249,7 @@ async function findOrCreateConversation(supabase: any, data: {
     throw error;
   }
 
-  return newConversation.id;
+  return { id: newConversation.id, contacto_id: newConversation.contacto_id ?? null };
 }
 
 /**

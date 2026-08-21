@@ -8,6 +8,7 @@ export type RespuestaVars = {
   nombre?: string | null;
   telefono?: string | null;
   producto?: string | null;
+  precio?: string | null;
 };
 
 export type RespuestaCategoria = 'general' | 'venta' | 'producto';
@@ -23,7 +24,7 @@ export const DEFAULT_RESPUESTAS_RAPIDAS: Array<{
   {
     atajo: 'precio',
     categoria: 'venta',
-    texto: 'Hola {{nombre}}, el precio de {{producto}} es $____. ¿Te lo reservo?',
+    texto: 'Hola {{nombre}}, el precio de {{producto}} es {{precio}}. ¿Te lo reservo?',
   },
   {
     atajo: 'propuesta',
@@ -43,7 +44,7 @@ export const DEFAULT_RESPUESTAS_RAPIDAS: Array<{
   {
     atajo: 'producto',
     categoria: 'producto',
-    texto: '{{producto}}: incluye ____. Precio $____. ¿Querés que te lo aparte?',
+    texto: '{{producto}}: incluye ____. Precio {{precio}}. ¿Querés que te lo aparte?',
   },
 ];
 
@@ -86,10 +87,43 @@ export function applyRespuestaTexto(template: string, vars: RespuestaVars): stri
   const nombre = (vars.nombre || '').trim();
   const telefono = (vars.telefono || '').trim();
   const producto = (vars.producto || '').trim() || '[producto]';
+  const precio = (vars.precio || '').trim() || '$____';
   return template
     .replace(/\{\{\s*nombre\s*\}\}/gi, nombre)
     .replace(/\{\{\s*telefono\s*\}\}/gi, telefono)
-    .replace(/\{\{\s*producto\s*\}\}/gi, producto);
+    .replace(/\{\{\s*producto\s*\}\}/gi, producto)
+    .replace(/\{\{\s*precio\s*\}\}/gi, precio);
+}
+
+export function draftNeedsCatalog(text: string): boolean {
+  return /\{\{\s*producto\s*\}\}/i.test(text) || /\[producto\]/i.test(text);
+}
+
+export function formatCatalogPrecio(precio: number | string | null | undefined): string {
+  if (precio === null || precio === undefined || precio === '') return '$____';
+  const n = typeof precio === 'number' ? precio : Number(String(precio).replace(',', '.'));
+  if (!Number.isFinite(n)) return `$${precio}`;
+  const negative = n < 0;
+  const abs = Math.abs(n);
+  const [intRaw, decRaw] = abs.toFixed(Number.isInteger(abs) ? 0 : 2).split('.');
+  const int = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const body = decRaw ? `$${int},${decRaw}` : `$${int}`;
+  return negative ? `-${body}` : body;
+}
+
+export function fillCatalogPlaceholders(
+  draft: string,
+  opts: { nombre?: string | null; telefono?: string | null; item: { nombre: string; precio?: number | string | null } }
+): string {
+  const precio = formatCatalogPrecio(opts.item.precio);
+  return applyRespuestaTexto(draft, {
+    nombre: opts.nombre,
+    telefono: opts.telefono,
+    producto: opts.item.nombre,
+    precio,
+  })
+    .replace(/\[producto\]/gi, opts.item.nombre)
+    .replace(/\$____/g, precio);
 }
 
 export function insertRespuestaInDraft(

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyRespuestaTexto,
   DEFAULT_RESPUESTAS_RAPIDAS,
+  draftNeedsCatalog,
+  fillCatalogPlaceholders,
   filterRespuestasRapidas,
   insertRespuestaInDraft,
   missingDefaultRespuestas,
@@ -63,6 +65,38 @@ describe('applyRespuestaTexto', () => {
   it('si falta el producto, deja [producto] para completar', () => {
     expect(applyRespuestaTexto('Te paso {{producto}}', {})).toBe('Te paso [producto]');
     expect(applyRespuestaTexto('Te paso {{producto}}', { producto: 'Kit X' })).toBe('Te paso Kit X');
+  });
+
+  it('rellena {{precio}} o deja $____', () => {
+    expect(applyRespuestaTexto('sale {{precio}}', { precio: '$12.500' })).toBe('sale $12.500');
+    expect(applyRespuestaTexto('sale {{precio}}', {})).toBe('sale $____');
+  });
+});
+
+describe('draftNeedsCatalog', () => {
+  it('es true si queda {{producto}} o [producto]', () => {
+    expect(draftNeedsCatalog('Hola [producto] sale {{precio}}')).toBe(true);
+    expect(draftNeedsCatalog('Hola {{producto}}')).toBe(true);
+    expect(draftNeedsCatalog('Hola Ana, ¿cómo estás?')).toBe(false);
+  });
+});
+
+describe('fillCatalogPlaceholders', () => {
+  it('pone nombre, precio y deja el resto', () => {
+    expect(
+      fillCatalogPlaceholders('Hola {{nombre}}, [producto] sale {{precio}}', {
+        nombre: 'Ana',
+        item: { nombre: 'Kit X', precio: 12500 },
+      })
+    ).toBe('Hola Ana, Kit X sale $12.500');
+  });
+
+  it('también reemplaza $____ de plantillas viejas', () => {
+    expect(
+      fillCatalogPlaceholders('el precio de [producto] es $____', {
+        item: { nombre: 'Silla', precio: 90 },
+      })
+    ).toBe('el precio de Silla es $90');
   });
 });
 

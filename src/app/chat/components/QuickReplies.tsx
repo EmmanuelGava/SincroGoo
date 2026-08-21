@@ -110,11 +110,13 @@ export function QuickReplyManager({
   onClose,
   items,
   onChanged,
+  onOpenCatalog,
 }: {
   open: boolean;
   onClose: () => void;
   items: RespuestaRapida[];
   onChanged: () => void;
+  onOpenCatalog?: () => void;
 }) {
   const [atajo, setAtajo] = useState('');
   const [texto, setTexto] = useState('');
@@ -233,6 +235,17 @@ export function QuickReplyManager({
         </Box>
       </DialogContent>
       <DialogActions>
+        {onOpenCatalog ? (
+          <Button
+            onClick={() => {
+              onClose();
+              onOpenCatalog();
+            }}
+            sx={{ mr: 'auto' }}
+          >
+            Catálogo
+          </Button>
+        ) : null}
         <Button onClick={onClose}>Cerrar</Button>
         <Button
           variant="contained"

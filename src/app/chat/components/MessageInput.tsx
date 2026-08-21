@@ -18,18 +18,22 @@ import FileUpload, { type FileUploadHandle } from './FileUpload';
 import EmojiPickerComponent from './EmojiPicker';
 import AudioRecorder from './AudioRecorder';
 import { QuickReplyManager, QuickReplyPicker } from './QuickReplies';
+import { CatalogManager, CatalogPicker } from './CatalogPicker';
 import { WA } from '@/app/chat/chatTheme';
 import {
+  draftNeedsCatalog,
+  fillCatalogPlaceholders,
   filterRespuestasRapidas,
   insertRespuestaInDraft,
   parseSlashDraft,
   type RespuestaRapida,
   type RespuestaVars,
 } from '@/lib/chat/respuestasRapidas';
+import { catalogAttachment, type CatalogoItem } from '@/lib/chat/catalogoVentas';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string) => void;
-  onSendFile?: (url: string, fileName: string, fileType: string, mimeType?: string) => void;
+  onSendFile?: (url: string, fileName: string, fileType: string, mimeType?: string, caption?: string) => void;
   onSendAudio?: (audioBlob: Blob, duration: number) => void;
   conversationId?: string;
   disabled?: boolean;
@@ -87,6 +91,10 @@ export default function MessageInput({
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashDismissed, setSlashDismissed] = useState(false);
   const [localManageOpen, setLocalManageOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogManageOpen, setCatalogManageOpen] = useState(false);
+  const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
+  const [selectedCatalog, setSelectedCatalog] = useState<CatalogoItem | null>(null);
   const manage = manageOpen ?? localManageOpen;
   const setManage = onManageOpenChange ?? setLocalManageOpen;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -105,8 +113,20 @@ export default function MessageInput({
     }
   };
 
+  const loadCatalogo = async () => {
+    try {
+      const res = await fetch('/api/chat/catalogo', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setCatalogo(data.items || []);
+    } catch {
+      /* sin catálogo el chip igual se muestra */
+    }
+  };
+
   useEffect(() => {
     void loadRespuestas();
+    void loadCatalogo();
   }, []);
 
   const slash = parseSlashDraft(mensaje);
@@ -121,28 +141,50 @@ export default function MessageInput({
     const next = insertRespuestaInDraft(mensaje, item.texto, respuestaVars || {});
     setMensaje(next);
     setSlashDismissed(true);
+    setSelectedCatalog(null);
+    if (draftNeedsCatalog(next)) setCatalogOpen(true);
+    onTyping?.(next.length > 0);
+  };
+
+  const applyCatalogItem = (item: CatalogoItem) => {
+    const next = fillCatalogPlaceholders(mensaje, {
+      nombre: respuestaVars?.nombre,
+      telefono: respuestaVars?.telefono,
+      item: { nombre: item.nombre, precio: item.precio },
+    });
+    setMensaje(next);
+    setSelectedCatalog(item);
+    setCatalogOpen(false);
     onTyping?.(next.length > 0);
   };
 
   const handleSend = () => {
     if (disabled) return;
     if (slashOpen && slashItems[slashIndex]) {
-      const next = insertRespuestaInDraft(mensaje, slashItems[slashIndex].texto, respuestaVars || {}).trim();
-      if (!next) return;
-      onSendMessage(next);
-      setMensaje('');
-      setSlashDismissed(false);
-      onTyping?.(false);
+      applyRespuesta(slashItems[slashIndex]);
       return;
     }
-    if (mensaje.trim()) {
-      onSendMessage(mensaje.trim());
-      setMensaje('');
-      onTyping?.(false);
+    const texto = mensaje.trim();
+    if (!texto) return;
+    const attach = selectedCatalog ? catalogAttachment(selectedCatalog) : null;
+    if (attach && onSendFile) {
+      onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto);
+    } else {
+      onSendMessage(texto);
     }
+    setMensaje('');
+    setSelectedCatalog(null);
+    setCatalogOpen(false);
+    setSlashDismissed(false);
+    onTyping?.(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (catalogOpen && e.key === 'Escape') {
+      e.preventDefault();
+      setCatalogOpen(false);
+      return;
+    }
     if (slashOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -156,6 +198,10 @@ export default function MessageInput({
       }
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (catalogOpen) {
+          setCatalogOpen(false);
+          return;
+        }
         setSlashDismissed(true);
         return;
       }
@@ -228,6 +274,17 @@ export default function MessageInput({
           onHover={setSlashIndex}
           onSelect={applyRespuesta}
           onManage={() => setManage(true)}
+        />
+      ) : null}
+
+      {catalogOpen && !slashOpen ? (
+        <CatalogPicker
+          items={catalogo}
+          onSelect={applyCatalogItem}
+          onManage={() => {
+            setCatalogOpen(false);
+            setCatalogManageOpen(true);
+          }}
         />
       ) : null}
 
@@ -393,11 +450,42 @@ export default function MessageInput({
           </Tooltip>
         ) : null}
       </Box>
+
+      {(draftNeedsCatalog(mensaje) || selectedCatalog) && !audioBusy ? (
+        <Box
+          onClick={() => setCatalogOpen(true)}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.75,
+            ml: 6,
+            mt: 0.75,
+            px: 1.25,
+            py: 0.4,
+            borderRadius: 4,
+            bgcolor: WA.inputField,
+            color: WA.text,
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+            '&:hover': { bgcolor: WA.selected },
+          }}
+        >
+          {selectedCatalog ? `${selectedCatalog.nombre} · cambiar` : 'Elegir producto'}
+        </Box>
+      ) : null}
+
       <QuickReplyManager
         open={manage}
         onClose={() => setManage(false)}
         items={respuestas}
         onChanged={() => { void loadRespuestas(); }}
+        onOpenCatalog={() => setCatalogManageOpen(true)}
+      />
+      <CatalogManager
+        open={catalogManageOpen}
+        onClose={() => setCatalogManageOpen(false)}
+        items={catalogo}
+        onChanged={() => { void loadCatalogo(); }}
       />
     </Paper>
   );

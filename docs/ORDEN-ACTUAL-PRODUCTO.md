@@ -95,7 +95,7 @@ Sin esto el resto de Kommo se construye mal. Un chat no es un contacto.
 
 Cuando el loop y los contactos existen:
 
-- [x] Respuestas rápidas (`/` + templates).
+- [x] Respuestas rápidas (`/` + templates). Catálogo de producto/presupuesto/propuesta seleccionable en el compositor.
 - [ ] Búsqueda en historial de conversaciones.
 - [ ] Valor monetario y fecha de cierre en la tarjeta del Kanban.
 - [ ] Filtros del tablero: canal, valor, fecha.

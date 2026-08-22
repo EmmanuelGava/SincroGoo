@@ -1,6 +1,11 @@
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
-import { looksLikePhoneNumber, onlyDigits } from '@/lib/chat/conversationIdentity';
+import {
+  looksLikePhoneNumber,
+  onlyDigits,
+  preferredConversationRemitente,
+  isWhatsAppLid,
+} from '@/lib/chat/conversationIdentity';
 import { linkConversacionAContactoSiExiste } from '@/lib/contactos/matchContacto';
 
 export interface IncomingMessageData {
@@ -52,11 +57,30 @@ export async function handleIncomingMessage(data: IncomingMessageData) {
     const remoteJid = String(data.metadata?.remote_jid || '');
     const rawPhone = data.metadata?.phone_number ? String(data.metadata.phone_number) : '';
     const lidDigits = remoteJid.includes('@lid') ? onlyDigits(remoteJid) : '';
-    const phoneNumber = looksLikePhoneNumber(rawPhone) && (!lidDigits || onlyDigits(rawPhone) !== lidDigits)
-      ? rawPhone
+    let phoneNumber = looksLikePhoneNumber(rawPhone) && (!lidDigits || onlyDigits(rawPhone) !== lidDigits)
+      ? onlyDigits(rawPhone)
       : (data.platform === 'whatsapp' && looksLikePhoneNumber(remitente) && !remoteJid.includes('@lid')
-        ? remitente
+        ? onlyDigits(remitente)
         : undefined);
+
+    // LID sin teléfono: intentar resolver para reusar el chat del número
+    if (
+      !phoneNumber
+      && isWhatsAppLid(remoteJid)
+      && data.metadata?.userId
+      && data.platform === 'whatsapp'
+    ) {
+      try {
+        const { liteResolvePeer } = await import('@/lib/whatsapp/workerClient');
+        const resolved = await liteResolvePeer(String(data.metadata.userId), remoteJid);
+        const phone = typeof resolved.body.phone === 'string' ? resolved.body.phone : '';
+        if (resolved.body.resolved && looksLikePhoneNumber(phone)) {
+          phoneNumber = onlyDigits(phone);
+        }
+      } catch (err) {
+        console.warn('No se pudo resolver LID→teléfono:', err);
+      }
+    }
 
     const conversacion = await findOrCreateConversation(supabase, {
       remitente,
@@ -156,25 +180,27 @@ async function findOrCreateConversation(supabase: any, data: {
   phoneNumber?: string;
   contactName?: string;
 }) {
-  const remitente = data.phoneNumber || data.remitente;
+  const canonicalRemitente = preferredConversationRemitente({
+    remoteJid: data.remoteJid,
+    phoneNumber: data.phoneNumber,
+    remitente: data.remitente,
+  });
 
-  let existingConversation: { id: string; contacto_id?: string | null; metadata?: Record<string, unknown>; fecha_mensaje?: string } | null = null;
+  type ConvRow = {
+    id: string;
+    contacto_id?: string | null;
+    metadata?: Record<string, unknown>;
+    fecha_mensaje?: string;
+    remitente?: string;
+  };
 
-  const byPhone = await supabase
-    .from('conversaciones')
-    .select('id, contacto_id, metadata, fecha_mensaje')
-    .eq('remitente', remitente)
-    .eq('servicio_origen', data.platform)
-    .order('fecha_mensaje', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let existingConversation: ConvRow | null = null;
 
-  existingConversation = byPhone.data;
-
-  if (!existingConversation && data.remoteJid) {
+  // 1) remote_jid exacto (LID o @s.whatsapp.net)
+  if (data.remoteJid) {
     const byJid = await supabase
       .from('conversaciones')
-      .select('id, contacto_id, metadata, fecha_mensaje')
+      .select('id, contacto_id, metadata, fecha_mensaje, remitente')
       .eq('servicio_origen', data.platform)
       .filter('metadata->>remote_jid', 'eq', data.remoteJid)
       .order('fecha_mensaje', { ascending: false })
@@ -183,11 +209,12 @@ async function findOrCreateConversation(supabase: any, data: {
     existingConversation = byJid.data;
   }
 
-  if (!existingConversation && data.remoteJid && data.remoteJid.includes('@lid')) {
+  // 2) remitente = LID
+  if (!existingConversation && data.remoteJid && isWhatsAppLid(data.remoteJid)) {
     const lidDigits = data.remoteJid.split('@')[0].split(':')[0];
     const byLid = await supabase
       .from('conversaciones')
-      .select('id, contacto_id, metadata, fecha_mensaje')
+      .select('id, contacto_id, metadata, fecha_mensaje, remitente')
       .eq('remitente', lidDigits)
       .eq('servicio_origen', data.platform)
       .order('fecha_mensaje', { ascending: false })
@@ -196,11 +223,50 @@ async function findOrCreateConversation(supabase: any, data: {
     existingConversation = byLid.data;
   }
 
+  // 3) teléfono (remitente o metadata) — reusa chat previo por número
+  if (!existingConversation && data.phoneNumber && looksLikePhoneNumber(data.phoneNumber)) {
+    const phone = onlyDigits(data.phoneNumber);
+    const byPhoneRemitente = await supabase
+      .from('conversaciones')
+      .select('id, contacto_id, metadata, fecha_mensaje, remitente')
+      .eq('remitente', phone)
+      .eq('servicio_origen', data.platform)
+      .order('fecha_mensaje', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    existingConversation = byPhoneRemitente.data;
+
+    if (!existingConversation) {
+      const byPhoneMeta = await supabase
+        .from('conversaciones')
+        .select('id, contacto_id, metadata, fecha_mensaje, remitente')
+        .eq('servicio_origen', data.platform)
+        .filter('metadata->>phone_number', 'eq', phone)
+        .order('fecha_mensaje', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      existingConversation = byPhoneMeta.data;
+    }
+  }
+
+  // 4) fallback remitente crudo
+  if (!existingConversation) {
+    const byRemitente = await supabase
+      .from('conversaciones')
+      .select('id, contacto_id, metadata, fecha_mensaje, remitente')
+      .eq('remitente', data.remitente)
+      .eq('servicio_origen', data.platform)
+      .order('fecha_mensaje', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    existingConversation = byRemitente.data;
+  }
+
   if (existingConversation) {
     const nextMetadata = {
       ...(existingConversation.metadata || {}),
       ...(data.remoteJid ? { remote_jid: data.remoteJid } : {}),
-      ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
+      ...(data.phoneNumber ? { phone_number: onlyDigits(data.phoneNumber) } : {}),
       ...(data.contactName ? { contact_name: data.contactName } : {}),
     };
     const incomingTs = data.timestamp.toISOString();
@@ -208,9 +274,18 @@ async function findOrCreateConversation(supabase: any, data: {
       ? new Date(existingConversation.fecha_mensaje).getTime()
       : 0;
     const patch: Record<string, unknown> = {
-      remitente,
+      // Preferir LID como id estable cuando aparece
+      remitente: isWhatsAppLid(data.remoteJid)
+        ? canonicalRemitente
+        : (existingConversation.remitente || canonicalRemitente),
       metadata: nextMetadata,
     };
+    if (isWhatsAppLid(data.remoteJid)) {
+      patch.remitente = canonicalRemitente;
+    } else if (data.phoneNumber && !isWhatsAppLid(String((existingConversation.metadata as any)?.remote_jid || ''))) {
+      // Solo teléfono: mantener/actualizar remitente numérico
+      patch.remitente = onlyDigits(data.phoneNumber);
+    }
     if (data.timestamp.getTime() >= existingTs) {
       patch.fecha_mensaje = incomingTs;
     }
@@ -222,22 +297,22 @@ async function findOrCreateConversation(supabase: any, data: {
     return { id: existingConversation.id, contacto_id: existingConversation.contacto_id ?? null };
   }
 
-  // Crear nueva conversación
+  // Crear nueva conversación — remitente = LID si hay; si no, teléfono
   const { data: newConversation, error } = await supabase
     .from('conversaciones')
     .insert({
-      id: uuidv4(), // Generar UUID válido
+      id: uuidv4(),
       lead_id: null,
       servicio_origen: data.platform,
       tipo: 'entrante',
-      remitente: data.phoneNumber || data.remitente,
+      remitente: canonicalRemitente,
       fecha_mensaje: data.timestamp.toISOString(),
       usuario_id: data.usuarioId || null,
       metadata: {
         platform: data.platform,
         created_at: new Date().toISOString(),
         ...(data.remoteJid ? { remote_jid: data.remoteJid } : {}),
-        ...(data.phoneNumber ? { phone_number: data.phoneNumber } : {}),
+        ...(data.phoneNumber ? { phone_number: onlyDigits(data.phoneNumber) } : {}),
         ...(data.contactName ? { contact_name: data.contactName } : {}),
       }
     })

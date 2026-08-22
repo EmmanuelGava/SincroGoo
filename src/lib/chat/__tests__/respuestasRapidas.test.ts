@@ -59,7 +59,19 @@ describe('applyRespuestaTexto', () => {
   });
 
   it('si falta el nombre, deja el hueco vacío', () => {
-    expect(applyRespuestaTexto('Hola {{nombre}}', { nombre: '', telefono: null })).toBe('Hola ');
+    expect(applyRespuestaTexto('Hola {{nombre}}', { nombre: '', telefono: null })).toBe('Hola');
+  });
+
+  it('sin nombre no mete el teléfono en el saludo', () => {
+    expect(
+      applyRespuestaTexto('Hola {{nombre}}, ¿cómo estás?', {
+        nombre: '',
+        telefono: '5491158765720',
+      })
+    ).toBe('Hola, ¿cómo estás?');
+    expect(
+      applyRespuestaTexto('{{nombre}}, te armo una propuesta', { nombre: '' })
+    ).toBe('Te armo una propuesta');
   });
 
   it('si falta el producto, deja [producto] para completar', () => {

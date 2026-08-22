@@ -1,3 +1,5 @@
+import { cleanupEmptyNombreInText } from '@/lib/chat/conversationIdentity';
+
 export type RespuestaRapida = {
   id: string;
   atajo: string;
@@ -90,12 +92,15 @@ export function applyRespuestaTexto(template: string, vars: RespuestaVars): stri
   const producto = (vars.producto || '').trim() || '[producto]';
   const precio = (vars.precio || '').trim() || '$____';
   const incluye = (vars.incluye || '').trim() || '[incluye]';
-  return template
+  const hadNombrePlaceholder = /\{\{\s*nombre\s*\}\}/i.test(template);
+  const raw = template
     .replace(/\{\{\s*nombre\s*\}\}/gi, nombre)
     .replace(/\{\{\s*telefono\s*\}\}/gi, telefono)
     .replace(/\{\{\s*producto\s*\}\}/gi, producto)
     .replace(/\{\{\s*precio\s*\}\}/gi, precio)
     .replace(/\{\{\s*incluye\s*\}\}/gi, incluye);
+  if (hadNombrePlaceholder && !nombre) return cleanupEmptyNombreInText(raw);
+  return raw;
 }
 
 export function fillCatalogPlaceholders(

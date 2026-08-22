@@ -12,6 +12,54 @@ export function looksLikePhoneNumber(value: string | null | undefined): boolean 
   return digits.length >= 8 && digits.length <= 15;
 }
 
+/** Remitente canónico: LID si hay @lid; si no, teléfono; si no, el id crudo. */
+export function preferredConversationRemitente(input: {
+  remoteJid?: string | null;
+  phoneNumber?: string | null;
+  remitente?: string | null;
+}): string {
+  const remoteJid = String(input.remoteJid || '');
+  if (isWhatsAppLid(remoteJid)) {
+    return remoteJid.split('@')[0].split(':')[0];
+  }
+  const phone = String(input.phoneNumber || '');
+  if (looksLikePhoneNumber(phone)) return onlyDigits(phone);
+  const remitente = String(input.remitente || '');
+  if (looksLikePhoneNumber(remitente) && !isWhatsAppLid(remitente)) {
+    return onlyDigits(remitente);
+  }
+  return remitente || phone || 'unknown';
+}
+
+/** True si el string es un nombre usable en saludos (no teléfono ni LID). */
+export function isUsablePersonName(value: string | null | undefined): boolean {
+  const name = String(value || '').trim();
+  if (name.length < 2) return false;
+  if (looksLikePhoneNumber(name)) return false;
+  if (isWhatsAppLid(name)) return false;
+  const digits = onlyDigits(name);
+  if (digits.length >= 8 && digits.length === name.replace(/[\s+\-()]/g, '').length) {
+    return false;
+  }
+  if (digits.length >= 14 && !/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(name)) {
+    return false;
+  }
+  return true;
+}
+
+/** Limpia huecos feos cuando {{nombre}} quedó vacío: "Hola , ¿…" → "Hola, ¿…" */
+export function cleanupEmptyNombreInText(text: string): string {
+  let out = text
+    .replace(/\s+,/g, ',')
+    .replace(/^\s*,\s*/u, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (out && /^[a-záéíóúñü]/u.test(out)) {
+    out = out.charAt(0).toUpperCase() + out.slice(1);
+  }
+  return out;
+}
+
 function metaOf(conv: { metadata?: Record<string, unknown> | null }) {
   return conv.metadata && typeof conv.metadata === 'object' ? conv.metadata : {};
 }
@@ -38,8 +86,12 @@ export function conversationIdentityKey(conv: {
   const remoteJid = String(meta.remote_jid || '');
   const platform = conv.servicio_origen || 'chat';
 
+  // Si hay teléfono real, unifica hilos LID + número en la lista
   if (looksLikePhoneNumber(phone) && !isLidDisguisedAsPhone(remoteJid, phone)) {
     return `${platform}:${onlyDigits(phone)}`;
+  }
+  if (isWhatsAppLid(remoteJid)) {
+    return `${platform}:${remoteJid}`;
   }
   if (remoteJid.endsWith('@s.whatsapp.net') && looksLikePhoneNumber(remoteJid)) {
     return `${platform}:${onlyDigits(remoteJid)}`;
@@ -87,6 +139,24 @@ export function conversationDisplayName(conv: {
   if (name) return name;
 
   return conversationRealPhone(conv) || 'Contacto WhatsApp';
+}
+
+/**
+ * Nombre para saludos / {{nombre}} en respuestas rápidas.
+ * Nunca usa teléfono ni LID (evita "Hola 54911…, ¿cómo estás?").
+ */
+export function conversationGreetingName(conv: {
+  remitente?: string | null;
+  display_name?: string | null;
+  metadata?: Record<string, unknown> | null;
+  contactos?: { nombre?: string | null } | { nombre?: string | null }[] | null;
+}): string {
+  const fromContact = contactoNombre(conv.contactos);
+  if (isUsablePersonName(fromContact)) return fromContact.trim();
+  if (isUsablePersonName(conv.display_name)) return String(conv.display_name).trim();
+  const metaName = String(metaOf(conv).contact_name || '').trim();
+  if (isUsablePersonName(metaName)) return metaName;
+  return '';
 }
 
 function contactoNombre(

@@ -9,7 +9,7 @@ import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
-import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
+import { conversationGreetingName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 import { WA, WA_CHAT_BG } from '@/app/chat/chatTheme';
 
 interface Conversacion {
@@ -392,7 +392,7 @@ export default function ChatWindow({
         placeholder="Escribe un mensaje o / para respuestas"
         enviando={enviando}
         respuestaVars={{
-          nombre: conversationDisplayName(conversacion),
+          nombre: conversationGreetingName(conversacion),
           telefono: conversacion.display_phone || conversationRealPhone(conversacion),
         }}
         manageOpen={manageReplies}

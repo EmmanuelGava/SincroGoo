@@ -1,18 +1,24 @@
 # Venta real: carrito, nuevo pedido, etiquetas, motivo perdido
 
-Fecha: 2026-08-22. Cuatro huecos que aparecen **antes** de seguir con scoring, filtros de tablero o stats. Sin esto el catálogo y el modelo persona/deal no se usan como en una venta de indumentaria.
+Fecha: 2026-08-22. Huecos de venta real **antes** de scoring, filtros de tablero o stats.
+
+**Dependencia:** el §1 (carrito) asume que ya existe la base de catálogo — `categoria`, `stock`, listas y filtro sin stock — de [`2026-08-22-catalogo-categoria-stock-listas-design.md`](./2026-08-22-catalogo-categoria-stock-listas-design.md). Sin eso el picker no sabe qué se puede agregar al carrito. Los §§2–4 (nuevo pedido, etiquetas, motivo) son CRM y no dependen del catálogo.
 
 ## 1. Presupuesto multi-producto (carrito)
 
-**Hoy:** `MessageInput` guarda `selectedCatalog: CatalogoItem | null`. Un chip “Elegir producto” reemplaza placeholders y, al enviar, adjunta **una** foto/PDF. `chat_catalogo` es un ítem con un `precio`. No hay líneas ni total.
+**Prerrequisito:** spec categoría/stock/listas hecha (ítems con stock; picker no ofrece stock 0).
 
-**Falta:**
+**Hoy (antes del carrito):** un chip “Elegir producto”, un `selectedCatalog`. No hay líneas ni total. Chips del carrito quedaban debajo del textbox.
+
+**Falta / hace:**
 - Estado `CatalogoItem[]` (mín. 3–4 líneas) en el compositor.
-- Texto de presupuesto generado: líneas + total. Un solo mensaje WhatsApp, no 4 envíos.
-- Adjunto: primera imagen del carrito (YAGNI: un media por mensaje, igual que ahora).
-- Helper puro `armarPresupuesto(lineas) → { texto, total }` + tests. No persistir pedido en BD en este corte (el lead no tiene `valor_potencial` en prod todavía).
+- Texto de presupuesto: líneas + total. Un solo mensaje WhatsApp.
+- Adjunto: primera imagen del carrito (un media por mensaje).
+- Helper puro `armarPresupuesto(lineas) → { texto, total }` + tests.
+- UI: chips + “Agregar producto” + total **arriba** del TextField; el texto se edita abajo.
+- Solo agregar ítems con `stock > 0` (misma regla que el picker de listas).
 
-**No es:** stock, variantes talle/color, varios PDF, tipo catálogo `presupuesto` como documento aparte.
+**No es (acá):** descontar stock al vender, variantes anidadas, varios PDF. Eso queda en el backlog del spec de categoría/stock.
 
 ## 2. Nuevo pedido para un contacto que ya compró
 
@@ -49,4 +55,7 @@ Fecha: 2026-08-22. Cuatro huecos que aparecen **antes** de seguir con scoring, f
 
 ## Orden
 
-Hacer estas cuatro **antes** de búsqueda de historial, valor/fecha en tarjeta, scoring y stats. Alimentan el funnel; scoring sin motivo ni tags es teatro.
+1. Spec categoría + stock + listas (base).
+2. Este spec §1: carrito multi-producto + UI arriba.
+3. Este spec §§2–4: nuevo pedido, etiquetas, motivo (pueden ir en paralelo entre sí).
+4. Recién después: búsqueda historial, valor/fecha Kanban, filtros, scoring, stats.

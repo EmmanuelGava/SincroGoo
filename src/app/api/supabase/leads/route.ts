@@ -1,9 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
-import { attachLeadConversationMeta } from '@/lib/crm/leadConversationUnread';
+import {
+  attachLeadConversationMeta,
+  pickUltimoMensaje,
+  type LeadConversationLink,
+} from '@/lib/crm/leadConversationUnread';
 import { shouldRecordEtapaChange } from '@/lib/crm/leadEtapaHistorial';
 import { isEstadoPerdido, isMotivoPerdido } from '@/lib/contactos/estadoLead';
+
+type ConvRow = LeadConversationLink & {
+  mensajes_conversacion?: Array<{ contenido?: string | null; fecha_mensaje?: string | null }> | null;
+};
+
+function toLeadConversationLinks(rows: ConvRow[] | null | undefined): LeadConversationLink[] {
+  return (rows || []).map((conv) => {
+    const preview = pickUltimoMensaje(conv.mensajes_conversacion);
+    return {
+      id: conv.id,
+      lead_id: conv.lead_id,
+      contacto_id: conv.contacto_id,
+      unread_count: conv.unread_count,
+      fecha_mensaje: preview.fecha_mensaje || conv.fecha_mensaje || null,
+      ultimo_mensaje: preview.contenido,
+    };
+  });
+}
 
 // Helper: supabaseToken si existe; si no, fallback a admin + usuario_id (cuando signInWithIdToken falló)
 async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
@@ -48,14 +70,18 @@ export async function GET(request: NextRequest) {
     const leads = (data || []) as Array<{ id: string; contacto_id?: string | null }>;
     const ids = leads.map((lead) => lead.id);
     const contactoIds = [...new Set(leads.map((lead) => lead.contacto_id).filter((id): id is string => Boolean(id)))];
-    const convSelect = 'id, lead_id, contacto_id, unread_count, fecha_mensaje';
-    const convs: Array<{
-      id: string;
-      lead_id?: string | null;
-      contacto_id?: string | null;
-      unread_count?: number | null;
-      fecha_mensaje?: string | null;
-    }> = [];
+    const convSelect = `
+      id,
+      lead_id,
+      contacto_id,
+      unread_count,
+      fecha_mensaje,
+      mensajes_conversacion (
+        contenido,
+        fecha_mensaje
+      )
+    `;
+    const convRows: ConvRow[] = [];
 
     if (ids.length > 0) {
       const { data: byLead } = await supabase
@@ -63,7 +89,7 @@ export async function GET(request: NextRequest) {
         .select(convSelect)
         .in('lead_id', ids)
         .order('fecha_mensaje', { ascending: false });
-      convs.push(...(byLead || []));
+      convRows.push(...((byLead || []) as ConvRow[]));
     }
     if (contactoIds.length > 0) {
       const { data: byContacto } = await supabase
@@ -71,10 +97,12 @@ export async function GET(request: NextRequest) {
         .select(convSelect)
         .in('contacto_id', contactoIds)
         .order('fecha_mensaje', { ascending: false });
-      convs.push(...(byContacto || []));
+      convRows.push(...((byContacto || []) as ConvRow[]));
     }
 
-    return NextResponse.json(attachLeadConversationMeta(leads, convs));
+    return NextResponse.json(
+      attachLeadConversationMeta(leads, toLeadConversationLinks(convRows))
+    );
   } catch (error) {
     console.error('Error completo en GET leads:', error);
     const { error: errorMessage, status } = formatErrorResponse(error);

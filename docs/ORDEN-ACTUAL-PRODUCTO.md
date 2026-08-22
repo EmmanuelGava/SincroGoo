@@ -15,8 +15,8 @@
 | Inbox, canales, widget, bot (orden) | [`superpowers/specs/2026-08-20-widget-chatbot-canales-design.md`](./superpowers/specs/2026-08-20-widget-chatbot-canales-design.md) |
 | Contactos CRM | [`superpowers/specs/2026-08-21-contactos-crm-design.md`](./superpowers/specs/2026-08-21-contactos-crm-design.md) |
 | UI chat, rápidas y catálogo (no estaba planificado) | [`superpowers/specs/2026-08-21-catalogo-respuestas-design.md`](./superpowers/specs/2026-08-21-catalogo-respuestas-design.md) |
-| Carrito, nuevo pedido, tags, motivo perdido | [`superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) |
-| Catálogo: categoría, stock y listas | [`superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md) |
+| Catálogo: categoría, stock y listas | [`superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md) — **base; primero** |
+| Carrito, nuevo pedido, tags, motivo | [`superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) — **después** de categoría/stock |
 
 ---
 
@@ -106,19 +106,24 @@ Estas cuatro no estaban en el plan original de Fase 3 (solo figuraba “respuest
 - [x] Catálogo seleccionable en el compositor (chip, placeholders de producto/precio/incluye, adjunto).
 - [x] Módulo `/catalogo` fuera del chat: import masivo CSV/Excel/Sheets y carga de a muchos archivos (foto, PDF, Word, Excel, PowerPoint). El chat solo elige.
 
-Pendiente **antes** de scoring/stats (venta real; spec [`2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md)):
+Pendiente **antes** de scoring/stats — orden de dependencia (no dos “inmediato” en paralelo):
 
-- [x] Presupuesto multi-producto en el compositor (carrito 3–4 ítems + total en un mensaje). Hoy es un chip y un `selectedCatalog`.
-- [x] **Nuevo pedido** en la ficha del contacto (lead nuevo en Nuevo, sin pisar un Ganado). El drag al Kanban no cubre al que vuelve a escribir en el mismo chat.
-- [x] Etiquetas en el contacto (chips + filtro en `/contactos`). `leads.tags` existe y no se usa; `contactos` no tiene tags.
-- [x] Motivo obligatorio al mover a **Perdido** (select corto; guardar en `lead_etapa_historial`). Hoy el drag es silencioso.
+**1. Base de datos del catálogo** (spec [`2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md)) — primero; sin esto el picker no sabe qué es elegible:
 
-Pendiente inmediato (categoría + stock + listas; spec [`2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md)):
-
-- [x] Carrito **arriba** del textbox en el compositor.
 - [x] `categoria` + `stock` en `chat_catalogo` (CRUD, import, UI `/catalogo`).
 - [x] “Lista: {categoría}” en el picker: solo `stock > 0`, nombre + precio, sin cantidad al cliente.
-- [x] Ocultar / deshabilitar ítems sin stock en carrito y listas.
+- [x] Ocultar / deshabilitar ítems sin stock en picker y carrito.
+
+**2. Carrito que consume esa base** (spec venta real §1):
+
+- [x] Presupuesto multi-producto (carrito 3–4 ítems + total en un mensaje). Solo ítems con stock.
+- [x] Carrito **arriba** del textbox en el compositor.
+
+**3. CRM persona/deal** (independiente del catálogo; spec [`2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) §§2–4):
+
+- [x] **Nuevo pedido** en la ficha del contacto (lead nuevo en Nuevo, sin pisar un Ganado).
+- [x] Etiquetas en el contacto (chips + filtro en `/contactos`).
+- [x] Motivo obligatorio al mover a **Perdido**.
 
 Pendiente de esta fase (después de lo de arriba):
 

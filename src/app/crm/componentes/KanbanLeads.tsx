@@ -112,12 +112,26 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
             </Box>
           )}
 
-          {/* Mostrar el último mensaje si existe */}
-          {lead.ultimo_mensaje && (
-            <Typography variant="body2" sx={{ color: colors.textSecondary, mt: 1, fontStyle: 'italic' }}>
-              Último mensaje: {lead.ultimo_mensaje}
+          {lead.ultimo_mensaje ? (
+            <Typography
+              variant="body2"
+              sx={{
+                color: colors.textSecondary,
+                mt: 1,
+                fontStyle: 'italic',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {lead.ultimo_mensaje}
             </Typography>
-          )}
+          ) : lead.conversacion_id ? (
+            <Typography variant="caption" sx={{ color: colors.textSecondary, mt: 1, display: 'block' }}>
+              Sin mensajes
+            </Typography>
+          ) : null}
 
               {lead.valor_potencial && (
              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

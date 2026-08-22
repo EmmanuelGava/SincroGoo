@@ -2,13 +2,17 @@
 
 Fecha: 2026-08-22.
 
-Complementa el carrito multi-producto ([`2026-08-22-carrito-pedido-tags-motivo-design.md`](./2026-08-22-carrito-pedido-tags-motivo-design.md)) y el catálogo base ([`2026-08-21-catalogo-respuestas-design.md`](./2026-08-21-catalogo-respuestas-design.md)).
+**Orden:** esta spec es la **base de datos** del catálogo. Va **antes** del carrito multi-producto y de la UI “carrito arriba del textbox”. Sin `categoria` + `stock` + listas, el picker no sabe qué es elegible ni qué armar cuando el cliente pide “sabores de los vapers”.
+
+El carrito (presupuesto + UI arriba) está en [`2026-08-22-carrito-pedido-tags-motivo-design.md`](./2026-08-22-carrito-pedido-tags-motivo-design.md) §1 y consume esta base. Catálogo base: [`2026-08-21-catalogo-respuestas-design.md`](./2026-08-21-catalogo-respuestas-design.md).
 
 ## Problema
 
-1. La UI del carrito queda **debajo** del textbox; el vendedor edita texto y chips pelean por el espacio.
-2. Un cliente pide “precios y sabores de los vapers”. Hoy hay que armar texto a mano o una respuesta rápida que se desactualiza. Cada sabor debería ser un producto del catálogo; al pedir la lista, el mensaje se arma solo con lo que hay.
-3. Sin **stock**, la lista miente. Si mandás un sabor que no hay, el cliente pregunta y perdés un paso.
+1. Un cliente pide “precios y sabores de los vapers”. Hoy hay que armar texto a mano o una respuesta rápida que se desactualiza. Cada sabor debería ser un producto del catálogo; al pedir la lista, el mensaje se arma solo con lo que hay.
+2. Sin **stock**, la lista miente. Si mandás un sabor que no hay, el cliente pregunta y perdés un paso.
+3. Sin **categoría**, no hay forma de agrupar sabores/variantes en una lista reutilizable.
+
+(La UI del carrito debajo del textbox se resuelve en el paso siguiente — carrito — no en esta base.)
 
 ## Decisiones
 
@@ -18,13 +22,9 @@ Complementa el carrito multi-producto ([`2026-08-22-carrito-pedido-tags-motivo-d
 | Sabores | Cada sabor = un producto con la misma categoría (ej. `vapers` → Mango, Uva, Menta). |
 | Stock | `stock integer not null default 0` (≥ 0). Editable en `/catalogo` e import. |
 | Mensaje al cliente | Solo ítems con `stock > 0`. Nombre + precio. **Sin cantidad.** Los de stock 0 no aparecen. |
-| Lista vs carrito | “Lista: categoría” = texto de stock/precios. Carrito = cotizar 3–4 productos a un cliente. |
+| Lista vs carrito | “Lista: categoría” = texto de stock/precios. Carrito = cotizar 3–4 productos (spec carrito, después). |
 
-## 1. UI del carrito
-
-Chips del carrito + “Agregar producto” + total van **arriba** del TextField del compositor. El texto del presupuesto se edita abajo y se envía. Hint “Podés editar…” debajo del textbox o junto al total.
-
-## 2. Datos
+## 1. Datos
 
 Migración `chat_catalogo`:
 
@@ -38,7 +38,7 @@ API CRUD e import CSV/Excel/Sheets: columnas opcionales `categoria`, `stock`. No
 
 Tipos: extender `CatalogoItem` y `validateCatalogoItem`.
 
-## 3. Listas en el chat
+## 2. Listas en el chat
 
 En `CatalogPicker`, sección **Listas** arriba: una fila por categoría distinta entre ítems con `stock > 0` (ej. “Lista: vapers (8)”). Abajo, productos individuales filtrables.
 
@@ -61,11 +61,11 @@ Vapers en stock:
 
 Helper puro + tests en `src/lib/chat/`. Título: capitalizar la categoría o usar la primera aparición con casing amigable.
 
-## 4. Carrito y productos sueltos
+## 3. Sin stock en el picker
 
-En el picker, productos con `stock === 0`: ocultos o deshabilitados con label “sin stock”. No se agregan al carrito. Misma regla: el cliente no ve lo que no hay.
+Productos con `stock === 0`: ocultos o deshabilitados con label “sin stock”. No se agregan al carrito cuando el carrito exista. Misma regla: el cliente no ve lo que no hay.
 
-## 5. Fuera de alcance v1 → tasks a futuro
+## 4. Fuera de alcance v1 → tasks a futuro
 
 No se hacen en este corte. Quedan como backlog explícito:
 
@@ -75,9 +75,13 @@ No se hacen en este corte. Quedan como backlog explícito:
 - [ ] Al enviar una lista, adjuntar varias fotos (hoy: un media por mensaje).
 - [ ] Atalho tipo `/vapers` que inserte la lista si la categoría coincide.
 - [ ] Tabla `catalogo_categorias` + rename masivo / sin typos (`vaper` vs `vapers`).
-- [ ] Mostrar “sin stock” en el mensaje al cliente (alternativa a ocultar; hoy se ocultan).
+- [ ] Opción de mostrar “sin stock” en el mensaje al cliente (hoy se ocultan).
 - [ ] Reserva / hold de stock mientras el lead está en Propuesta.
 
 ## Orden respecto al producto
 
-Hacer después del carrito ya shippeado (chips + total). Actualizar [`docs/ORDEN-ACTUAL-PRODUCTO.md`](../../ORDEN-ACTUAL-PRODUCTO.md) Fase 3 con estas tasks.
+1. Esta spec (categoría + stock + listas).
+2. Carrito multi-producto + UI arriba del textbox (spec venta real §1).
+3. Nuevo pedido / etiquetas / motivo Perdido (mismo spec venta real §§2–4; independiente del catálogo).
+
+Actualizar [`docs/ORDEN-ACTUAL-PRODUCTO.md`](../../ORDEN-ACTUAL-PRODUCTO.md) Fase 3 con ese orden.

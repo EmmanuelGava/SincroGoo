@@ -33,6 +33,7 @@ describe('messageBubbleView', () => {
     expect(view.filePresentation).toBe('card');
     expect(view.showImage).toBe(false);
     expect(view.showAudio).toBe(false);
+    expect(view.showRawText).toBe(false);
   });
 
   it('documento sin file_url: chip no disponible', () => {
@@ -44,17 +45,75 @@ describe('messageBubbleView', () => {
       },
     });
     expect(view.filePresentation).toBe('unavailable');
+    expect(view.unavailableLabel).toBe('contrato.pdf');
   });
 
-  it('imagen y audio no cambian: se renderizan como media, no como documento', () => {
-    expect(messageBubbleView({
+  it('imagen con file_url: media, sin texto [Imagen]', () => {
+    const view = messageBubbleView({
       contenido: '[Imagen]',
-      metadata: { file_type: 'image', file_url: 'https://x/img.jpg' },
-    })).toMatchObject({ showImage: true, showAudio: false, filePresentation: null });
+      metadata: { file_type: 'image', file_url: 'https://x/img.jpg', file_name: 'image.jpg' },
+    });
+    expect(view).toMatchObject({
+      showImage: true,
+      showAudio: false,
+      filePresentation: null,
+      showRawText: false,
+    });
+  });
 
-    expect(messageBubbleView({
+  it('audio con file_url: player, sin texto [Audio]', () => {
+    const view = messageBubbleView({
       contenido: '[Audio]',
       metadata: { file_type: 'audio', file_url: 'https://x/a.ogg' },
-    })).toMatchObject({ showImage: false, showAudio: true, filePresentation: null });
+    });
+    expect(view).toMatchObject({
+      showImage: false,
+      showAudio: true,
+      filePresentation: null,
+      showRawText: false,
+    });
+  });
+
+  it('video / archivo placeholder sin url: no muestra el corchete como texto', () => {
+    expect(messageBubbleView({
+      contenido: '[Video]',
+      tipo: 'video',
+      metadata: { file_type: 'video' },
+    })).toMatchObject({
+      showRawText: false,
+      filePresentation: 'unavailable',
+      unavailableLabel: 'Video',
+    });
+
+    expect(messageBubbleView({
+      contenido: '[Archivo]',
+      tipo: 'file',
+      metadata: { file_type: 'file' },
+    })).toMatchObject({
+      showRawText: false,
+      filePresentation: 'unavailable',
+      unavailableLabel: 'Archivo',
+    });
+  });
+
+  it('imagen sin file_url: no muestra [Imagen] crudo', () => {
+    const view = messageBubbleView({
+      contenido: '[Imagen]',
+      tipo: 'image',
+      metadata: { file_type: 'image', mime_type: 'image/jpeg' },
+    });
+    expect(view.showRawText).toBe(false);
+    expect(view.showImage).toBe(false);
+    expect(view.filePresentation).toBe('unavailable');
+    expect(view.unavailableLabel).toBe('Imagen');
+  });
+
+  it('caption real de imagen se muestra junto a la foto', () => {
+    const view = messageBubbleView({
+      contenido: 'Mirà esta colchoneta',
+      metadata: { file_type: 'image', file_url: 'https://x/img.jpg' },
+    });
+    expect(view.showImage).toBe(true);
+    expect(view.showRawText).toBe(true);
   });
 });

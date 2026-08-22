@@ -89,10 +89,17 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
   const view = messageBubbleView(mensaje);
   const fileUrl = mensaje.metadata?.file_url as string | undefined;
   const fileType = String(mensaje.metadata?.file_type || mensaje.tipo || '');
-  const fileName = String(mensaje.metadata?.file_name || '');
+  const fileName = String(
+    mensaje.metadata?.file_name
+    || view.unavailableLabel
+    || ''
+  );
   const duration = Number(mensaje.metadata?.duration || 0);
   const caption = String(mensaje.contenido || '').trim();
-  const showFile = view.showImage || view.showAudio || view.filePresentation;
+  const showFile = view.showImage || view.showAudio || Boolean(view.filePresentation);
+  const attachmentType = view.filePresentation === 'unavailable' && !view.showImage && !view.showAudio
+    ? 'file'
+    : (fileType || 'unknown');
 
   return (
     <Box sx={{ 
@@ -119,8 +126,8 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
           <Box sx={{ mb: view.showRawText ? 1 : 0 }}>
             <FileAttachment
               url={fileUrl || ''}
-              fileName={fileName || (view.filePresentation === 'unavailable' ? 'Documento' : 'Archivo')}
-              fileType={fileType || 'unknown'}
+              fileName={fileName || (view.filePresentation === 'unavailable' ? (view.unavailableLabel || 'Archivo') : 'Archivo')}
+              fileType={attachmentType}
               fileSize={mensaje.metadata?.file_size}
               mimeType={mensaje.metadata?.mime_type}
               duration={duration}

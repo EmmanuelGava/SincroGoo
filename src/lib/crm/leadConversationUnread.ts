@@ -27,7 +27,12 @@ function newer(a: LeadConversationLink, b: LeadConversationLink): LeadConversati
 }
 
 function cleanLine(raw: string): string {
-  return raw.replace(/\s+/g, ' ').trim();
+  const text = raw.replace(/\s+/g, ' ').trim();
+  if (/^\[Imagen\]$/i.test(text)) return 'Imagen';
+  if (/^\[Audio\]$/i.test(text)) return 'Audio';
+  if (/^\[Video\]$/i.test(text)) return 'Video';
+  if (/^\[Archivo\]$/i.test(text)) return 'Archivo';
+  return text;
 }
 
 /**

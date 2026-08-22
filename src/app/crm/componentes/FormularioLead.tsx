@@ -3,11 +3,11 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Grid, TextField, Button } from '@mui/material';
+import { Grid, TextField, Button, FormControl, InputLabel, Select, MenuItem, FormHelperText } from '@mui/material';
 import { Lead } from '@/app/tipos/lead';
 import { useLeadsKanbanContext } from '../contexts/LeadsKanbanContext';
+import { LEAD_SCORE_LABEL, LEAD_SCORES } from '@/lib/crm/leadKanbanFilters';
 
-// Esquema de validación con Zod
 const formSchema = z.object({
   nombre: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
   empresa: z.string().optional(),
@@ -17,9 +17,11 @@ const formSchema = z.object({
   origen: z.string().optional(),
   notas: z.string().optional(),
   valor_potencial: z.preprocess(
-    (a) => (a === '' ? undefined : parseFloat(String(a))),
-    z.number({ invalid_type_error: 'Debe ser un número' }).positive().optional()
+    (a) => (a === '' || a === null || a === undefined ? undefined : parseFloat(String(a))),
+    z.number({ invalid_type_error: 'Debe ser un número' }).nonnegative().optional()
   ),
+  fecha_cierre: z.string().optional().or(z.literal('')),
+  score: z.enum(['alta', 'media', 'baja']).optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -42,19 +44,25 @@ export function FormularioLead({ estadoId, onClose, className }: FormularioLeadP
       cargo: '',
       origen: '',
       notas: '',
-      valor_potencial: 0,
+      valor_potencial: undefined,
+      fecha_cierre: '',
+      score: 'media',
     },
   });
 
   async function onSubmit(values: FormData) {
     try {
-      const leadData = {
-        ...values,
-        valor_potencial: values.valor_potencial || undefined
-      };
-      
       const nuevoLead: Omit<Lead, 'id' | 'orden' | 'fecha_creacion' | 'usuario_id'> = {
-        ...leadData,
+        nombre: values.nombre,
+        empresa: values.empresa,
+        email: values.email,
+        telefono: values.telefono,
+        cargo: values.cargo,
+        origen: values.origen,
+        notas: values.notas,
+        valor_potencial: values.valor_potencial ?? null,
+        fecha_cierre: values.fecha_cierre || null,
+        score: values.score || 'media',
         estado_id: estadoId,
         fecha_actualizacion: new Date().toISOString(),
       };
@@ -165,21 +173,61 @@ export function FormularioLead({ estadoId, onClose, className }: FormularioLeadP
             )}
           />
         </Grid>
-        <Grid item xs={12}>
+        <Grid item xs={12} sm={6}>
           <Controller
             name="valor_potencial"
             control={control}
             render={({ field }) => (
               <TextField
                 {...field}
+                value={field.value ?? ''}
                 type="number"
-                label="Valor Potencial ($)"
+                label="Valor potencial ($)"
                 placeholder="1500"
                 fullWidth
                 error={!!errors.valor_potencial}
                 helperText={errors.valor_potencial?.message}
-                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
               />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="fecha_cierre"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                type="date"
+                label="Fecha de cierre"
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                error={!!errors.fecha_cierre}
+                helperText={errors.fecha_cierre?.message}
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <Controller
+            name="score"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth error={!!errors.score}>
+                <InputLabel id="nuevo-score-label">Prioridad</InputLabel>
+                <Select
+                  {...field}
+                  value={field.value || 'media'}
+                  labelId="nuevo-score-label"
+                  label="Prioridad"
+                >
+                  {LEAD_SCORES.map((score) => (
+                    <MenuItem key={score} value={score}>{LEAD_SCORE_LABEL[score]}</MenuItem>
+                  ))}
+                </Select>
+                {errors.score && <FormHelperText>{errors.score.message}</FormHelperText>}
+              </FormControl>
             )}
           />
         </Grid>
@@ -208,4 +256,4 @@ export function FormularioLead({ estadoId, onClose, className }: FormularioLeadP
       </Grid>
     </form>
   );
-} 
+}

@@ -14,6 +14,7 @@ import {
   Button,
   Badge,
   InputBase,
+  CircularProgress,
 } from '@mui/material';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -47,6 +48,7 @@ interface Conversacion {
   ultimo_mensaje?: string;
   metadata?: any;
   unread_count?: number;
+  match_kind?: string;
 }
 
 interface ChatSidebarProps {
@@ -81,10 +83,52 @@ export default function ChatSidebar({
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [resultadosBusqueda, setResultadosBusqueda] = useState<Conversacion[] | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
 
   useEffect(() => {
     setSoundOn(isChatSoundEnabled());
   }, []);
+
+  useEffect(() => {
+    const q = busqueda.trim();
+    if (!q) {
+      setResultadosBusqueda(null);
+      setBuscando(false);
+      setErrorBusqueda(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setBuscando(true);
+      setErrorBusqueda(null);
+      try {
+        const res = await fetch(`/api/chat/conversaciones?q=${encodeURIComponent(q)}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'No se pudo buscar en el historial');
+        }
+        setResultadosBusqueda(Array.isArray(data.conversaciones) ? data.conversaciones : []);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.error('Error buscando conversaciones:', err);
+        setErrorBusqueda(err instanceof Error ? err.message : 'Error al buscar');
+        setResultadosBusqueda([]);
+      } finally {
+        setBuscando(false);
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [busqueda]);
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -120,15 +164,8 @@ export default function ChatSidebar({
     }
   };
 
-  const q = busqueda.trim().toLowerCase();
-  const visibles = !q
-    ? conversaciones
-    : conversaciones.filter((c) => {
-        const name = conversationDisplayName(c).toLowerCase();
-        const phone = (c.display_phone || conversationRealPhone(c) || '').toLowerCase();
-        const last = (c.ultimo_mensaje || '').toLowerCase();
-        return name.includes(q) || phone.includes(q) || last.includes(q);
-      });
+  const q = busqueda.trim();
+  const visibles = q ? (resultadosBusqueda ?? []) : conversaciones;
 
   if (loading) {
     return (
@@ -212,10 +249,12 @@ export default function ChatSidebar({
           <InputBase
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar un chat"
+            placeholder="Buscar chats o mensajes"
             fullWidth
+            inputProps={{ 'aria-label': 'Buscar en el historial de conversaciones' }}
             sx={{ color: WA.text, fontSize: '0.9rem', '& input::placeholder': { color: WA.muted, opacity: 1 } }}
           />
+          {buscando ? <CircularProgress size={16} sx={{ color: WA.icon }} /> : null}
         </Box>
       </Box>
 
@@ -241,9 +280,19 @@ export default function ChatSidebar({
           </Box>
         ) : (
           <List sx={{ p: 0 }}>
-            {visibles.length === 0 ? (
+            {q && buscando && resultadosBusqueda === null ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography sx={{ color: WA.muted }}>No hay chats con “{busqueda.trim()}”</Typography>
+                <Typography sx={{ color: WA.muted }}>Buscando…</Typography>
+              </Box>
+            ) : q && errorBusqueda ? (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography sx={{ color: WA.muted }}>{errorBusqueda}</Typography>
+              </Box>
+            ) : visibles.length === 0 ? (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography sx={{ color: WA.muted }}>
+                  {q ? `No hay resultados para “${q}”` : 'No hay chats'}
+                </Typography>
               </Box>
             ) : visibles.map((conversacion) => {
               const displayName = conversationDisplayName(conversacion);

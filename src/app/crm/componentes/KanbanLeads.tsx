@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme, Badge, FormControlLabel, Radio, RadioGroup } from "@mui/material";
+import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme, Badge, FormControlLabel, Radio, RadioGroup, Chip } from "@mui/material";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -11,6 +11,7 @@ import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import BusinessIcon from '@mui/icons-material/Business';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import EventIcon from '@mui/icons-material/Event';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
@@ -31,6 +32,21 @@ import { FormularioEdicionLead } from './FormularioEdicionLead';
 import { supabase } from '@/lib/supabase/browserClient';
 import SidebarMensajesEntrantes from './SidebarMensajesEntrantes';
 import { isEstadoPerdido, MOTIVOS_PERDIDO, MOTIVO_PERDIDO_LABEL, type MotivoPerdido } from '@/lib/contactos/estadoLead';
+import {
+  filtrarLeadsKanban,
+  formatFechaCierreLead,
+  formatValorLead,
+  LEAD_SCORE_LABEL,
+  type KanbanCanalFiltro,
+  type LeadKanbanFiltros,
+  type LeadScore,
+} from '@/lib/crm/leadKanbanFilters';
+
+const scoreChipColor: Record<LeadScore, 'error' | 'warning' | 'default'> = {
+  alta: 'error',
+  media: 'warning',
+  baja: 'default',
+};
 
 const colorPalette = [
   '#4ECCA3', // Mint Green
@@ -112,6 +128,36 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
             </Box>
           )}
 
+          {(lead.score || lead.valor_potencial != null || lead.fecha_cierre) && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+              {lead.score && (
+                <Chip
+                  size="small"
+                  label={LEAD_SCORE_LABEL[lead.score]}
+                  color={scoreChipColor[lead.score]}
+                  variant={lead.score === 'baja' ? 'outlined' : 'filled'}
+                  sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600 }}
+                />
+              )}
+              {formatValorLead(lead.valor_potencial) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                  <AttachMoneyIcon sx={{ fontSize: '0.85rem', color: colors.textSecondary }} />
+                  <Typography variant="caption" sx={{ color: colors.textSecondary, fontWeight: 500 }}>
+                    {formatValorLead(lead.valor_potencial)}
+                  </Typography>
+                </Box>
+              )}
+              {formatFechaCierreLead(lead.fecha_cierre) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                  <EventIcon sx={{ fontSize: '0.85rem', color: colors.textSecondary }} />
+                  <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                    {formatFechaCierreLead(lead.fecha_cierre)}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+
           {lead.ultimo_mensaje ? (
             <Typography
               variant="body2"
@@ -135,16 +181,6 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
               Sin mensajes
             </Typography>
           ) : null}
-
-              {lead.valor_potencial && (
-             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <AttachMoneyIcon sx={{ fontSize: '0.875rem', color: colors.textSecondary }} />
-              <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-                {lead.valor_potencial}
-              </Typography>
-            </Box>
-          )}
-          
           <Box 
             className="actions"
             sx={{ 
@@ -297,6 +333,29 @@ export default function KanbanLeads() {
   
   // Estado para columnas colapsadas
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+  const [filtros, setFiltros] = useState<LeadKanbanFiltros>({
+    canal: '',
+    valorMin: null,
+    valorMax: null,
+    fechaCierreDesde: null,
+    fechaCierreHasta: null,
+  });
+
+  const parseOptionalNumber = (raw: string): number | null => {
+    if (raw.trim() === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const hayFiltrosActivos = Boolean(
+    filtros.canal
+    || filtros.valorMin != null
+    || filtros.valorMax != null
+    || filtros.fechaCierreDesde
+    || filtros.fechaCierreHasta
+  );
+
+  const leadsFiltrados = hayFiltrosActivos ? filtrarLeadsKanban(leads, filtros) : leads;
 
   // Función para alternar el colapso de una columna
   const toggleColumnCollapse = (estadoId: string) => {
@@ -313,7 +372,7 @@ export default function KanbanLeads() {
   estados.forEach((estado) => {
     leadsPorEstado[estado.id] = [];
   });
-  leads.forEach((lead) => {
+  leadsFiltrados.forEach((lead) => {
     if (lead.estado_id && leadsPorEstado[lead.estado_id]) {
       leadsPorEstado[lead.estado_id].push(lead);
     }
@@ -493,16 +552,102 @@ export default function KanbanLeads() {
       <>
       {/* Kanban principal */}
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ p: 3, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h5" sx={{ fontWeight: 500 }}>Kanban de Leads</Typography>
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon />} 
-            onClick={() => handleOpen()}
-            sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' }, textTransform: 'none', fontWeight: 500, borderRadius: 2, boxShadow: 'none' }}
+        <Box sx={{ p: 3, pb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="h5" sx={{ fontWeight: 500 }}>Kanban de Leads</Typography>
+            <Button 
+              variant="contained" 
+              startIcon={<AddIcon />} 
+              onClick={() => handleOpen()}
+              sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' }, textTransform: 'none', fontWeight: 500, borderRadius: 2, boxShadow: 'none' }}
+            >
+              Nuevo Lead
+            </Button>
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 1.5,
+              alignItems: 'center',
+              p: 1.5,
+              borderRadius: 2,
+              border: `1px solid ${colors.border}`,
+              bgcolor: colors.card,
+            }}
           >
-            Nuevo Lead
-          </Button>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel id="filtro-canal-label">Canal</InputLabel>
+              <Select
+                labelId="filtro-canal-label"
+                label="Canal"
+                value={filtros.canal || ''}
+                onChange={(e: SelectChangeEvent) =>
+                  setFiltros((prev) => ({ ...prev, canal: e.target.value as KanbanCanalFiltro | '' }))
+                }
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="whatsapp">WhatsApp</MenuItem>
+                <MenuItem value="telegram">Telegram</MenuItem>
+                <MenuItem value="email">Email</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              size="small"
+              type="number"
+              label="Valor mín."
+              value={filtros.valorMin ?? ''}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, valorMin: parseOptionalNumber(e.target.value) }))}
+              sx={{ width: 120 }}
+            />
+            <TextField
+              size="small"
+              type="number"
+              label="Valor máx."
+              value={filtros.valorMax ?? ''}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, valorMax: parseOptionalNumber(e.target.value) }))}
+              sx={{ width: 120 }}
+            />
+            <TextField
+              size="small"
+              type="date"
+              label="Cierre desde"
+              InputLabelProps={{ shrink: true }}
+              value={filtros.fechaCierreDesde || ''}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, fechaCierreDesde: e.target.value || null }))}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              size="small"
+              type="date"
+              label="Cierre hasta"
+              InputLabelProps={{ shrink: true }}
+              value={filtros.fechaCierreHasta || ''}
+              onChange={(e) => setFiltros((prev) => ({ ...prev, fechaCierreHasta: e.target.value || null }))}
+              sx={{ width: 160 }}
+            />
+            {hayFiltrosActivos && (
+              <Button
+                size="small"
+                onClick={() => setFiltros({
+                  canal: '',
+                  valorMin: null,
+                  valorMax: null,
+                  fechaCierreDesde: null,
+                  fechaCierreHasta: null,
+                })}
+                sx={{ textTransform: 'none', color: colors.textSecondary }}
+              >
+                Limpiar filtros
+              </Button>
+            )}
+            {hayFiltrosActivos && (
+              <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                {leadsFiltrados.length} de {leads.length} leads
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden', p: 3, pt: 0 }}>
@@ -813,11 +958,11 @@ export default function KanbanLeads() {
           <DialogTitle>Eliminar columna</DialogTitle>
           <DialogContent>
             <Typography>¿Seguro que quieres eliminar la columna "{confirmDelete?.nombre}"?</Typography>
-            {confirmDelete && leadsPorEstado[confirmDelete.id]?.length > 0 && <Typography color="error" fontWeight={600}>Debes mover los leads antes de eliminarla.</Typography>}
+            {confirmDelete && leads.filter((l) => l.estado_id === confirmDelete.id).length > 0 && <Typography color="error" fontWeight={600}>Debes mover los leads antes de eliminarla.</Typography>}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmDelete(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
-            <Button onClick={handleDeleteEstado} variant="contained" color="error" disabled={!!(confirmDelete && leadsPorEstado[confirmDelete.id]?.length > 0)}>Eliminar</Button>
+            <Button onClick={handleDeleteEstado} variant="contained" color="error" disabled={!!(confirmDelete && leads.filter((l) => l.estado_id === confirmDelete.id).length > 0)}>Eliminar</Button>
           </DialogActions>
         </Dialog>
         

@@ -1,3 +1,5 @@
+export type LeadScore = 'alta' | 'media' | 'baja';
+
 export interface Lead {
   id: string;
   nombre: string;
@@ -8,7 +10,9 @@ export interface Lead {
   estado_id: string;
   probabilidad_cierre?: number;
   tags?: string[];
-  valor_potencial?: number;
+  valor_potencial?: number | null;
+  fecha_cierre?: string | null;
+  score?: LeadScore | null;
   origen?: string;
   notas?: string;
   ultima_interaccion?: string;
@@ -20,4 +24,6 @@ export interface Lead {
   fecha_ultimo_mensaje?: string;
   conversacion_id?: string | null;
   unread_count?: number;
+  /** Canal de la conversación vinculada (whatsapp / telegram / email / …). */
+  canal?: string | null;
 } 

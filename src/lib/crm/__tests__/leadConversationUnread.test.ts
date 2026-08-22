@@ -51,6 +51,25 @@ describe('attachLeadConversationMeta', () => {
     expect(result.ultimo_mensaje).toBe('Hola, quiero un presupuesto');
     expect(result.fecha_ultimo_mensaje).toBe('2026-08-21T10:00:00Z');
     expect(result.estado_id).toBe('col-a');
+    expect(result.canal).toBeNull();
+  });
+
+  it('adjunta canal desde servicio_origen', () => {
+    const leads = [{ id: 'lead-1', contacto_id: null, estado_id: 'col-a' }];
+    const conversaciones = [
+      {
+        id: 'conv-1',
+        lead_id: 'lead-1',
+        contacto_id: null,
+        unread_count: 0,
+        fecha_mensaje: '2026-08-21T10:00:00Z',
+        ultimo_mensaje: 'hola',
+        servicio_origen: 'whatsapp-lite',
+      },
+    ];
+
+    const [result] = attachLeadConversationMeta(leads, conversaciones);
+    expect(result.canal).toBe('whatsapp-lite');
   });
 
   it('adjunta unread por contacto_id si no hay match por lead_id', () => {

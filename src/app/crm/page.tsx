@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 const KanbanLeads = dynamic(() => import('./componentes/KanbanLeads'), { ssr: false });
 import { LeadsKanbanProvider } from './contexts/LeadsKanbanContext';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
+import InboxStatsPanel from './componentes/InboxStatsPanel';
 
 export default function CrmPage() {
   return (
@@ -20,6 +21,7 @@ export default function CrmPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Los chats nuevos aparecen a la izquierda. Arrastralos a una columna para pasarlos al Kanban.
             </Typography>
+            <InboxStatsPanel />
           </Box>
           <Box sx={{ flexGrow: 1, minHeight: 0 }}>
             <Suspense fallback={<Typography sx={{ p: 3 }}>Cargando tablero...</Typography>}>

@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import CloseIcon from '@mui/icons-material/Close';
 import { useRouter } from 'next/navigation';
 import { leadFormEmail, leadFormPhone } from '@/lib/chat/conversationIdentity';
+import { LEAD_SCORE_LABEL, LEAD_SCORES } from '@/lib/crm/leadKanbanFilters';
 
 const formSchema = z.object({
   id: z.string(),
@@ -21,9 +22,11 @@ const formSchema = z.object({
   origen: z.string().optional(),
   notas: z.string().optional(),
   valor_potencial: z.preprocess(
-    (a) => (a === '' || a === null || a === undefined ? 0 : parseFloat(String(a))),
-    z.number({ invalid_type_error: 'Debe ser un número' }).positive().optional()
+    (a) => (a === '' || a === null || a === undefined ? undefined : parseFloat(String(a))),
+    z.number({ invalid_type_error: 'Debe ser un número' }).nonnegative().optional()
   ),
+  fecha_cierre: z.string().optional().or(z.literal('')),
+  score: z.enum(['alta', 'media', 'baja']).optional().nullable(),
   estado_id: z.string().min(1, { message: 'Debes seleccionar un estado.'}),
 });
 
@@ -54,7 +57,9 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
         cargo: lead.cargo || '',
         origen: lead.origen || '',
         notas: lead.notas || '',
-        valor_potencial: lead.valor_potencial || 0,
+        valor_potencial: lead.valor_potencial ?? undefined,
+        fecha_cierre: lead.fecha_cierre ? String(lead.fecha_cierre).slice(0, 10) : '',
+        score: lead.score || 'media',
         estado_id: lead.estado_id,
       });
     }
@@ -63,11 +68,13 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
   async function onSubmit(values: FormData) {
     if (!lead) return;
     try {
-      const datosActualizados = {
-        ...values,
-        valor_potencial: values.valor_potencial || undefined,
-      };
-      await actualizarLead(lead.id, datosActualizados);
+      const { id: _id, ...rest } = values;
+      await actualizarLead(lead.id, {
+        ...rest,
+        valor_potencial: values.valor_potencial ?? null,
+        fecha_cierre: values.fecha_cierre || null,
+        score: values.score || 'media',
+      });
       onClose();
     } catch (error) {
       console.error('Error al actualizar el lead:', error);
@@ -96,7 +103,47 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
                     <Controller name="telefono" control={control} render={({ field }) => ( <TextField {...field} label="Teléfono" placeholder="Ej: +54 9 11 1234 5678" error={!!errors.telefono} helperText={errors.telefono?.message || 'Número real, no el ID interno de WhatsApp'} /> )} />
                     <Controller name="cargo" control={control} render={({ field }) => ( <TextField {...field} label="Cargo" error={!!errors.cargo} helperText={errors.cargo?.message} /> )} />
                     <Controller name="origen" control={control} render={({ field }) => ( <TextField {...field} label="Origen" error={!!errors.origen} helperText={errors.origen?.message} /> )} />
-                    <Controller name="valor_potencial" control={control} render={({ field }) => ( <TextField {...field} type="number" label="Valor Potencial ($)" error={!!errors.valor_potencial} helperText={errors.valor_potencial?.message} onChange={(e) => field.onChange(parseFloat(e.target.value))} /> )} />
+                    <Controller name="valor_potencial" control={control} render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ''}
+                        type="number"
+                        label="Valor potencial ($)"
+                        error={!!errors.valor_potencial}
+                        helperText={errors.valor_potencial?.message}
+                        onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                      />
+                    )} />
+                    <Controller name="fecha_cierre" control={control} render={({ field }) => (
+                      <TextField
+                        {...field}
+                        type="date"
+                        label="Fecha de cierre"
+                        InputLabelProps={{ shrink: true }}
+                        error={!!errors.fecha_cierre}
+                        helperText={errors.fecha_cierre?.message}
+                      />
+                    )} />
+                    <Controller
+                      name="score"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl fullWidth error={!!errors.score}>
+                          <InputLabel id="score-label">Prioridad</InputLabel>
+                          <Select
+                            {...field}
+                            value={field.value || 'media'}
+                            labelId="score-label"
+                            label="Prioridad"
+                          >
+                            {LEAD_SCORES.map((score) => (
+                              <MenuItem key={score} value={score}>{LEAD_SCORE_LABEL[score]}</MenuItem>
+                            ))}
+                          </Select>
+                          {errors.score && <FormHelperText>{errors.score.message}</FormHelperText>}
+                        </FormControl>
+                      )}
+                    />
                     <Controller
                         name="estado_id"
                         control={control}
@@ -140,4 +187,4 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
         )}
     </Drawer>
   );
-} 
+}

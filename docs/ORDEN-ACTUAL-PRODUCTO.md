@@ -127,11 +127,11 @@ Pendiente **antes** de scoring/stats — orden de dependencia (no dos “inmedia
 
 Pendiente de esta fase (después de lo de arriba):
 
-- [ ] Búsqueda en historial de conversaciones.
-- [ ] Valor monetario y fecha de cierre en la tarjeta del Kanban.
-- [ ] Filtros del tablero: canal, valor, fecha.
-- [ ] Lead scoring básico (alta / media / baja).
-- [ ] Stats mínimas del inbox: nuevas, no respondidas, tiempo a primera respuesta, conversión por etapa.
+- [x] Búsqueda en historial de conversaciones.
+- [x] Valor monetario y fecha de cierre en la tarjeta del Kanban.
+- [x] Filtros del tablero: canal, valor, fecha.
+- [x] Lead scoring básico (alta / media / baja).
+- [x] Stats mínimas del inbox: nuevas, no respondidas, tiempo a primera respuesta, conversión por etapa.
 
 Backlog catálogo (fuera de alcance v1 de categoría/stock; spec listas):
 

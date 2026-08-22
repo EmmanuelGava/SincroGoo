@@ -23,6 +23,7 @@ function toLeadConversationLinks(rows: ConvRow[] | null | undefined): LeadConver
       unread_count: conv.unread_count,
       fecha_mensaje: preview.fecha_mensaje || conv.fecha_mensaje || null,
       ultimo_mensaje: preview.contenido,
+      servicio_origen: conv.servicio_origen || null,
     };
   });
 }
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
       contacto_id,
       unread_count,
       fecha_mensaje,
+      servicio_origen,
       mensajes_conversacion (
         contenido,
         fecha_mensaje
@@ -118,10 +120,28 @@ export async function POST(request: NextRequest) {
 
     const { supabase, userId } = client;
     const body = await request.json();
-    const { nombre, email, telefono, empresa, cargo, estado_id, probabilidad_cierre, tags, notas } = body;
+    const {
+      nombre,
+      email,
+      telefono,
+      empresa,
+      cargo,
+      estado_id,
+      probabilidad_cierre,
+      tags,
+      notas,
+      origen,
+      valor_potencial,
+      fecha_cierre,
+      score,
+    } = body;
     
     if (!nombre || !estado_id) {
       return NextResponse.json({ error: 'Faltan campos obligatorios (nombre, estado_id)' }, { status: 400 });
+    }
+
+    if (score != null && score !== '' && !['alta', 'media', 'baja'].includes(score)) {
+      return NextResponse.json({ error: 'score inválido (alta, media o baja)' }, { status: 400 });
     }
 
     const emailFinal = email || '';
@@ -135,7 +155,11 @@ export async function POST(request: NextRequest) {
       estado_id, 
       probabilidad_cierre, 
       tags, 
-      notas, 
+      notas,
+      origen: origen || null,
+      valor_potencial: valor_potencial ?? null,
+      fecha_cierre: fecha_cierre || null,
+      score: score || 'media',
       asignado_a: userId,
       creado_por: userId
     }).select('*').single();
@@ -161,6 +185,16 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { id, motivo, ...fields } = body;
     if (!id) return NextResponse.json({ error: 'Falta el id del lead' }, { status: 400 });
+
+    if (fields.score != null && fields.score !== '' && !['alta', 'media', 'baja'].includes(fields.score)) {
+      return NextResponse.json({ error: 'score inválido (alta, media o baja)' }, { status: 400 });
+    }
+    if (fields.score === '') fields.score = null;
+    if (fields.fecha_cierre === '') fields.fecha_cierre = null;
+    if (fields.valor_potencial === '' || fields.valor_potencial === undefined) {
+      // leave as-is if undefined; empty string → null
+      if (fields.valor_potencial === '') fields.valor_potencial = null;
+    }
 
     if (fields.estado_id) {
       const { data: current } = await supabase

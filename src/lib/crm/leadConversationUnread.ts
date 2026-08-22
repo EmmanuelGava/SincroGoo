@@ -5,6 +5,7 @@ export type LeadConversationLink = {
   unread_count?: number | null;
   fecha_mensaje?: string | null;
   ultimo_mensaje?: string | null;
+  servicio_origen?: string | null;
 };
 
 export type LeadWithContacto = {
@@ -76,6 +77,7 @@ export function attachLeadConversationMeta<T extends LeadWithContacto>(
     unread_count: number;
     ultimo_mensaje: string | null;
     fecha_ultimo_mensaje: string | null;
+    canal: string | null;
   }
 > {
   const byLeadId = new Map<string, LeadConversationLink>();
@@ -102,6 +104,7 @@ export function attachLeadConversationMeta<T extends LeadWithContacto>(
       unread_count: conv?.unread_count || 0,
       ultimo_mensaje: conv?.ultimo_mensaje || null,
       fecha_ultimo_mensaje: conv?.fecha_mensaje || null,
+      canal: conv?.servicio_origen || null,
     };
   });
 }

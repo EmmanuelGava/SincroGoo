@@ -118,11 +118,14 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
               sx={{
                 color: colors.textSecondary,
                 mt: 1,
-                fontStyle: 'italic',
+                fontSize: '0.8rem',
+                lineHeight: 1.35,
+                whiteSpace: 'pre-line',
                 display: '-webkit-box',
-                WebkitLineClamp: 2,
+                WebkitLineClamp: 3,
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden',
+                wordBreak: 'break-word',
               }}
             >
               {lead.ultimo_mensaje}

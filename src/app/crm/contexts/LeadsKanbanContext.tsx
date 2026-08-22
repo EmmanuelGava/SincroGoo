@@ -141,9 +141,8 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
         }
         return [...prev, data.lead];
       });
-    } else {
-      await fetchAll();
     }
+    await fetchAll();
     setIncomingTick((tick) => tick + 1);
   }, [fetchAll]);
 

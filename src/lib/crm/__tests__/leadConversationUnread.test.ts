@@ -2,14 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { attachLeadConversationMeta, pickUltimoMensaje } from '../leadConversationUnread';
 
 describe('pickUltimoMensaje', () => {
-  it('elige el más reciente y recorta textos largos', () => {
+  it('arma varias líneas del hilo en orden cronológico', () => {
     const preview = pickUltimoMensaje([
-      { contenido: 'viejo', fecha_mensaje: '2026-08-21T08:00:00Z' },
-      { contenido: 'a'.repeat(150), fecha_mensaje: '2026-08-21T12:00:00Z' },
+      { contenido: 'Hola, quiero precios de vapers', fecha_mensaje: '2026-08-21T08:00:00Z' },
+      { contenido: 'Te paso la lista', fecha_mensaje: '2026-08-21T09:00:00Z' },
+      { contenido: '3', fecha_mensaje: '2026-08-21T10:00:00Z' },
+      { contenido: 'muy viejo', fecha_mensaje: '2026-08-20T08:00:00Z' },
     ]);
-    expect(preview.contenido).toHaveLength(121);
+    expect(preview.contenido).toBe(
+      ['Hola, quiero precios de vapers', 'Te paso la lista', '3'].join('\n')
+    );
+    expect(preview.fecha_mensaje).toBe('2026-08-21T10:00:00Z');
+  });
+
+  it('recorta el bloque si es muy largo', () => {
+    const preview = pickUltimoMensaje([
+      { contenido: 'a'.repeat(100), fecha_mensaje: '2026-08-21T08:00:00Z' },
+      { contenido: 'b'.repeat(100), fecha_mensaje: '2026-08-21T09:00:00Z' },
+      { contenido: 'c'.repeat(100), fecha_mensaje: '2026-08-21T10:00:00Z' },
+    ]);
+    expect(preview.contenido?.length).toBeLessThanOrEqual(241);
     expect(preview.contenido?.endsWith('…')).toBe(true);
-    expect(preview.fecha_mensaje).toBe('2026-08-21T12:00:00Z');
   });
 
   it('devuelve null si no hay mensajes', () => {

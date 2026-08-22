@@ -17,7 +17,8 @@ export type MensajePreview = {
   fecha_mensaje?: string | null;
 };
 
-const PREVIEW_MAX = 120;
+const PREVIEW_MESSAGES = 3;
+const PREVIEW_MAX_CHARS = 240;
 
 function newer(a: LeadConversationLink, b: LeadConversationLink): LeadConversationLink {
   return new Date(a.fecha_mensaje || 0).getTime() >= new Date(b.fecha_mensaje || 0).getTime()
@@ -25,18 +26,45 @@ function newer(a: LeadConversationLink, b: LeadConversationLink): LeadConversati
     : b;
 }
 
-/** Último mensaje por fecha, texto recortado para la tarjeta del Kanban. */
+function cleanLine(raw: string): string {
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Últimas líneas del hilo para la tarjeta del Kanban (orden cronológico).
+ * Así se entiende de qué se hablaba aunque el último mensaje sea corto ("ok", "3").
+ */
 export function pickUltimoMensaje(
   mensajes: MensajePreview[] | null | undefined
 ): { contenido: string | null; fecha_mensaje: string | null } {
   if (!mensajes?.length) return { contenido: null, fecha_mensaje: null };
-  const ultimo = [...mensajes].sort(
+
+  const sortedDesc = [...mensajes].sort(
     (a, b) => new Date(b.fecha_mensaje || 0).getTime() - new Date(a.fecha_mensaje || 0).getTime()
-  )[0];
-  const raw = String(ultimo?.contenido || '').trim();
-  if (!raw) return { contenido: null, fecha_mensaje: ultimo?.fecha_mensaje || null };
-  const contenido = raw.length > PREVIEW_MAX ? `${raw.slice(0, PREVIEW_MAX)}…` : raw;
-  return { contenido, fecha_mensaje: ultimo?.fecha_mensaje || null };
+  );
+
+  const recent = sortedDesc
+    .map((m) => ({
+      texto: cleanLine(String(m.contenido || '')),
+      fecha_mensaje: m.fecha_mensaje || null,
+    }))
+    .filter((m) => m.texto.length > 0)
+    .slice(0, PREVIEW_MESSAGES);
+
+  if (recent.length === 0) {
+    return { contenido: null, fecha_mensaje: sortedDesc[0]?.fecha_mensaje || null };
+  }
+
+  const chronological = [...recent].reverse();
+  let contenido = chronological.map((m) => m.texto).join('\n');
+  if (contenido.length > PREVIEW_MAX_CHARS) {
+    contenido = `${contenido.slice(0, PREVIEW_MAX_CHARS).trimEnd()}…`;
+  }
+
+  return {
+    contenido,
+    fecha_mensaje: recent[0]?.fecha_mensaje || null,
+  };
 }
 
 export function attachLeadConversationMeta<T extends LeadWithContacto>(

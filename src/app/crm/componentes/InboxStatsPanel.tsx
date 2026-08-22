@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
-  Chip,
   CircularProgress,
+  Divider,
   Stack,
   Tooltip,
   Typography,
@@ -35,27 +35,35 @@ function StatCell({
   label,
   value,
   hint,
+  accent,
 }: {
   label: string;
   value: React.ReactNode;
   hint?: string;
+  accent?: string | null;
 }) {
   const theme = useTheme();
   const content = (
     <Box
       sx={{
+        flex: '1 1 96px',
         minWidth: 88,
         px: 1.5,
-        py: 1,
+        py: 1.1,
         borderRadius: 1.5,
-        border: `1px solid ${theme.palette.divider}`,
-        bgcolor: theme.palette.background.paper,
+        bgcolor: theme.palette.action.hover,
+        borderLeft: accent ? `3px solid ${accent}` : '3px solid transparent',
       }}
     >
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2 }}>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        display="block"
+        sx={{ lineHeight: 1.2, fontSize: '0.7rem', letterSpacing: 0.2 }}
+      >
         {label}
       </Typography>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 0.25, lineHeight: 1.2 }}>
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.35, lineHeight: 1.15 }}>
         {value}
       </Typography>
     </Box>
@@ -101,7 +109,19 @@ export default function InboxStatsPanel() {
 
   if (loading && !data) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          mb: 2,
+          px: 2,
+          py: 1.5,
+          borderRadius: 2,
+          border: `1px solid ${theme.palette.divider}`,
+          bgcolor: theme.palette.background.paper,
+        }}
+      >
         <CircularProgress size={16} />
         <Typography variant="caption" color="text.secondary">
           Cargando stats del inbox…
@@ -112,7 +132,7 @@ export default function InboxStatsPanel() {
 
   if (error && !data) {
     return (
-      <Typography variant="caption" color="error" sx={{ mb: 1.5, display: 'block' }}>
+      <Typography variant="caption" color="error" sx={{ mb: 2, display: 'block' }}>
         {error}
       </Typography>
     );
@@ -125,14 +145,17 @@ export default function InboxStatsPanel() {
   const samples = data.tiempoPrimeraRespuesta.sampleCount;
 
   return (
-    <Box sx={{ mb: 2 }}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1}
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        flexWrap="wrap"
-        useFlexGap
-      >
+    <Box
+      sx={{
+        mb: 2,
+        px: 2,
+        py: 1.5,
+        borderRadius: 2,
+        border: `1px solid ${theme.palette.divider}`,
+        bgcolor: theme.palette.background.paper,
+      }}
+    >
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
         <StatCell
           label="Nuevas (24h)"
           value={data.nuevas24h}
@@ -160,31 +183,30 @@ export default function InboxStatsPanel() {
       </Stack>
 
       {data.conversionPorEtapa.length > 0 && (
-        <Stack
-          direction="row"
-          spacing={0.75}
-          flexWrap="wrap"
-          useFlexGap
-          sx={{ mt: 1.25 }}
-          alignItems="center"
-        >
-          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-            Embudo:
-          </Typography>
-          {data.conversionPorEtapa.map((etapa) => (
-            <Chip
-              key={etapa.estadoId}
-              size="small"
-              label={`${etapa.nombre}: ${etapa.count}`}
-              sx={{
-                height: 24,
-                bgcolor: etapa.color ? `${etapa.color}22` : theme.palette.action.hover,
-                border: `1px solid ${etapa.color || theme.palette.divider}`,
-                '& .MuiChip-label': { px: 1, fontSize: '0.75rem' },
-              }}
-            />
-          ))}
-        </Stack>
+        <>
+          <Divider sx={{ my: 1.5 }} />
+          <Stack spacing={1}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              fontWeight={600}
+              sx={{ letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.65rem' }}
+            >
+              Embudo
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {data.conversionPorEtapa.map((etapa) => (
+                <StatCell
+                  key={etapa.estadoId}
+                  label={etapa.nombre}
+                  value={etapa.count}
+                  accent={etapa.color}
+                  hint={data.definitions?.conversionPorEtapa}
+                />
+              ))}
+            </Stack>
+          </Stack>
+        </>
       )}
     </Box>
   );

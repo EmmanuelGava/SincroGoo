@@ -14,11 +14,11 @@ export default function CrmPage() {
       <EncabezadoSistema />
       <LeadsKanbanProvider>
         <Box sx={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', pt: '70px' }}>
-          <Box sx={{ px: 3, pt: 2 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              CRM Visual – Kanban de Leads
+          <Box sx={{ px: 3, pt: 2, pb: 0 }}>
+            <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 0.5 }}>
+              CRM Visual
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               Los chats nuevos aparecen a la izquierda. Arrastralos a una columna para pasarlos al Kanban.
             </Typography>
             <InboxStatsPanel />

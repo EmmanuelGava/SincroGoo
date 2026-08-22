@@ -552,19 +552,7 @@ export default function KanbanLeads() {
       <>
       {/* Kanban principal */}
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ p: 3, pb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 500 }}>Kanban de Leads</Typography>
-            <Button 
-              variant="contained" 
-              startIcon={<AddIcon />} 
-              onClick={() => handleOpen()}
-              sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' }, textTransform: 'none', fontWeight: 500, borderRadius: 2, boxShadow: 'none' }}
-            >
-              Nuevo Lead
-            </Button>
-          </Box>
-
+        <Box sx={{ p: 3, pt: 1, pb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box
             sx={{
               display: 'flex',
@@ -577,6 +565,22 @@ export default function KanbanLeads() {
               bgcolor: colors.card,
             }}
           >
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpen()}
+              sx={{
+                bgcolor: colors.primaryAccent,
+                '&:hover': { bgcolor: '#8c5fd0' },
+                textTransform: 'none',
+                fontWeight: 500,
+                borderRadius: 2,
+                boxShadow: 'none',
+                mr: 0.5,
+              }}
+            >
+              Nuevo Lead
+            </Button>
             <FormControl size="small" sx={{ minWidth: 140 }}>
               <InputLabel id="filtro-canal-label">Canal</InputLabel>
               <Select

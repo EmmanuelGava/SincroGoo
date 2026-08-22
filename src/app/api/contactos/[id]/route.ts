@@ -60,7 +60,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
     const { data: historial, error: historialError } = await client.supabase
       .from('lead_etapa_historial')
-      .select('id, lead_id, fecha, estado_anterior_nombre, estado_nuevo_nombre')
+      .select('id, lead_id, fecha, estado_anterior_nombre, estado_nuevo_nombre, motivo')
       .eq('contacto_id', id)
       .order('fecha', { ascending: false })
       .limit(50);

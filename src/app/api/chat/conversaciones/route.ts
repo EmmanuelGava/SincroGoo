@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
         servicio_origen: conv.servicio_origen,
         fecha_mensaje: conv.fecha_mensaje,
         lead_id: conv.lead_id,
+        contacto_id: conv.contacto_id,
         metadata,
         unread_count: conv.unread_count || 0,
         ultimo_mensaje: ultimoMensaje?.contenido || null

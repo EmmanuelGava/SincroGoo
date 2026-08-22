@@ -6,10 +6,13 @@ import {
   Menu,
   MenuItem,
   Paper,
+  Stack,
   TextField,
   Tooltip,
   Typography,
+  Chip,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
@@ -24,14 +27,14 @@ import { CatalogPicker } from './CatalogPicker';
 import { WA } from '@/app/chat/chatTheme';
 import {
   draftNeedsCatalog,
-  fillCatalogPlaceholders,
   filterRespuestasRapidas,
   insertRespuestaInDraft,
   parseSlashDraft,
   type RespuestaRapida,
   type RespuestaVars,
 } from '@/lib/chat/respuestasRapidas';
-import { catalogAttachment, type CatalogoItem } from '@/lib/chat/catalogoVentas';
+import { type CatalogoItem } from '@/lib/chat/catalogoVentas';
+import { armarPresupuesto, primeraImagenCarrito } from '@/lib/chat/armarPresupuesto';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string) => void;
@@ -96,7 +99,7 @@ export default function MessageInput({
   const [localManageOpen, setLocalManageOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
-  const [selectedCatalog, setSelectedCatalog] = useState<CatalogoItem | null>(null);
+  const [carrito, setCarrito] = useState<CatalogoItem[]>([]);
   const manage = manageOpen ?? localManageOpen;
   const setManage = onManageOpenChange ?? setLocalManageOpen;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -139,32 +142,47 @@ export default function MessageInput({
     setSlashIndex(0);
   }, [slash.query, slashOpen]);
 
+  const syncPresupuestoDraft = (items: CatalogoItem[]) => {
+    if (items.length === 0) return;
+    setMensaje(armarPresupuesto(items).texto);
+  };
+
   const applyRespuesta = (item: RespuestaRapida) => {
     const next = insertRespuestaInDraft(mensaje, item.texto, respuestaVars || {});
     setMensaje(next);
     setSlashDismissed(true);
-    setSelectedCatalog(null);
+    setCarrito([]);
     if (draftNeedsCatalog(next)) setCatalogOpen(true);
     onTyping?.(next.length > 0);
   };
 
   const applyCatalogItem = (item: CatalogoItem) => {
-    const next = fillCatalogPlaceholders(mensaje, {
-      nombre: respuestaVars?.nombre,
-      telefono: respuestaVars?.telefono,
-      item: { nombre: item.nombre, precio: item.precio, descripcion: item.descripcion },
-    });
-    setMensaje(next);
-    setSelectedCatalog(item);
+    const nextCart = [...carrito, item];
+    setCarrito(nextCart);
+    if (draftNeedsCatalog(mensaje) || carrito.length === 0) {
+      syncPresupuestoDraft(nextCart);
+    } else {
+      syncPresupuestoDraft(nextCart);
+    }
     setCatalogOpen(false);
-    onTyping?.(next.length > 0);
+    onTyping?.(true);
     setTimeout(() => {
       const input = inputRef.current?.querySelector('textarea') || inputRef.current?.querySelector('input');
       if (!input) return;
       input.focus();
-      const end = next.length;
+      const end = armarPresupuesto(nextCart).texto.length;
       if (input.setSelectionRange) input.setSelectionRange(end, end);
     }, 0);
+  };
+
+  const removeFromCarrito = (index: number) => {
+    const nextCart = carrito.filter((_, idx) => idx !== index);
+    setCarrito(nextCart);
+    if (nextCart.length === 0) {
+      if (draftNeedsCatalog(mensaje)) setMensaje('');
+    } else {
+      syncPresupuestoDraft(nextCart);
+    }
   };
 
   const handleSend = () => {
@@ -175,14 +193,17 @@ export default function MessageInput({
     }
     const texto = mensaje.trim();
     if (!texto) return;
-    const attach = selectedCatalog ? catalogAttachment(selectedCatalog) : null;
+    const imagenUrl = carrito.length > 0 ? primeraImagenCarrito(carrito) : null;
+    const attach = imagenUrl
+      ? { url: imagenUrl, fileName: carrito[0]?.nombre || 'producto', fileType: 'image' as const }
+      : null;
     if (attach && onSendFile) {
       onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto);
     } else {
       onSendMessage(texto);
     }
     setMensaje('');
-    setSelectedCatalog(null);
+    setCarrito([]);
     setCatalogOpen(false);
     setSlashDismissed(false);
     onTyping?.(false);
@@ -460,29 +481,50 @@ export default function MessageInput({
         ) : null}
       </Box>
 
-      {(draftNeedsCatalog(mensaje) || selectedCatalog) && !audioBusy ? (
-        <Box
-          onClick={() => setCatalogOpen(true)}
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0.75,
-            ml: 6,
-            mt: 0.75,
-            px: 1.25,
-            py: 0.4,
-            borderRadius: 4,
-            bgcolor: WA.inputField,
-            color: WA.text,
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            '&:hover': { bgcolor: WA.selected },
-          }}
-        >
-          {selectedCatalog ? `${selectedCatalog.nombre} · cambiar` : 'Elegir producto'}
+      {(draftNeedsCatalog(mensaje) || carrito.length > 0) && !audioBusy ? (
+        <Box sx={{ ml: 6, mt: 0.75 }}>
+          {carrito.length > 0 ? (
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.75 }}>
+              {carrito.map((item, index) => (
+                <Chip
+                  key={`${item.id}-${index}`}
+                  label={`${item.nombre}${item.precio != null ? ` · $${item.precio}` : ''}`}
+                  size="small"
+                  onDelete={() => removeFromCarrito(index)}
+                  deleteIcon={<CloseIcon />}
+                  sx={{ bgcolor: WA.inputField, color: WA.text }}
+                />
+              ))}
+            </Stack>
+          ) : null}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Box
+              onClick={() => setCatalogOpen(true)}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.25,
+                py: 0.4,
+                borderRadius: 4,
+                bgcolor: WA.inputField,
+                color: WA.text,
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                '&:hover': { bgcolor: WA.selected },
+              }}
+            >
+              {carrito.length > 0 ? 'Agregar producto' : 'Elegir producto'}
+            </Box>
+            {carrito.length > 0 ? (
+              <Typography sx={{ color: WA.muted, fontSize: '0.75rem' }}>
+                Total: {armarPresupuesto(carrito).total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })}
+              </Typography>
+            ) : null}
+          </Box>
         </Box>
       ) : null}
-      {hasText && !audioBusy && (draftNeedsCatalog(mensaje) || selectedCatalog) ? (
+      {hasText && !audioBusy && (draftNeedsCatalog(mensaje) || carrito.length > 0) ? (
         <Typography sx={{ color: WA.muted, fontSize: '0.7rem', ml: 6, mt: 0.4 }}>
           Podés editar el texto y después enviar
         </Typography>

@@ -32,7 +32,7 @@ export interface LeadsKanbanContextProps {
   leadsPorEstado: Record<string, Lead[]>;
   agregarLead: (lead: Partial<Lead>) => Promise<void>;
   actualizarLead: (id: string, lead: Partial<Lead>) => Promise<void>;
-  moverLead: (leadId: string, nuevoEstadoId: string) => Promise<void>;
+  moverLead: (leadId: string, nuevoEstadoId: string, motivo?: string) => Promise<void>;
   eliminarLead: (id: string) => Promise<void>;
   agregarEstado: (estado: Partial<Estado>) => Promise<void>;
   actualizarEstado: (id: string, estado: Partial<Estado>) => Promise<void>;
@@ -181,9 +181,26 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const moverLead = useCallback(async (leadId: string, nuevoEstadoId: string) => {
-    await actualizarLead(leadId, { estado_id: nuevoEstadoId });
-  }, [actualizarLead]);
+  const moverLead = useCallback(async (leadId: string, nuevoEstadoId: string, motivo?: string) => {
+    setError(null);
+    try {
+      const res = await fetch("/api/supabase/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: leadId,
+          estado_id: nuevoEstadoId,
+          ...(motivo ? { motivo } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al mover lead");
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...data } : l));
+    } catch (e: any) {
+      setError(e.message);
+      throw e;
+    }
+  }, []);
 
   const eliminarLead = useCallback(async (id: string) => {
     setError(null);

@@ -7,6 +7,7 @@ export type ContactoBody = {
   empresa?: unknown;
   notas?: unknown;
   wa_jid?: unknown;
+  etiquetas?: unknown;
 };
 
 export type ContactoWriteFields = {
@@ -17,7 +18,22 @@ export type ContactoWriteFields = {
   empresa?: string | null;
   notas?: string | null;
   wa_jid?: string | null;
+  etiquetas?: string[];
 };
+
+export function normalizeEtiquetas(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of value) {
+    const tag = String(item).trim().toLowerCase();
+    if (tag && !seen.has(tag)) {
+      seen.add(tag);
+      result.push(tag);
+    }
+  }
+  return result;
+}
 
 function optionalString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -63,6 +79,10 @@ export function contactoWriteFields(
     const telefono = optionalString(body.telefono);
     fields.telefono = telefono;
     fields.telefono_digits = telefonoDigits(telefono);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'etiquetas')) {
+    fields.etiquetas = normalizeEtiquetas(body.etiquetas);
   }
 
   return { fields };

@@ -20,6 +20,7 @@ interface Conversacion {
   servicio_origen: string;
   fecha_mensaje: string;
   lead_id?: string;
+  contacto_id?: string;
   ultimo_mensaje?: string;
   metadata?: any;
 }

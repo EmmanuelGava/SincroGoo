@@ -9,11 +9,13 @@ import {
   Button,
   Chip,
   CircularProgress,
+  IconButton,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
 import { formatEtapaHistorialLine } from '@/lib/crm/leadEtapaHistorial';
 
@@ -24,6 +26,7 @@ type Contacto = {
   email: string | null;
   empresa: string | null;
   notas: string | null;
+  etiquetas?: string[] | null;
 };
 
 type Conversacion = {
@@ -49,6 +52,7 @@ type HistorialItem = {
   estado_anterior_nombre: string | null;
   estado_nuevo_nombre: string;
   lead_nombre?: string | null;
+  motivo?: string | null;
 };
 
 function etapaLead(lead: Lead): { nombre: string; color?: string } {
@@ -80,8 +84,12 @@ export default function ContactoFichaPage() {
   const [email, setEmail] = useState('');
   const [empresa, setEmpresa] = useState('');
   const [notas, setNotas] = useState('');
+  const [etiquetas, setEtiquetas] = useState<string[]>([]);
+  const [nuevaEtiqueta, setNuevaEtiqueta] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTags, setSavingTags] = useState(false);
+  const [creatingPedido, setCreatingPedido] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -93,6 +101,7 @@ export default function ContactoFichaPage() {
     setEmail(data.email ?? '');
     setEmpresa(data.empresa ?? '');
     setNotas(data.notas ?? '');
+    setEtiquetas(Array.isArray(data.etiquetas) ? data.etiquetas : []);
   };
 
   const cargar = useCallback(async (signal?: AbortSignal) => {
@@ -162,6 +171,74 @@ export default function ContactoFichaPage() {
       setFormError('No se pudo guardar el contacto');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const persistEtiquetas = async (nextTags: string[]) => {
+    if (!id) return false;
+    setSavingTags(true);
+    setFormError(null);
+    try {
+      const res = await fetch(`/api/contactos/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ etiquetas: nextTags }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFormError(typeof data.error === 'string' ? data.error : 'No se pudieron guardar las etiquetas');
+        return false;
+      }
+      if (data.contacto) applyContacto(data.contacto as Contacto);
+      return true;
+    } catch {
+      setFormError('No se pudieron guardar las etiquetas');
+      return false;
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  const handleAddEtiqueta = async () => {
+    const tag = nuevaEtiqueta.trim().toLowerCase();
+    if (!tag || etiquetas.includes(tag)) {
+      setNuevaEtiqueta('');
+      return;
+    }
+    const next = [...etiquetas, tag];
+    setEtiquetas(next);
+    setNuevaEtiqueta('');
+    await persistEtiquetas(next);
+  };
+
+  const handleRemoveEtiqueta = async (tag: string) => {
+    const next = etiquetas.filter((item) => item !== tag);
+    setEtiquetas(next);
+    await persistEtiquetas(next);
+  };
+
+  const handleNuevoPedido = async () => {
+    if (!id || creatingPedido) return;
+    setCreatingPedido(true);
+    setFormError(null);
+    try {
+      const res = await fetch(`/api/contactos/${encodeURIComponent(id)}/nuevo-pedido`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFormError(typeof data.error === 'string' ? data.error : 'No se pudo crear el pedido');
+        return;
+      }
+      if (data.lead?.id) {
+        router.push(`/crm?lead=${encodeURIComponent(data.lead.id)}`);
+        return;
+      }
+      await cargar();
+    } catch {
+      setFormError('No se pudo crear el pedido');
+    } finally {
+      setCreatingPedido(false);
     }
   };
 
@@ -271,6 +348,57 @@ export default function ContactoFichaPage() {
                       {deleting ? 'Eliminando…' : 'Eliminar'}
                     </Button>
                   </Stack>
+                </Stack>
+              </Paper>
+
+              <Paper sx={{ p: 3 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ sm: 'center' }} sx={{ mb: 2 }}>
+                  <Typography variant="h6">Etiquetas</Typography>
+                  <Button
+                    variant="outlined"
+                    onClick={() => void handleNuevoPedido()}
+                    disabled={creatingPedido || saving || deleting}
+                  >
+                    {creatingPedido ? 'Creando…' : 'Nuevo pedido'}
+                  </Button>
+                </Stack>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                  {etiquetas.map((tag) => (
+                    <Chip
+                      key={tag}
+                      label={tag}
+                      onDelete={savingTags ? undefined : () => void handleRemoveEtiqueta(tag)}
+                      onClick={() => router.push(`/contactos?etiqueta=${encodeURIComponent(tag)}`)}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  ))}
+                  {etiquetas.length === 0 ? (
+                    <Typography color="text.secondary">Sin etiquetas.</Typography>
+                  ) : null}
+                </Stack>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                  <TextField
+                    label="Agregar etiqueta"
+                    value={nuevaEtiqueta}
+                    onChange={(e) => setNuevaEtiqueta(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleAddEtiqueta();
+                      }
+                    }}
+                    size="small"
+                    fullWidth
+                    disabled={savingTags}
+                  />
+                  <IconButton
+                    color="primary"
+                    onClick={() => void handleAddEtiqueta()}
+                    disabled={savingTags || !nuevaEtiqueta.trim()}
+                    aria-label="Agregar etiqueta"
+                  >
+                    <AddIcon />
+                  </IconButton>
                 </Stack>
               </Paper>
 

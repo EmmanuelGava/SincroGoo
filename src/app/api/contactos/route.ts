@@ -25,9 +25,11 @@ export async function GET(req: NextRequest) {
     }
 
     const q = req.nextUrl.searchParams.get('q')?.trim() || '';
+    const etiqueta = req.nextUrl.searchParams.get('etiqueta')?.trim().toLowerCase() || '';
     const { data, error } = await client.supabase.rpc('buscar_contactos', {
       p_usuario: client.usuarioId,
       p_q: q,
+      p_etiqueta: etiqueta || null,
     });
     if (error) throw error;
 

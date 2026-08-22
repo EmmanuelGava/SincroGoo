@@ -71,6 +71,9 @@
 ### Ya hecho
 - [x] Chat unificado WhatsApp Lite (Baileys) + Telegram
 - [x] Email parcial
+- [x] UI del chat al estilo WhatsApp Web
+- [x] Respuestas rápidas predefinidas (el vendedor escribe / y aparecen templates)
+- [x] Catálogo de producto/presupuesto/propuesta: carga masiva en `/catalogo`; el chat solo elige
 
 ### Estabilización urgente
 - [ ] Sesiones WhatsApp persistentes en Supabase Storage (no en memoria)
@@ -78,7 +81,6 @@
 - [ ] Indicador de estado de conexión claro en UI
 
 ### Features que tienen todos los competidores y nosotros no
-- [ ] Respuestas rápidas predefinidas (el vendedor escribe / y aparecen templates)
 - [ ] Mensajes programados (enviar a fecha/hora determinada)
 - [ ] Automatización de seguimiento:
   - "Si no responde en 2 días, mandar recordatorio automáticamente"

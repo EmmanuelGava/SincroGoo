@@ -43,7 +43,7 @@ Hecho de verdad, no teatro:
 - Outbox + reintento; ticks enviado / entregado / leído / error.
 - Media entrante persistida.
 - Ficha de **contacto** (un humano ≠ un LID).
-- Respuestas rápidas, búsqueda en historial.
+- Respuestas rápidas *(hecho)*. Búsqueda en historial *(pendiente)*. Catálogo comercial en `/catalogo` *(hecho; no estaba en este spec)*.
 - Stats mínimas **antes** de canales extra: conversaciones nuevas, no respondidas, tiempo a primera respuesta, conversión por etapa.
 
 Detalle de tareas: Fases 0–3 de `ORDEN-ACTUAL-PRODUCTO.md` y el plan de confiabilidad.

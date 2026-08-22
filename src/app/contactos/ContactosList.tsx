@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -35,12 +36,15 @@ export type Contacto = {
   email: string | null;
   empresa: string | null;
   notas: string | null;
+  etiquetas?: string[] | null;
 };
 
 const EMPTY_COPY = 'No hay contactos. Creá uno o arrastrá un chat al Kanban.';
 
 export function ContactosList() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const etiquetaFilter = searchParams.get('etiqueta')?.trim().toLowerCase() || '';
   const [q, setQ] = useState('');
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,11 +64,14 @@ export function ContactosList() {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const firstLoad = useRef(true);
 
-  const cargar = useCallback(async (query: string, signal?: AbortSignal) => {
+  const cargar = useCallback(async (query: string, etiqueta: string, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/contactos?q=${encodeURIComponent(query.trim())}`, {
+      const params = new URLSearchParams();
+      if (query.trim()) params.set('q', query.trim());
+      if (etiqueta) params.set('etiqueta', etiqueta);
+      const res = await fetch(`/api/contactos?${params.toString()}`, {
         signal,
         cache: 'no-store',
       });
@@ -88,17 +95,17 @@ export function ContactosList() {
     const controller = new AbortController();
     if (firstLoad.current) {
       firstLoad.current = false;
-      void cargar(q, controller.signal);
+      void cargar(q, etiquetaFilter, controller.signal);
       return () => controller.abort();
     }
     const timeout = window.setTimeout(() => {
-      void cargar(q, controller.signal);
+      void cargar(q, etiquetaFilter, controller.signal);
     }, 300);
     return () => {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [q, cargar]);
+  }, [q, etiquetaFilter, cargar]);
 
   const resetForm = () => {
     setNombre('');
@@ -124,7 +131,7 @@ export function ContactosList() {
       + (data.skipped ? `, ${data.skipped} omitidos` : '')
       + '.'
     );
-    await cargar(q);
+    await cargar(q, etiquetaFilter);
   };
 
   const importFromCsv = async (file: File) => {
@@ -217,7 +224,7 @@ export function ContactosList() {
       }
       setDialogOpen(false);
       resetForm();
-      await cargar(q);
+      await cargar(q, etiquetaFilter);
     } catch {
       setFormError('No se pudo crear el contacto');
     } finally {
@@ -292,6 +299,16 @@ export function ContactosList() {
 
       {error ? <Alert severity="error">{error}</Alert> : null}
       {importMsg ? <Alert severity="info" onClose={() => setImportMsg(null)}>{importMsg}</Alert> : null}
+      {etiquetaFilter ? (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body2" color="text.secondary">Filtro:</Typography>
+          <Chip
+            label={etiquetaFilter}
+            onDelete={() => router.push('/contactos')}
+            size="small"
+          />
+        </Stack>
+      ) : null}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -310,6 +327,7 @@ export function ContactosList() {
                 <TableCell>Teléfono</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Empresa</TableCell>
+                <TableCell>Etiquetas</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -324,6 +342,15 @@ export function ContactosList() {
                   <TableCell>{contacto.telefono || '—'}</TableCell>
                   <TableCell>{contacto.email || '—'}</TableCell>
                   <TableCell>{contacto.empresa || '—'}</TableCell>
+                  <TableCell>
+                    {(contacto.etiquetas || []).length === 0 ? '—' : (
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                        {(contacto.etiquetas || []).map((tag) => (
+                          <Chip key={tag} label={tag} size="small" />
+                        ))}
+                      </Stack>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

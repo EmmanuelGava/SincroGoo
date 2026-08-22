@@ -11,6 +11,7 @@ export type EtapaHistorialRow = {
   estado_anterior_nombre: string | null;
   estado_nuevo_nombre: string;
   lead_nombre?: string | null;
+  motivo?: string | null;
 };
 
 export function formatEtapaHistorialLine(row: EtapaHistorialRow): string {
@@ -18,5 +19,7 @@ export function formatEtapaHistorialLine(row: EtapaHistorialRow): string {
   const to = row.estado_nuevo_nombre.trim() || 'Sin etapa';
   const lead = row.lead_nombre?.trim();
   const move = `${from} → ${to}`;
-  return lead ? `${lead}: ${move}` : move;
+  const base = lead ? `${lead}: ${move}` : move;
+  const motivo = row.motivo?.trim();
+  return motivo ? `${base} (motivo: ${motivo})` : base;
 }

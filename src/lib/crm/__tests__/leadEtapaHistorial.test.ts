@@ -19,4 +19,14 @@ describe('formatEtapaHistorialLine', () => {
       lead_nombre: 'Juan',
     })).toBe('Juan: Nuevo → Contactado');
   });
+
+  it('incluye motivo si existe', () => {
+    expect(formatEtapaHistorialLine({
+      fecha: '2026-08-21T12:00:00Z',
+      estado_anterior_nombre: 'Propuesta',
+      estado_nuevo_nombre: 'Perdido',
+      lead_nombre: 'Juan',
+      motivo: 'precio',
+    })).toBe('Juan: Propuesta → Perdido (motivo: precio)');
+  });
 });

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme, Badge } from "@mui/material";
+import { Box, Button, Typography, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Select, InputLabel, FormControl, SelectChangeEvent, useTheme, Badge, FormControlLabel, Radio, RadioGroup } from "@mui/material";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -30,6 +30,7 @@ import { FormularioLead } from './FormularioLead';
 import { FormularioEdicionLead } from './FormularioEdicionLead';
 import { supabase } from '@/lib/supabase/browserClient';
 import SidebarMensajesEntrantes from './SidebarMensajesEntrantes';
+import { isEstadoPerdido, MOTIVOS_PERDIDO, MOTIVO_PERDIDO_LABEL, type MotivoPerdido } from '@/lib/contactos/estadoLead';
 
 const colorPalette = [
   '#4ECCA3', // Mint Green
@@ -270,6 +271,12 @@ export default function KanbanLeads() {
     contactoId: string;
     openLead: { id: string; nombre: string; estado_id: string };
   }>(null);
+  const [pendingPerdido, setPendingPerdido] = useState<null | {
+    leadId: string;
+    destEstadoId: string;
+    leadNombre: string;
+  }>(null);
+  const [motivoPerdido, setMotivoPerdido] = useState<MotivoPerdido>('precio');
   
   // Estado para columnas colapsadas
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
@@ -335,6 +342,17 @@ export default function KanbanLeads() {
     
     const leadToMove = leads.find(lead => String(lead.id) === String(draggableId));
     if (!leadToMove) return;
+
+    const destEstado = estados.find((estado) => estado.id === destEstadoId);
+    if (destEstado && isEstadoPerdido(destEstado.nombre)) {
+      setMotivoPerdido('precio');
+      setPendingPerdido({
+        leadId: draggableId,
+        destEstadoId,
+        leadNombre: leadToMove.nombre || 'Lead',
+      });
+      return;
+    }
     
     const newLeads = leads.map(lead => String(lead.id) === String(draggableId) ? { ...lead, estado_id: destEstadoId } : lead);
     setLeads(newLeads);
@@ -423,6 +441,25 @@ export default function KanbanLeads() {
       });
     } catch (error) {
       console.error('Error creando un deal nuevo:', error);
+    }
+  };
+
+  const handleConfirmarPerdido = async () => {
+    if (!pendingPerdido) return;
+    const pending = pendingPerdido;
+    const snapshot = leads;
+    setPendingPerdido(null);
+    const newLeads = snapshot.map((lead) =>
+      String(lead.id) === String(pending.leadId)
+        ? { ...lead, estado_id: pending.destEstadoId }
+        : lead
+    );
+    setLeads(newLeads);
+    try {
+      await moverLead(pending.leadId, pending.destEstadoId, motivoPerdido);
+    } catch (error) {
+      setLeads(snapshot);
+      console.error('Error moviendo lead a Perdido:', error);
     }
   };
 
@@ -801,6 +838,46 @@ export default function KanbanLeads() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Dialog
+          open={!!pendingPerdido}
+          onClose={() => setPendingPerdido(null)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { bgcolor: colors.column, color: colors.textPrimary } }}
+        >
+          <DialogTitle>Motivo de pérdida</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ mb: 2 }}>
+              ¿Por qué se perdió {pendingPerdido?.leadNombre || 'este lead'}?
+            </Typography>
+            <FormControl component="fieldset" fullWidth>
+              <RadioGroup
+                value={motivoPerdido}
+                onChange={(event) => setMotivoPerdido(event.target.value as MotivoPerdido)}
+              >
+                {MOTIVOS_PERDIDO.map((motivo) => (
+                  <FormControlLabel
+                    key={motivo}
+                    value={motivo}
+                    control={<Radio size="small" />}
+                    label={MOTIVO_PERDIDO_LABEL[motivo]}
+                  />
+                ))}
+              </RadioGroup>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPendingPerdido(null)} sx={{ color: colors.textSecondary }}>Cancelar</Button>
+            <Button
+              onClick={() => void handleConfirmarPerdido()}
+              variant="contained"
+              sx={{ bgcolor: colors.primaryAccent, '&:hover': { bgcolor: '#8c5fd0' } }}
+            >
+              Marcar como Perdido
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
       </>
       )}
@@ -808,4 +885,4 @@ export default function KanbanLeads() {
     </Box>
     </DragDropContext>
   );
-} 
+}

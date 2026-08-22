@@ -1,6 +1,6 @@
 # KloSync — Orden de trabajo actual
 
-> Actualizado: 21 agosto 2026.  
+> Actualizado: 22 agosto 2026.  
 > Este archivo es el **orden de ahora**. No reemplaza los docs de detalle; apunta a ellos.  
 > Monetización, precios y lanzamiento comercial **no están en el camino**. Primero hay que tener un MVP que un vendedor use todos los días.
 
@@ -14,6 +14,8 @@
 | Qué es el producto (módulos) | [`FUNCIONALIDADES-PROYECTO.md`](./FUNCIONALIDADES-PROYECTO.md) |
 | Inbox, canales, widget, bot (orden) | [`superpowers/specs/2026-08-20-widget-chatbot-canales-design.md`](./superpowers/specs/2026-08-20-widget-chatbot-canales-design.md) |
 | Contactos CRM | [`superpowers/specs/2026-08-21-contactos-crm-design.md`](./superpowers/specs/2026-08-21-contactos-crm-design.md) |
+| UI chat, rápidas y catálogo (no estaba planificado) | [`superpowers/specs/2026-08-21-catalogo-respuestas-design.md`](./superpowers/specs/2026-08-21-catalogo-respuestas-design.md) |
+| Carrito, nuevo pedido, tags, motivo perdido | [`superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) |
 
 ---
 
@@ -37,6 +39,7 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 - Explorador: buscar por zona y exportar a Sheets.
 - WhatsApp Lite en Railway (QR, envío/recepción, live del inbox, media saliente imagen/audio, catch-up al reconectar).
 - Chat unificado + Kanban básico (etapas, tarjetas, drag entre columnas).
+- Inbox estilo WhatsApp Web, respuestas rápidas (`/`) y catálogo comercial en `/catalogo`.
 - Login Google / NextAuth.
 
 **No es MVP todavía.** Falta el loop tipo Kommo de verdad:
@@ -95,7 +98,22 @@ Sin esto el resto de Kommo se construye mal. Un chat no es un contacto.
 
 Cuando el loop y los contactos existen:
 
-- [x] Respuestas rápidas (`/` + templates). Catálogo de producto/presupuesto/propuesta: carga masiva en `/catalogo`; el chat solo elige.
+Estas cuatro no estaban en el plan original de Fase 3 (solo figuraba “respuestas rápidas” como feature Kommo). Se crearon al hacerlas:
+
+- [x] UI del chat al estilo WhatsApp Web (compositor `+` / emoji / rayo, grabación, burbujas, ticks).
+- [x] Respuestas rápidas (`/` + plantillas, variables, editor). Spec: [`2026-08-21-catalogo-respuestas-design.md`](./superpowers/specs/2026-08-21-catalogo-respuestas-design.md).
+- [x] Catálogo seleccionable en el compositor (chip, placeholders de producto/precio/incluye, adjunto).
+- [x] Módulo `/catalogo` fuera del chat: import masivo CSV/Excel/Sheets y carga de a muchos archivos (foto, PDF, Word, Excel, PowerPoint). El chat solo elige.
+
+Pendiente **antes** de scoring/stats (venta real; spec [`2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md)):
+
+- [x] Presupuesto multi-producto en el compositor (carrito 3–4 ítems + total en un mensaje). Hoy es un chip y un `selectedCatalog`.
+- [x] **Nuevo pedido** en la ficha del contacto (lead nuevo en Nuevo, sin pisar un Ganado). El drag al Kanban no cubre al que vuelve a escribir en el mismo chat.
+- [x] Etiquetas en el contacto (chips + filtro en `/contactos`). `leads.tags` existe y no se usa; `contactos` no tiene tags.
+- [x] Motivo obligatorio al mover a **Perdido** (select corto; guardar en `lead_etapa_historial`). Hoy el drag es silencioso.
+
+Pendiente de esta fase (después de lo de arriba):
+
 - [ ] Búsqueda en historial de conversaciones.
 - [ ] Valor monetario y fecha de cierre en la tarjeta del Kanban.
 - [ ] Filtros del tablero: canal, valor, fecha.
@@ -183,11 +201,12 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Multiagente mismo número | Sí | No |
 | Automatización / bienvenida / follow-up | Sí | No |
 | Respuestas rápidas | Sí | Sí (`/` en el chat) |
+| Catálogo productos / cotizaciones | Algunos | Un ítem en el chat + `/catalogo`; falta carrito multi-producto |
 | Chatbot | Sí | No |
 | Asignar chats | Sí | No |
 | Programados | Casi todos | No |
 | Broadcast | La mayoría | No |
-| Módulo contactos | Sí | Sí (CRUD + match; sin import/timeline) |
+| Módulo contactos | Sí | Sí (CRUD + match + import + timeline) |
 | Reportes de funnel | Sí | No |
 | Ticks entregado/leído | Sí | En prod (enviado / entregado / leído) |
 | Sheet → Slides / sync Google / explorador | No | Sí (nuestro diferencial) |
@@ -203,7 +222,7 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 1. ¿El tester ve el WhatsApp en el Kanban arrastrando? Si no → Fase 0.  
 2. ¿Se pierde un envío o un lead en una caída de Railway? Si sí → Fase 1.  
 3. ¿El mismo humano es un LID en el chat y otra tarjeta en el Kanban? → Fase 2.  
-4. Recién ahí features de Kommo (rápidas, filtros).
+4. Recién ahí features de Kommo (rápidas, **carrito**, **nuevo pedido**, tags, motivo perdido; después filtros/scoring).
 5. ¿El inbox ya no miente una semana? Recién ahí Instagram / ML. Después widget. Después bot.
 
 No saltar a widget, chatbot, multiagente, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario**, no en el catálogo de features.

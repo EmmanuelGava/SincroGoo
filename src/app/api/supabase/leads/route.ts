@@ -3,6 +3,7 @@ import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
 import { attachLeadConversationMeta } from '@/lib/crm/leadConversationUnread';
 import { shouldRecordEtapaChange } from '@/lib/crm/leadEtapaHistorial';
+import { isEstadoPerdido, isMotivoPerdido } from '@/lib/contactos/estadoLead';
 
 // Helper: supabaseToken si existe; si no, fallback a admin + usuario_id (cuando signInWithIdToken falló)
 async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
@@ -130,7 +131,7 @@ export async function PATCH(request: NextRequest) {
     
     const { supabase, userId } = client;
     const body = await request.json();
-    const { id, ...fields } = body;
+    const { id, motivo, ...fields } = body;
     if (!id) return NextResponse.json({ error: 'Falta el id del lead' }, { status: 400 });
 
     if (fields.estado_id) {
@@ -140,13 +141,26 @@ export async function PATCH(request: NextRequest) {
         .eq('id', id)
         .eq('asignado_a', userId)
         .maybeSingle();
+      if (!current) {
+        return NextResponse.json({ error: 'Lead no encontrado' }, { status: 404 });
+      }
+
+      const estadoIds = [current.estado_id, fields.estado_id].filter(Boolean);
+      const { data: estados } = estadoIds.length
+        ? await supabase.from('estados_lead').select('id, nombre').in('id', estadoIds)
+        : { data: [] as Array<{ id: string; nombre: string }> };
+      const nameOf = (estadoId: string | null | undefined) =>
+        estados?.find((estado) => estado.id === estadoId)?.nombre || 'Sin etapa';
+      const nuevoNombre = nameOf(fields.estado_id);
+
+      if (isEstadoPerdido(nuevoNombre) && !isMotivoPerdido(motivo)) {
+        return NextResponse.json(
+          { error: 'Al marcar como Perdido hay que indicar el motivo' },
+          { status: 400 }
+        );
+      }
+
       if (current && shouldRecordEtapaChange(current.estado_id, fields.estado_id)) {
-        const estadoIds = [current.estado_id, fields.estado_id].filter(Boolean);
-        const { data: estados } = estadoIds.length
-          ? await supabase.from('estados_lead').select('id, nombre').in('id', estadoIds)
-          : { data: [] as Array<{ id: string; nombre: string }> };
-        const nameOf = (estadoId: string | null | undefined) =>
-          estados?.find((estado) => estado.id === estadoId)?.nombre || 'Sin etapa';
         const { error: historialError } = await supabase.from('lead_etapa_historial').insert({
           lead_id: id,
           contacto_id: current.contacto_id || null,
@@ -154,7 +168,8 @@ export async function PATCH(request: NextRequest) {
           estado_anterior_id: current.estado_id || null,
           estado_nuevo_id: fields.estado_id,
           estado_anterior_nombre: current.estado_id ? nameOf(current.estado_id) : 'Sin etapa',
-          estado_nuevo_nombre: nameOf(fields.estado_id),
+          estado_nuevo_nombre: nuevoNombre,
+          motivo: isEstadoPerdido(nuevoNombre) ? motivo : null,
         });
         if (historialError) {
           console.warn('No se pudo guardar historial de etapa:', historialError.message);

@@ -125,10 +125,13 @@ Centraliza todas las conversaciones con clientes desde múltiples canales en una
 #### Interfaz de chat
 - Lista de conversaciones activas con indicadores por plataforma
 - Ventana de chat con historial completo
+- UI estilo WhatsApp Web (compositor `+`, emoji, rayo, grabación)
 - Burbujas de mensajes diferenciadas (entrantes/salientes)
 - Input unificado para responder
 - Header con información del contacto
 - Indicadores visuales por plataforma (iconos de Telegram, WhatsApp, Email)
+- Respuestas rápidas (`/` + plantillas y variables)
+- Catálogo comercial en `/catalogo` (import masivo); el chat solo elige el ítem
 
 #### Tiempo real
 - Actualización automática cuando llegan nuevos mensajes
@@ -144,9 +147,8 @@ Centraliza todas las conversaciones con clientes desde múltiples canales en una
 - **Envío real de mensajes**: Actualmente solo se guardan en BD, falta integración con APIs externas
 - **WhatsApp Business API oficial**: Migración desde WhatsApp Lite a API oficial de Meta
 - **Email completo**: Integración con SendGrid o Mailgun
-- **Estados de mensaje**: Enviado, entregado, leído
+- **Estados de mensaje**: Enviado, entregado, leído *(en prod)*
 - **Indicador "escribiendo..."**
-- **Respuestas rápidas predefinidas**
 - **Mensajes programados**
 - **Automatización de seguimiento**
 - **Chatbot básico**

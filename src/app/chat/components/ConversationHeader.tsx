@@ -23,6 +23,7 @@ import SmsIcon from '@mui/icons-material/Sms';
 import PersonIcon from '@mui/icons-material/Person';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
+import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BoltIcon from '@mui/icons-material/Bolt';
 import { useRouter } from 'next/navigation';
@@ -38,6 +39,7 @@ interface Conversacion {
   servicio_origen: string;
   fecha_mensaje: string;
   lead_id?: string;
+  contacto_id?: string;
   ultimo_mensaje?: string;
   metadata?: any;
 }
@@ -74,6 +76,7 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [creatingPedido, setCreatingPedido] = useState(false);
   const router = useRouter();
   
   const displayName = conversationDisplayName(conversacion);
@@ -206,6 +209,30 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
             <ListItemText>Ver perfil del lead</ListItemText>
           </MenuItem>
         )}
+        {conversacion.contacto_id ? (
+          <MenuItem
+            disabled={creatingPedido}
+            onClick={async () => {
+              setMenuAnchor(null);
+              if (!conversacion.contacto_id) return;
+              setCreatingPedido(true);
+              try {
+                const res = await fetch(`/api/contactos/${encodeURIComponent(conversacion.contacto_id)}/nuevo-pedido`, {
+                  method: 'POST',
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.lead?.id) {
+                  router.push(`/crm?lead=${encodeURIComponent(data.lead.id)}`);
+                }
+              } finally {
+                setCreatingPedido(false);
+              }
+            }}
+          >
+            <ListItemIcon sx={{ color: WA.icon }}><ShoppingBagOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{creatingPedido ? 'Creando pedido…' : 'Nuevo pedido'}</ListItemText>
+          </MenuItem>
+        ) : null}
         {onManageReplies ? (
           <MenuItem
             onClick={() => {

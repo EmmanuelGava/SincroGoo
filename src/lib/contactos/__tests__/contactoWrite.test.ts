@@ -55,4 +55,14 @@ describe('contactoWriteFields', () => {
       },
     });
   });
+
+  it('normaliza etiquetas en PATCH', () => {
+    const result = contactoWriteFields(
+      { etiquetas: [' Mayorista ', 'MAYORISTA', 'vip', ''] },
+      { requireNombre: false, partial: true }
+    );
+    expect(result).toEqual({
+      fields: { etiquetas: ['mayorista', 'vip'] },
+    });
+  });
 });

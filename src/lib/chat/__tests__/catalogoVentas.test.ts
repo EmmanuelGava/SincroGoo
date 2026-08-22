@@ -6,8 +6,20 @@ describe('validateCatalogoItem', () => {
     expect(validateCatalogoItem({ nombre: 'A' }).ok).toBe(false);
     expect(validateCatalogoItem({ nombre: 'Kit X', precio: '12500' })).toMatchObject({
       ok: true,
-      fields: { nombre: 'Kit X', precio: 12500, tipo: 'producto' },
+      fields: { nombre: 'Kit X', precio: 12500, tipo: 'producto', stock: 0, categoria: null },
     });
+  });
+
+  it('normaliza categoría y stock', () => {
+    expect(validateCatalogoItem({ nombre: 'Mango', categoria: '  Vapers ', stock: '5' })).toMatchObject({
+      ok: true,
+      fields: { categoria: 'vapers', stock: 5 },
+    });
+    expect(validateCatalogoItem({ nombre: 'Mango', stock: '' })).toMatchObject({
+      ok: true,
+      fields: { stock: 0 },
+    });
+    expect(validateCatalogoItem({ nombre: 'Mango', stock: -1 }).ok).toBe(false);
   });
 });
 

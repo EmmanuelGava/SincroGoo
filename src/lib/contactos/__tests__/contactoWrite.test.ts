@@ -65,4 +65,23 @@ describe('contactoWriteFields', () => {
       fields: { etiquetas: ['mayorista', 'vip'] },
     });
   });
+
+  it('incluye etiquetas en alta', () => {
+    const result = contactoWriteFields(
+      { nombre: 'Ana', telefono: '', email: '', etiquetas: [' VIP ', 'mayorista'] },
+      { requireNombre: true, partial: false }
+    );
+    expect(result).toEqual({
+      fields: {
+        nombre: 'Ana',
+        telefono: null,
+        telefono_digits: null,
+        email: null,
+        empresa: null,
+        notas: null,
+        wa_jid: null,
+        etiquetas: ['vip', 'mayorista'],
+      },
+    });
+  });
 });

@@ -15,10 +15,28 @@ export type CatalogoItem = {
   descripcion: string | null;
   imagen_url: string | null;
   archivo_url: string | null;
+  categoria: string | null;
+  stock: number;
 };
 
 export function isCatalogoTipo(value: unknown): value is CatalogoTipo {
   return CATALOGO_TIPOS.includes(String(value) as CatalogoTipo);
+}
+
+export function normalizeCatalogoCategoria(value: unknown): string | null {
+  const text = String(value ?? '').trim().toLowerCase();
+  return text || null;
+}
+
+export function parseCatalogoStock(value: unknown): number {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 0;
+  }
+  const n = Number(String(value).replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+    return Number.NaN;
+  }
+  return n;
 }
 
 export function validateCatalogoItem(body: {
@@ -28,6 +46,8 @@ export function validateCatalogoItem(body: {
   descripcion?: unknown;
   imagen_url?: unknown;
   archivo_url?: unknown;
+  categoria?: unknown;
+  stock?: unknown;
 }): { ok: false; error: string } | { ok: true; fields: Omit<CatalogoItem, 'id'> } {
   const tipo = isCatalogoTipo(body.tipo) ? body.tipo : 'producto';
   const nombre = String(body.nombre ?? '').trim();
@@ -47,6 +67,11 @@ export function validateCatalogoItem(body: {
     precio = n;
   }
 
+  const stock = parseCatalogoStock(body.stock);
+  if (!Number.isFinite(stock)) {
+    return { ok: false, error: 'El stock no es válido' };
+  }
+
   const optionalUrl = (value: unknown) => {
     const text = String(value ?? '').trim();
     return text || null;
@@ -61,6 +86,8 @@ export function validateCatalogoItem(body: {
       descripcion: optionalUrl(body.descripcion),
       imagen_url: optionalUrl(body.imagen_url),
       archivo_url: optionalUrl(body.archivo_url),
+      categoria: normalizeCatalogoCategoria(body.categoria),
+      stock,
     },
   };
 }

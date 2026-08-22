@@ -8,14 +8,18 @@ export type CatalogoDraft = {
   descripcion: string | null;
   imagen_url: string | null;
   archivo_url: string | null;
+  categoria: string | null;
+  stock: number;
 };
 
-const HEADER_TIPO = /^(tipo|type|categoria|categoría|kind)$/i;
+const HEADER_TIPO = /^(tipo|type|kind)$/i;
 const HEADER_NOMBRE = /^(nombre|name|titulo|título|producto|item)$/i;
 const HEADER_PRECIO = /^(precio|price|importe|monto|valor)$/i;
 const HEADER_DESC = /^(descripcion|descripción|incluye|detalle|detail|description)$/i;
 const HEADER_IMAGEN = /^(imagen|imagen_url|image|foto|photo|url_imagen)$/i;
 const HEADER_ARCHIVO = /^(archivo|archivo_url|file|pdf|documento|url_archivo)$/i;
+const HEADER_CATEGORIA = /^(categoria|categoría|category|cat)$/i;
+const HEADER_STOCK = /^(stock|cantidad|qty|inventario)$/i;
 
 function cell(value: unknown): string {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -53,6 +57,8 @@ export function mapCatalogHeaderIndex(headers: string[]) {
     descripcion: -1,
     imagen_url: -1,
     archivo_url: -1,
+    categoria: -1,
+    stock: -1,
   };
   headers.forEach((raw, index) => {
     const h = normHeader(raw);
@@ -62,6 +68,8 @@ export function mapCatalogHeaderIndex(headers: string[]) {
     else if (mapped.descripcion < 0 && HEADER_DESC.test(h)) mapped.descripcion = index;
     else if (mapped.imagen_url < 0 && HEADER_IMAGEN.test(h)) mapped.imagen_url = index;
     else if (mapped.archivo_url < 0 && HEADER_ARCHIVO.test(h)) mapped.archivo_url = index;
+    else if (mapped.categoria < 0 && HEADER_CATEGORIA.test(h)) mapped.categoria = index;
+    else if (mapped.stock < 0 && HEADER_STOCK.test(h)) mapped.stock = index;
   });
   return mapped;
 }
@@ -85,6 +93,8 @@ export function draftsFromCatalogTable(
       descripcion: headers.descripcion >= 0 ? cell(row[headers.descripcion]) : null,
       imagen_url: headers.imagen_url >= 0 ? cell(row[headers.imagen_url]) : null,
       archivo_url: headers.archivo_url >= 0 ? cell(row[headers.archivo_url]) : null,
+      categoria: headers.categoria >= 0 ? cell(row[headers.categoria]) : null,
+      stock: headers.stock >= 0 ? cell(row[headers.stock]) : 0,
     });
     if (parsed.ok) drafts.push(parsed.fields);
   }
@@ -145,6 +155,8 @@ export function draftFromUploadedFile(
     descripcion: null,
     imagen_url: isImage ? url : null,
     archivo_url: isImage ? null : url,
+    categoria: null,
+    stock: 0,
   };
 }
 
@@ -153,10 +165,11 @@ export function catalogItemKey(tipo: string, nombre: string): string {
 }
 
 export const CATALOGO_CSV_TEMPLATE =
-  'tipo,nombre,precio,descripcion,imagen_url,archivo_url\n' +
-  'producto,Colchoneta,26000,Espuma 2 cm y funda lavable,,\n' +
-  'presupuesto,Obra Norte,180000,Instalación completa,,\n' +
-  'propuesta,Plan mensual,45000,Mantenimiento 12 meses,,\n';
+  'tipo,nombre,precio,descripcion,categoria,stock,imagen_url,archivo_url\n' +
+  'producto,Mango,12000,Sabor tropical,vapers,5,,\n' +
+  'producto,Colchoneta,26000,Espuma 2 cm y funda lavable,colchonetas,3,,\n' +
+  'presupuesto,Obra Norte,180000,Instalación completa,,0,,\n' +
+  'propuesta,Plan mensual,45000,Mantenimiento 12 meses,,0,,\n';
 
 export async function applyCatalogDrafts(
   supabase: SupabaseClient,
@@ -189,6 +202,8 @@ export async function applyCatalogDrafts(
           nombre: draft.nombre,
           precio: draft.precio,
           descripcion: draft.descripcion,
+          categoria: draft.categoria,
+          stock: draft.stock,
           ...(draft.imagen_url ? { imagen_url: draft.imagen_url } : {}),
           ...(draft.archivo_url ? { archivo_url: draft.archivo_url } : {}),
           updated_at: new Date().toISOString(),

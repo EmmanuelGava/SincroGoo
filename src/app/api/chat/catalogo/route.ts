@@ -26,7 +26,7 @@ export async function GET() {
 
     const { data, error } = await client.supabase
       .from('chat_catalogo')
-      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, created_at')
+      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, created_at')
       .eq('usuario_id', client.usuarioId)
       .order('nombre', { ascending: true });
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await client.supabase
       .from('chat_catalogo')
       .insert({ usuario_id: client.usuarioId, ...parsed.fields })
-      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, created_at')
+      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, created_at')
       .single();
 
     if (error) throw error;

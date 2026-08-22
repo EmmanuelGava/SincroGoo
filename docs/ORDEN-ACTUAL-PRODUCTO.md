@@ -16,6 +16,7 @@
 | Contactos CRM | [`superpowers/specs/2026-08-21-contactos-crm-design.md`](./superpowers/specs/2026-08-21-contactos-crm-design.md) |
 | UI chat, rápidas y catálogo (no estaba planificado) | [`superpowers/specs/2026-08-21-catalogo-respuestas-design.md`](./superpowers/specs/2026-08-21-catalogo-respuestas-design.md) |
 | Carrito, nuevo pedido, tags, motivo perdido | [`superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) |
+| Catálogo: categoría, stock y listas | [`superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md) |
 
 ---
 
@@ -112,6 +113,13 @@ Pendiente **antes** de scoring/stats (venta real; spec [`2026-08-22-carrito-pedi
 - [x] Etiquetas en el contacto (chips + filtro en `/contactos`). `leads.tags` existe y no se usa; `contactos` no tiene tags.
 - [x] Motivo obligatorio al mover a **Perdido** (select corto; guardar en `lead_etapa_historial`). Hoy el drag es silencioso.
 
+Pendiente inmediato (categoría + stock + listas; spec [`2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md)):
+
+- [x] Carrito **arriba** del textbox en el compositor.
+- [x] `categoria` + `stock` en `chat_catalogo` (CRUD, import, UI `/catalogo`).
+- [x] “Lista: {categoría}” en el picker: solo `stock > 0`, nombre + precio, sin cantidad al cliente.
+- [x] Ocultar / deshabilitar ítems sin stock en carrito y listas.
+
 Pendiente de esta fase (después de lo de arriba):
 
 - [ ] Búsqueda en historial de conversaciones.
@@ -119,6 +127,17 @@ Pendiente de esta fase (después de lo de arriba):
 - [ ] Filtros del tablero: canal, valor, fecha.
 - [ ] Lead scoring básico (alta / media / baja).
 - [ ] Stats mínimas del inbox: nuevas, no respondidas, tiempo a primera respuesta, conversión por etapa.
+
+Backlog catálogo (fuera de alcance v1 de categoría/stock; spec listas):
+
+- [ ] Descontar stock al marcar lead **Ganado** (o al confirmar pedido).
+- [ ] Alertas de bajo stock (umbral por usuario / por ítem).
+- [ ] Variantes anidadas (talle / color / sabor como sub-SKU).
+- [ ] Al enviar una lista, adjuntar varias fotos.
+- [ ] Atalho `/vapers` que inserte la lista si la categoría coincide.
+- [ ] Tabla `catalogo_categorias` + rename masivo.
+- [ ] Opción de mostrar “sin stock” en el mensaje (hoy se ocultan).
+- [ ] Reserva / hold de stock mientras el lead está en Propuesta.
 
 ### Fase 4 — Pegar el diferencial (Explorador + Slides al CRM)
 

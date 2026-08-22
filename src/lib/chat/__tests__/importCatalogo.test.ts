@@ -31,8 +31,19 @@ describe('draftsFromCatalogCsv', () => {
     ].join('\n');
     const drafts = draftsFromCatalogCsv(csv);
     expect(drafts).toHaveLength(2);
-    expect(drafts[0]).toMatchObject({ tipo: 'producto', nombre: 'Colchoneta', precio: 26000 });
+    expect(drafts[0]).toMatchObject({ tipo: 'producto', nombre: 'Colchoneta', precio: 26000, stock: 0, categoria: null });
     expect(drafts[1]).toMatchObject({ tipo: 'presupuesto', nombre: 'Obra Norte', precio: 180000 });
+  });
+
+  it('lee columnas opcionales categoria y stock', () => {
+    const csv = [
+      'tipo,nombre,precio,categoria,stock',
+      'producto,Mango,12000,Vapers,5',
+      'producto,Uva,12000,vapers,',
+    ].join('\n');
+    const drafts = draftsFromCatalogCsv(csv);
+    expect(drafts[0]).toMatchObject({ nombre: 'Mango', categoria: 'vapers', stock: 5 });
+    expect(drafts[1]).toMatchObject({ nombre: 'Uva', categoria: 'vapers', stock: 0 });
   });
 });
 
@@ -45,6 +56,8 @@ describe('draftFromUploadedFile', () => {
       descripcion: null,
       imagen_url: 'https://x/a.jpg',
       archivo_url: null,
+      categoria: null,
+      stock: 0,
     });
   });
 
@@ -53,5 +66,6 @@ describe('draftFromUploadedFile', () => {
     expect(draft.tipo).toBe('presupuesto');
     expect(draft.archivo_url).toBe('https://x/a.pdf');
     expect(draft.imagen_url).toBeNull();
+    expect(draft.stock).toBe(0);
   });
 });

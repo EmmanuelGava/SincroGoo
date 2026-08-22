@@ -59,6 +59,7 @@ export function CatalogoList() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [tipoFilter, setTipoFilter] = useState<FilterTipo>('todos');
+  const [categoriaFilter, setCategoriaFilter] = useState<string>('todas');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -72,6 +73,8 @@ export function CatalogoList() {
   const [nombre, setNombre] = useState('');
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [categoria, setCategoria] = useState('');
+  const [stock, setStock] = useState('0');
   const [imagenUrl, setImagenUrl] = useState<string | null>(null);
   const [archivoUrl, setArchivoUrl] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -103,11 +106,23 @@ export function CatalogoList() {
     void cargar();
   }, [cargar]);
 
+  const categorias = Array.from(
+    new Set(
+      items
+        .map((item) => (item.categoria || '').trim().toLowerCase())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, 'es'));
+
   const visibles = items.filter((item) => {
     if (tipoFilter !== 'todos' && item.tipo !== tipoFilter) return false;
+    if (categoriaFilter !== 'todas') {
+      const cat = (item.categoria || '').trim().toLowerCase();
+      if (cat !== categoriaFilter) return false;
+    }
     const query = q.trim().toLowerCase();
     if (!query) return true;
-    return `${item.nombre} ${item.descripcion || ''}`.toLowerCase().includes(query);
+    return `${item.nombre} ${item.descripcion || ''} ${item.categoria || ''}`.toLowerCase().includes(query);
   });
 
   const applyResult = async (res: Response, fallback: string) => {
@@ -209,6 +224,8 @@ export function CatalogoList() {
     setNombre('');
     setPrecio('');
     setDescripcion('');
+    setCategoria(categoriaFilter !== 'todas' ? categoriaFilter : '');
+    setStock('0');
     setImagenUrl(null);
     setArchivoUrl(null);
     setFormError(null);
@@ -221,6 +238,8 @@ export function CatalogoList() {
       setNombre(item.nombre);
       setPrecio(item.precio != null ? String(item.precio) : '');
       setDescripcion(item.descripcion || '');
+      setCategoria(item.categoria || '');
+      setStock(String(item.stock ?? 0));
       setImagenUrl(item.imagen_url);
       setArchivoUrl(item.archivo_url);
       setFormError(null);
@@ -252,6 +271,8 @@ export function CatalogoList() {
           nombre,
           precio,
           descripcion,
+          categoria,
+          stock,
           imagen_url: imagenUrl,
           archivo_url: archivoUrl,
         }),
@@ -348,6 +369,26 @@ export function CatalogoList() {
         ))}
       </Stack>
 
+      {categorias.length > 0 ? (
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Chip
+            label="Todas las categorías"
+            color={categoriaFilter === 'todas' ? 'primary' : 'default'}
+            variant={categoriaFilter === 'todas' ? 'filled' : 'outlined'}
+            onClick={() => setCategoriaFilter('todas')}
+          />
+          {categorias.map((cat) => (
+            <Chip
+              key={cat}
+              label={cat}
+              color={categoriaFilter === cat ? 'primary' : 'default'}
+              variant={categoriaFilter === cat ? 'filled' : 'outlined'}
+              onClick={() => setCategoriaFilter(cat)}
+            />
+          ))}
+        </Stack>
+      ) : null}
+
       <input
         ref={sheetInputRef}
         type="file"
@@ -408,6 +449,8 @@ export function CatalogoList() {
               <TableRow>
                 <TableCell>Nombre</TableCell>
                 <TableCell>Tipo</TableCell>
+                <TableCell>Categoría</TableCell>
+                <TableCell>Stock</TableCell>
                 <TableCell>Precio</TableCell>
                 <TableCell>Incluye</TableCell>
                 <TableCell>Archivos</TableCell>
@@ -427,10 +470,17 @@ export function CatalogoList() {
                           sx={{ width: 40, height: 40, borderRadius: 1, objectFit: 'cover' }}
                         />
                       ) : null}
-                      <Typography fontWeight={600}>{item.nombre}</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography fontWeight={600}>{item.nombre}</Typography>
+                        {(item.stock ?? 0) === 0 ? (
+                          <Chip label="sin stock" size="small" variant="outlined" color="warning" />
+                        ) : null}
+                      </Stack>
                     </Stack>
                   </TableCell>
                   <TableCell>{CATALOGO_TIPO_LABEL[item.tipo]}</TableCell>
+                  <TableCell>{item.categoria || '—'}</TableCell>
+                  <TableCell>{item.stock ?? 0}</TableCell>
                   <TableCell>{item.precio != null ? formatCatalogPrecio(item.precio) : '—'}</TableCell>
                   <TableCell sx={{ maxWidth: 280 }}>{item.descripcion || '—'}</TableCell>
                   <TableCell>
@@ -466,7 +516,18 @@ export function CatalogoList() {
               ))}
             </TextField>
             <TextField label="Nombre" size="small" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-            <TextField label="Precio" size="small" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="26000" />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField label="Precio" size="small" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="26000" fullWidth />
+              <TextField label="Stock" size="small" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" fullWidth />
+            </Stack>
+            <TextField
+              label="Categoría"
+              size="small"
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              placeholder="vapers"
+              helperText="Se guarda en minúsculas. Misma categoría = misma lista en el chat."
+            />
             <TextField
               label="Qué incluye / detalle"
               size="small"
@@ -517,7 +578,7 @@ export function CatalogoList() {
         <DialogTitle>Importar desde Google Sheet</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Primera fila: tipo, nombre, precio, descripcion. Opcional: imagen_url, archivo_url.
+            Primera fila: tipo, nombre, precio, descripcion, categoria, stock. Opcional: imagen_url, archivo_url.
           </Typography>
           {sheetsError ? <Alert severity="error">{sheetsError}</Alert> : null}
           {!sheetsError && sheets.length === 0 ? (

@@ -35,6 +35,7 @@ import {
 } from '@/lib/chat/respuestasRapidas';
 import { type CatalogoItem } from '@/lib/chat/catalogoVentas';
 import { armarPresupuesto, primeraImagenCarrito } from '@/lib/chat/armarPresupuesto';
+import { armarListaCategoria } from '@/lib/chat/armarListaCategoria';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string) => void;
@@ -157,13 +158,10 @@ export default function MessageInput({
   };
 
   const applyCatalogItem = (item: CatalogoItem) => {
+    if ((item.stock ?? 0) <= 0) return;
     const nextCart = [...carrito, item];
     setCarrito(nextCart);
-    if (draftNeedsCatalog(mensaje) || carrito.length === 0) {
-      syncPresupuestoDraft(nextCart);
-    } else {
-      syncPresupuestoDraft(nextCart);
-    }
+    syncPresupuestoDraft(nextCart);
     setCatalogOpen(false);
     onTyping?.(true);
     setTimeout(() => {
@@ -172,6 +170,21 @@ export default function MessageInput({
       input.focus();
       const end = armarPresupuesto(nextCart).texto.length;
       if (input.setSelectionRange) input.setSelectionRange(end, end);
+    }, 0);
+  };
+
+  const applyListaCategoria = (categoria: string) => {
+    const texto = armarListaCategoria(catalogo, categoria);
+    if (!texto) return;
+    setMensaje(texto);
+    setCarrito([]);
+    setCatalogOpen(false);
+    onTyping?.(true);
+    setTimeout(() => {
+      const input = inputRef.current?.querySelector('textarea') || inputRef.current?.querySelector('input');
+      if (!input) return;
+      input.focus();
+      if (input.setSelectionRange) input.setSelectionRange(texto.length, texto.length);
     }, 0);
   };
 
@@ -311,6 +324,7 @@ export default function MessageInput({
         <CatalogPicker
           items={catalogo}
           onSelect={applyCatalogItem}
+          onSelectLista={applyListaCategoria}
           onManage={() => {
             setCatalogOpen(false);
             router.push('/catalogo');
@@ -325,6 +339,52 @@ export default function MessageInput({
           conversationId={conversationId}
           disabled={disabled}
         />
+      ) : null}
+
+      {(draftNeedsCatalog(mensaje) || carrito.length > 0) && !audioBusy ? (
+        <Box sx={{ ml: 6, mb: 0.75 }}>
+          {carrito.length > 0 ? (
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.75 }}>
+              {carrito.map((item, index) => (
+                <Chip
+                  key={`${item.id}-${index}`}
+                  label={`${item.nombre}${item.precio != null ? ` · $${item.precio}` : ''}`}
+                  size="small"
+                  onDelete={() => removeFromCarrito(index)}
+                  deleteIcon={<CloseIcon />}
+                  sx={{ bgcolor: WA.inputField, color: WA.text }}
+                />
+              ))}
+            </Stack>
+          ) : null}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Box
+              onClick={() => setCatalogOpen(true)}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.25,
+                py: 0.4,
+                borderRadius: 4,
+                bgcolor: WA.inputField,
+                color: WA.text,
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                '&:hover': { bgcolor: WA.selected },
+              }}
+            >
+              {carrito.length > 0 ? 'Agregar producto' : 'Elegir producto'}
+            </Box>
+            {carrito.length > 0 ? (
+              <Typography sx={{ color: WA.muted, fontSize: '0.75rem' }}>
+                Total: {armarPresupuesto(carrito).total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })}
+                {' · '}
+                Podés editar el texto y después enviar
+              </Typography>
+            ) : null}
+          </Box>
+        </Box>
       ) : null}
 
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.25, width: '100%' }}>
@@ -480,55 +540,6 @@ export default function MessageInput({
           </Tooltip>
         ) : null}
       </Box>
-
-      {(draftNeedsCatalog(mensaje) || carrito.length > 0) && !audioBusy ? (
-        <Box sx={{ ml: 6, mt: 0.75 }}>
-          {carrito.length > 0 ? (
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.75 }}>
-              {carrito.map((item, index) => (
-                <Chip
-                  key={`${item.id}-${index}`}
-                  label={`${item.nombre}${item.precio != null ? ` · $${item.precio}` : ''}`}
-                  size="small"
-                  onDelete={() => removeFromCarrito(index)}
-                  deleteIcon={<CloseIcon />}
-                  sx={{ bgcolor: WA.inputField, color: WA.text }}
-                />
-              ))}
-            </Stack>
-          ) : null}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Box
-              onClick={() => setCatalogOpen(true)}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.75,
-                px: 1.25,
-                py: 0.4,
-                borderRadius: 4,
-                bgcolor: WA.inputField,
-                color: WA.text,
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                '&:hover': { bgcolor: WA.selected },
-              }}
-            >
-              {carrito.length > 0 ? 'Agregar producto' : 'Elegir producto'}
-            </Box>
-            {carrito.length > 0 ? (
-              <Typography sx={{ color: WA.muted, fontSize: '0.75rem' }}>
-                Total: {armarPresupuesto(carrito).total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })}
-              </Typography>
-            ) : null}
-          </Box>
-        </Box>
-      ) : null}
-      {hasText && !audioBusy && (draftNeedsCatalog(mensaje) || carrito.length > 0) ? (
-        <Typography sx={{ color: WA.muted, fontSize: '0.7rem', ml: 6, mt: 0.4 }}>
-          Podés editar el texto y después enviar
-        </Typography>
-      ) : null}
 
       <QuickReplyManager
         open={manage}

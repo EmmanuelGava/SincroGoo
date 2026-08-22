@@ -12,6 +12,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   List,
   ListItemButton,
   ListItemText,
@@ -28,6 +29,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 
 export type Contacto = {
   id: string;
@@ -55,6 +57,8 @@ export function ContactosList() {
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+  const [etiquetas, setEtiquetas] = useState<string[]>([]);
+  const [nuevaEtiqueta, setNuevaEtiqueta] = useState('');
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [importAnchor, setImportAnchor] = useState<null | HTMLElement>(null);
@@ -111,7 +115,23 @@ export function ContactosList() {
     setNombre('');
     setTelefono('');
     setEmail('');
+    setEtiquetas([]);
+    setNuevaEtiqueta('');
     setFormError(null);
+  };
+
+  const addEtiqueta = () => {
+    const tag = nuevaEtiqueta.trim().toLowerCase();
+    if (!tag || etiquetas.includes(tag)) {
+      setNuevaEtiqueta('');
+      return;
+    }
+    setEtiquetas([...etiquetas, tag]);
+    setNuevaEtiqueta('');
+  };
+
+  const removeEtiqueta = (tag: string) => {
+    setEtiquetas(etiquetas.filter((item) => item !== tag));
   };
 
   const handleCloseDialog = () => {
@@ -215,6 +235,7 @@ export function ContactosList() {
           email,
           empresa: '',
           notas: '',
+          etiquetas,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -384,6 +405,50 @@ export function ContactosList() {
               onChange={(e) => setEmail(e.target.value)}
               fullWidth
             />
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Etiquetas
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                {etiquetas.map((tag) => (
+                  <Chip
+                    key={tag}
+                    label={tag}
+                    onDelete={() => removeEtiqueta(tag)}
+                    size="small"
+                  />
+                ))}
+                {etiquetas.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Sin etiquetas.
+                  </Typography>
+                ) : null}
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  label="Agregar etiqueta"
+                  value={nuevaEtiqueta}
+                  onChange={(e) => setNuevaEtiqueta(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addEtiqueta();
+                    }
+                  }}
+                  size="small"
+                  fullWidth
+                  disabled={saving}
+                />
+                <IconButton
+                  color="primary"
+                  onClick={addEtiqueta}
+                  disabled={saving || !nuevaEtiqueta.trim()}
+                  aria-label="Agregar etiqueta"
+                >
+                  <AddIcon />
+                </IconButton>
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>

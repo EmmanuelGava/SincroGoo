@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   CircularProgress,
-  Divider,
   Stack,
   Tooltip,
   Typography,
@@ -31,7 +30,7 @@ type InboxStatsResponse = {
   error?: string;
 };
 
-function StatCell({
+function CompactStat({
   label,
   value,
   hint,
@@ -46,24 +45,29 @@ function StatCell({
   const content = (
     <Box
       sx={{
-        flex: '1 1 96px',
-        minWidth: 88,
-        px: 1.5,
-        py: 1.1,
-        borderRadius: 1.5,
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 0.5,
+        px: 0.85,
+        py: 0.35,
+        borderRadius: 1,
         bgcolor: theme.palette.action.hover,
-        borderLeft: accent ? `3px solid ${accent}` : '3px solid transparent',
+        borderLeft: accent ? `2px solid ${accent}` : undefined,
+        whiteSpace: 'nowrap',
       }}
     >
       <Typography
         variant="caption"
         color="text.secondary"
-        display="block"
-        sx={{ lineHeight: 1.2, fontSize: '0.7rem', letterSpacing: 0.2 }}
+        sx={{ fontSize: '0.65rem', lineHeight: 1 }}
       >
         {label}
       </Typography>
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.35, lineHeight: 1.15 }}>
+      <Typography
+        variant="caption"
+        fontWeight={700}
+        sx={{ fontSize: '0.75rem', lineHeight: 1, color: 'text.primary' }}
+      >
         {value}
       </Typography>
     </Box>
@@ -109,22 +113,10 @@ export default function InboxStatsPanel() {
 
   if (loading && !data) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          mb: 2,
-          px: 2,
-          py: 1.5,
-          borderRadius: 2,
-          border: `1px solid ${theme.palette.divider}`,
-          bgcolor: theme.palette.background.paper,
-        }}
-      >
-        <CircularProgress size={16} />
-        <Typography variant="caption" color="text.secondary">
-          Cargando stats del inbox…
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 28 }}>
+        <CircularProgress size={14} />
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+          Stats…
         </Typography>
       </Box>
     );
@@ -132,7 +124,7 @@ export default function InboxStatsPanel() {
 
   if (error && !data) {
     return (
-      <Typography variant="caption" color="error" sx={{ mb: 2, display: 'block' }}>
+      <Typography variant="caption" color="error" sx={{ fontSize: '0.7rem' }}>
         {error}
       </Typography>
     );
@@ -145,69 +137,63 @@ export default function InboxStatsPanel() {
   const samples = data.tiempoPrimeraRespuesta.sampleCount;
 
   return (
-    <Box
+    <Stack
+      direction="row"
+      spacing={0.75}
+      flexWrap="wrap"
+      useFlexGap
+      alignItems="center"
       sx={{
-        mb: 2,
-        px: 2,
-        py: 1.5,
-        borderRadius: 2,
-        border: `1px solid ${theme.palette.divider}`,
-        bgcolor: theme.palette.background.paper,
+        minWidth: 0,
+        maxWidth: '100%',
       }}
     >
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <StatCell
-          label="Nuevas (24h)"
-          value={data.nuevas24h}
-          hint={data.definitions?.nuevas || 'Actividad en las últimas 24h'}
-        />
-        <StatCell
-          label="Nuevas (7d)"
-          value={data.nuevas7d}
-          hint={data.definitions?.nuevas || 'Actividad en los últimos 7 días'}
-        />
-        <StatCell
-          label="Sin respuesta"
-          value={data.noRespondidas}
-          hint={data.definitions?.noRespondidas}
-        />
-        <StatCell
-          label="1ª respuesta"
-          value={medianLabel}
-          hint={
-            samples > 0
-              ? `Mediana ${medianLabel} · promedio ${avgLabel} (${samples} conversaciones, 7d). ${data.definitions?.tiempoPrimeraRespuesta || ''}`
-              : data.definitions?.tiempoPrimeraRespuesta || 'Sin muestras en 7d'
-          }
-        />
-      </Stack>
-
+      <CompactStat
+        label="24h"
+        value={data.nuevas24h}
+        hint={data.definitions?.nuevas || 'Nuevas (24h)'}
+      />
+      <CompactStat
+        label="7d"
+        value={data.nuevas7d}
+        hint={data.definitions?.nuevas || 'Nuevas (7d)'}
+      />
+      <CompactStat
+        label="Sin resp."
+        value={data.noRespondidas}
+        hint={data.definitions?.noRespondidas}
+      />
+      <CompactStat
+        label="1ª resp."
+        value={medianLabel}
+        hint={
+          samples > 0
+            ? `Mediana ${medianLabel} · promedio ${avgLabel} (${samples} conv., 7d). ${data.definitions?.tiempoPrimeraRespuesta || ''}`
+            : data.definitions?.tiempoPrimeraRespuesta || 'Sin muestras en 7d'
+        }
+      />
       {data.conversionPorEtapa.length > 0 && (
         <>
-          <Divider sx={{ my: 1.5 }} />
-          <Stack spacing={1}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              fontWeight={600}
-              sx={{ letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.65rem' }}
-            >
-              Embudo
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {data.conversionPorEtapa.map((etapa) => (
-                <StatCell
-                  key={etapa.estadoId}
-                  label={etapa.nombre}
-                  value={etapa.count}
-                  accent={etapa.color}
-                  hint={data.definitions?.conversionPorEtapa}
-                />
-              ))}
-            </Stack>
-          </Stack>
+          <Box
+            sx={{
+              width: '1px',
+              alignSelf: 'stretch',
+              bgcolor: theme.palette.divider,
+              mx: 0.25,
+              minHeight: 16,
+            }}
+          />
+          {data.conversionPorEtapa.map((etapa: ConversionPorEtapa) => (
+            <CompactStat
+              key={etapa.estadoId}
+              label={etapa.nombre}
+              value={etapa.count}
+              accent={etapa.color}
+              hint={data.definitions?.conversionPorEtapa}
+            />
+          ))}
         </>
       )}
-    </Box>
+    </Stack>
   );
 }

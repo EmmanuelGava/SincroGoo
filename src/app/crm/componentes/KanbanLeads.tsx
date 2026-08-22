@@ -31,6 +31,7 @@ import { FormularioLead } from './FormularioLead';
 import { FormularioEdicionLead } from './FormularioEdicionLead';
 import { supabase } from '@/lib/supabase/browserClient';
 import SidebarMensajesEntrantes from './SidebarMensajesEntrantes';
+import InboxStatsPanel from './InboxStatsPanel';
 import { isEstadoPerdido, MOTIVOS_PERDIDO, MOTIVO_PERDIDO_LABEL, type MotivoPerdido } from '@/lib/contactos/estadoLead';
 import {
   filtrarLeadsKanban,
@@ -552,109 +553,99 @@ export default function KanbanLeads() {
       <>
       {/* Kanban principal */}
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ p: 3, pt: 1, pb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ px: 2, pt: 1, pb: 1 }}>
           <Box
             sx={{
               display: 'flex',
               flexWrap: 'wrap',
-              gap: 1.5,
+              gap: 1.25,
               alignItems: 'center',
-              p: 1.5,
+              justifyContent: 'space-between',
+              p: 1,
               borderRadius: 2,
               border: `1px solid ${colors.border}`,
               bgcolor: colors.card,
             }}
           >
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpen()}
-              sx={{
-                bgcolor: colors.primaryAccent,
-                '&:hover': { bgcolor: '#8c5fd0' },
-                textTransform: 'none',
-                fontWeight: 500,
-                borderRadius: 2,
-                boxShadow: 'none',
-                mr: 0.5,
-              }}
-            >
-              Nuevo Lead
-            </Button>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel id="filtro-canal-label">Canal</InputLabel>
-              <Select
-                labelId="filtro-canal-label"
-                label="Canal"
-                value={filtros.canal || ''}
-                onChange={(e: SelectChangeEvent) =>
-                  setFiltros((prev) => ({ ...prev, canal: e.target.value as KanbanCanalFiltro | '' }))
-                }
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="whatsapp">WhatsApp</MenuItem>
-                <MenuItem value="telegram">Telegram</MenuItem>
-                <MenuItem value="email">Email</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              type="number"
-              label="Valor mín."
-              value={filtros.valorMin ?? ''}
-              onChange={(e) => setFiltros((prev) => ({ ...prev, valorMin: parseOptionalNumber(e.target.value) }))}
-              sx={{ width: 120 }}
-            />
-            <TextField
-              size="small"
-              type="number"
-              label="Valor máx."
-              value={filtros.valorMax ?? ''}
-              onChange={(e) => setFiltros((prev) => ({ ...prev, valorMax: parseOptionalNumber(e.target.value) }))}
-              sx={{ width: 120 }}
-            />
-            <TextField
-              size="small"
-              type="date"
-              label="Cierre desde"
-              InputLabelProps={{ shrink: true }}
-              value={filtros.fechaCierreDesde || ''}
-              onChange={(e) => setFiltros((prev) => ({ ...prev, fechaCierreDesde: e.target.value || null }))}
-              sx={{ width: 160 }}
-            />
-            <TextField
-              size="small"
-              type="date"
-              label="Cierre hasta"
-              InputLabelProps={{ shrink: true }}
-              value={filtros.fechaCierreHasta || ''}
-              onChange={(e) => setFiltros((prev) => ({ ...prev, fechaCierreHasta: e.target.value || null }))}
-              sx={{ width: 160 }}
-            />
-            {hayFiltrosActivos && (
-              <Button
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', minWidth: 0 }}>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel id="filtro-canal-label">Canal</InputLabel>
+                <Select
+                  labelId="filtro-canal-label"
+                  label="Canal"
+                  value={filtros.canal || ''}
+                  onChange={(e: SelectChangeEvent) =>
+                    setFiltros((prev) => ({ ...prev, canal: e.target.value as KanbanCanalFiltro | '' }))
+                  }
+                >
+                  <MenuItem value="">Todos</MenuItem>
+                  <MenuItem value="whatsapp">WhatsApp</MenuItem>
+                  <MenuItem value="telegram">Telegram</MenuItem>
+                  <MenuItem value="email">Email</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
                 size="small"
-                onClick={() => setFiltros({
-                  canal: '',
-                  valorMin: null,
-                  valorMax: null,
-                  fechaCierreDesde: null,
-                  fechaCierreHasta: null,
-                })}
-                sx={{ textTransform: 'none', color: colors.textSecondary }}
-              >
-                Limpiar filtros
-              </Button>
-            )}
-            {hayFiltrosActivos && (
-              <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-                {leadsFiltrados.length} de {leads.length} leads
-              </Typography>
-            )}
+                type="number"
+                label="Valor mín."
+                value={filtros.valorMin ?? ''}
+                onChange={(e) => setFiltros((prev) => ({ ...prev, valorMin: parseOptionalNumber(e.target.value) }))}
+                sx={{ width: 100 }}
+              />
+              <TextField
+                size="small"
+                type="number"
+                label="Valor máx."
+                value={filtros.valorMax ?? ''}
+                onChange={(e) => setFiltros((prev) => ({ ...prev, valorMax: parseOptionalNumber(e.target.value) }))}
+                sx={{ width: 100 }}
+              />
+              <TextField
+                size="small"
+                type="date"
+                label="Cierre desde"
+                InputLabelProps={{ shrink: true }}
+                value={filtros.fechaCierreDesde || ''}
+                onChange={(e) => setFiltros((prev) => ({ ...prev, fechaCierreDesde: e.target.value || null }))}
+                sx={{ width: 145 }}
+              />
+              <TextField
+                size="small"
+                type="date"
+                label="Cierre hasta"
+                InputLabelProps={{ shrink: true }}
+                value={filtros.fechaCierreHasta || ''}
+                onChange={(e) => setFiltros((prev) => ({ ...prev, fechaCierreHasta: e.target.value || null }))}
+                sx={{ width: 145 }}
+              />
+              {hayFiltrosActivos && (
+                <Button
+                  size="small"
+                  onClick={() => setFiltros({
+                    canal: '',
+                    valorMin: null,
+                    valorMax: null,
+                    fechaCierreDesde: null,
+                    fechaCierreHasta: null,
+                  })}
+                  sx={{ textTransform: 'none', color: colors.textSecondary }}
+                >
+                  Limpiar
+                </Button>
+              )}
+              {hayFiltrosActivos && (
+                <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                  {leadsFiltrados.length}/{leads.length}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ flex: '1 1 220px', minWidth: 0, display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+              <InboxStatsPanel />
+            </Box>
           </Box>
         </Box>
 
-        <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden', p: 3, pt: 0 }}>
+        <Box sx={{ flexGrow: 1, overflowX: 'auto', overflowY: 'hidden', px: 2, pb: 2, pt: 0 }}>
             <Droppable droppableId="kanban-columns" direction="horizontal" type="COLUMN">
               {(provided) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', gap: 2, height: '100%' }}>
@@ -773,25 +764,38 @@ export default function KanbanLeads() {
                                 {/* Espaciador para empujar el botón de editar hacia abajo */}
                                 <Box sx={{ flexGrow: 1 }} />
 
-                                {/* Botón de editar en la parte inferior */}
-                                <Tooltip title="Editar columna" placement="right">
-                                  <IconButton 
-                                    size="small" 
-                                    onClick={(e) => {
-                                      e.stopPropagation(); // Evitar que se expanda al hacer clic en editar
-                                      handleOpenEstado({ ...estado });
-                                    }}
-                                    sx={{
-                                      mt: 1,
-                                      bgcolor: colors.background,
-                                      '&:hover': {
-                                        bgcolor: colors.border
-                                      }
-                                    }}
-                                  >
-                                    <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
-                                  </IconButton>
-                                </Tooltip>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
+                                  <Tooltip title="Nuevo lead" placement="right">
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpen(estado.id);
+                                      }}
+                                      sx={{
+                                        bgcolor: colors.background,
+                                        '&:hover': { bgcolor: colors.border },
+                                      }}
+                                    >
+                                      <AddIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Editar columna" placement="right">
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEstado({ ...estado });
+                                      }}
+                                      sx={{
+                                        bgcolor: colors.background,
+                                        '&:hover': { bgcolor: colors.border },
+                                      }}
+                                    >
+                                      <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
 
                                 {/* Droppable oculto para permitir drop en columnas colapsadas */}
                                 <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0, pointerEvents: 'none' }}>
@@ -816,10 +820,15 @@ export default function KanbanLeads() {
                                       {leadsPorEstado[estado.id]?.length || 0}
                                     </Typography>
                                   </Box>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                                     <Tooltip title="Colapsar columna">
                                       <IconButton size="small" onClick={() => toggleColumnCollapse(estado.id)}>
                                         <UnfoldLessIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Nuevo lead en esta columna">
+                                      <IconButton size="small" onClick={() => handleOpen(estado.id)}>
+                                        <AddIcon sx={{ color: colors.textSecondary, fontSize: '1.1rem' }} />
                                       </IconButton>
                                     </Tooltip>
                                     <Tooltip title="Editar columna">
@@ -841,13 +850,6 @@ export default function KanbanLeads() {
                                     )}
                                   </Droppable>
                                 </Box>
-                                <Button
-                                  startIcon={<AddIcon />}
-                                  onClick={() => handleOpen(estado.id)}
-                                  sx={{ color: colors.textSecondary, textTransform: 'none', justifyContent: 'flex-start', p: 1, mt: 1, '&:hover': { bgcolor: colors.card } }}
-                                >
-                                  Nuevo elemento
-                                </Button>
                               </Box>
                             )}
                           </Box>

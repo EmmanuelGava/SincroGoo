@@ -23,6 +23,9 @@ interface Conversacion {
   ultimo_mensaje?: string;
   metadata?: any;
   unread_count?: number;
+  esperando_seguimiento?: boolean;
+  seguimiento_desde?: string | null;
+  seguimiento_horas?: number | null;
 }
 
 interface Mensaje {

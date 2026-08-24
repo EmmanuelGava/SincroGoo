@@ -120,10 +120,16 @@ export async function GET() {
       }
     }
 
+    const estadoNombreById = new Map((estados || []).map((e) => [e.id, e.nombre]));
+    const leadEtapaByLeadId = new Map(
+      (leads || []).map((l) => [l.id, estadoNombreById.get(l.estado_id) ?? null])
+    );
+
     const conversaciones: ConversationStatsInput[] = [...convMap.values()].map((row) => ({
       id: row.id,
       fecha_mensaje: row.fecha_mensaje,
       unread_count: row.unread_count,
+      leadEtapaNombre: row.lead_id ? leadEtapaByLeadId.get(row.lead_id) ?? null : null,
       mensajes: (row.mensajes_conversacion || []).map((m) => ({
         fecha_mensaje: m.fecha_mensaje,
         usuario_id: m.usuario_id,

@@ -17,6 +17,7 @@
 | UI chat, rápidas y catálogo (no estaba planificado) | [`superpowers/specs/2026-08-21-catalogo-respuestas-design.md`](./superpowers/specs/2026-08-21-catalogo-respuestas-design.md) |
 | Catálogo: categoría, stock y listas | [`superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md) — **base; primero** |
 | Carrito, nuevo pedido, tags, motivo | [`superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) — **después** de categoría/stock |
+| Recordatorio de seguimiento (alerta interna inbox) | [`superpowers/specs/2026-08-24-recordatorio-seguimiento-design.md`](./superpowers/specs/2026-08-24-recordatorio-seguimiento-design.md) |
 
 ---
 
@@ -133,6 +134,14 @@ Pendiente de esta fase (después de lo de arriba):
 - [x] Lead scoring básico (alta / media / baja).
 - [x] Stats mínimas del inbox: nuevas, no respondidas, tiempo a primera respuesta, conversión por etapa.
 
+**Recordatorio de seguimiento** (alerta interna; spec [`2026-08-24-recordatorio-seguimiento-design.md`](./superpowers/specs/2026-08-24-recordatorio-seguimiento-design.md)) — independiente del catálogo; puede adelantarse como primer “wow”:
+
+- [x] Regla server-side: último mensaje entrante + pasaron ≥ X hs + lead no Ganado/Perdido → `esperando_seguimiento`.
+- [x] X configurable (default 12 h Nuevo/Contactado, 24 h resto) — constantes en código v1.
+- [x] Badge/borde distinto en lista del inbox (`ChatSidebar`); contador “Seguim.” en stats.
+- [x] Limpieza automática al responder; persiste al recargar (no depende del socket).
+- [x] Ordenar inbox poniendo seguimiento arriba.
+
 Backlog catálogo (fuera de alcance v1 de categoría/stock; spec listas):
 
 - [ ] Descontar stock al marcar lead **Ganado** (o al confirmar pedido).
@@ -229,6 +238,7 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Chatbot | Sí | No |
 | Asignar chats | Sí | No |
 | Programados | Casi todos | No |
+| Seguimiento / “te debe respuesta” | Sí (Kommo-style) | Spec Fase 3; alerta interna, no auto-mensaje |
 | Broadcast | La mayoría | No |
 | Módulo contactos | Sí | Sí (CRUD + match + import + timeline) |
 | Reportes de funnel | Sí | No |
@@ -246,7 +256,7 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 1. ¿El tester ve el WhatsApp en el Kanban arrastrando? Si no → Fase 0.  
 2. ¿Se pierde un envío o un lead en una caída de Railway? Si sí → Fase 1.  
 3. ¿El mismo humano es un LID en el chat y otra tarjeta en el Kanban? → Fase 2.  
-4. Recién ahí features de Kommo (rápidas, **carrito**, **nuevo pedido**, tags, motivo perdido; después filtros/scoring).
+4. Recién ahí features de Kommo (rápidas, **carrito**, **nuevo pedido**, tags, motivo perdido; **seguimiento inbox**; después filtros/scoring).
 5. ¿El inbox ya no miente una semana? Recién ahí Instagram / ML. Después widget. Después bot.
 
 No saltar a widget, chatbot, multiagente, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario**, no en el catálogo de features.

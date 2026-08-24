@@ -10,6 +10,10 @@ import {
   onlyDigits,
 } from '@/lib/chat/conversationIdentity';
 import {
+  computeSeguimientoMeta,
+  sortConversacionesConSeguimiento,
+} from '@/lib/crm/seguimientoInbox';
+import {
   ilikeContainsPattern,
   normalizeSearchQuery,
   rankConversationSearchHits,
@@ -20,7 +24,13 @@ import {
 type MensajeRow = {
   contenido?: string | null;
   fecha_mensaje?: string | null;
+  usuario_id?: string | null;
   metadata?: Record<string, unknown> | null;
+};
+
+type LeadEtapaRow = {
+  estado_id?: string | null;
+  estados_lead?: { nombre?: string | null } | { nombre?: string | null }[] | null;
 };
 
 type ConversacionRow = {
@@ -31,6 +41,7 @@ type ConversacionRow = {
   lead_id?: string | null;
   contacto_id?: string | null;
   contactos?: { nombre?: string | null } | { nombre?: string | null }[] | null;
+  leads?: LeadEtapaRow | LeadEtapaRow[] | null;
   metadata?: Record<string, unknown> | null;
   unread_count?: number | null;
   last_read_at?: string | null;
@@ -50,7 +61,26 @@ type ConversacionListaItem = {
   unread_count: number;
   ultimo_mensaje: string | null;
   match_kind?: ConversationSearchMatchKind;
+  esperando_seguimiento: boolean;
+  seguimiento_desde: string | null;
+  seguimiento_horas: number | null;
 };
+
+function leadEtapaNombreFromRow(conv: ConversacionRow): string | null {
+  const lead = Array.isArray(conv.leads) ? conv.leads[0] : conv.leads;
+  if (!lead) return null;
+  const estado = Array.isArray(lead.estados_lead) ? lead.estados_lead[0] : lead.estados_lead;
+  const nombre = String(estado?.nombre || '').trim();
+  return nombre || null;
+}
+
+function mensajesParaSeguimiento(conv: ConversacionRow) {
+  return (conv.mensajes_conversacion || []).map((m) => ({
+    fecha_mensaje: m.fecha_mensaje,
+    usuario_id: m.usuario_id,
+    metadata: m.metadata,
+  }));
+}
 
 function contactoNombre(
   contactos?: { nombre?: string | null } | { nombre?: string | null }[] | null
@@ -79,6 +109,11 @@ function mapConversacionRow(conv: ConversacionRow): ConversacionListaItem {
   };
   const view = { ...conv, metadata };
 
+  const seguimiento = computeSeguimientoMeta({
+    mensajes: mensajesParaSeguimiento(conv),
+    leadEtapaNombre: leadEtapaNombreFromRow(conv),
+  });
+
   return {
     id: conv.id,
     remitente: conv.remitente,
@@ -94,6 +129,9 @@ function mapConversacionRow(conv: ConversacionRow): ConversacionListaItem {
     metadata,
     unread_count: conv.unread_count || 0,
     ultimo_mensaje: ultimoMensaje?.contenido || null,
+    esperando_seguimiento: seguimiento.esperando_seguimiento,
+    seguimiento_desde: seguimiento.seguimiento_desde,
+    seguimiento_horas: seguimiento.seguimiento_horas,
   };
 }
 
@@ -129,6 +167,12 @@ function mergeByIdentity(
       match_kind: preferSearchPreview
         ? (current.match_kind || newer.match_kind || older.match_kind)
         : (newer.match_kind || older.match_kind),
+      esperando_seguimiento: newer.esperando_seguimiento || older.esperando_seguimiento,
+      seguimiento_desde: newer.seguimiento_desde || older.seguimiento_desde,
+      seguimiento_horas: Math.max(
+        newer.seguimiento_horas ?? 0,
+        older.seguimiento_horas ?? 0
+      ) || null,
     });
   }
 
@@ -136,8 +180,10 @@ function mergeByIdentity(
     return order.map((key) => merged.get(key)!);
   }
 
-  return [...merged.values()].sort(
-    (a, b) => new Date(b.fecha_mensaje).getTime() - new Date(a.fecha_mensaje).getTime()
+  return sortConversacionesConSeguimiento(
+    [...merged.values()].sort(
+      (a, b) => new Date(b.fecha_mensaje).getTime() - new Date(a.fecha_mensaje).getTime()
+    )
   );
 }
 
@@ -149,12 +195,17 @@ const CONVERSACION_SELECT = `
   lead_id,
   contacto_id,
   contactos(nombre),
+  leads(
+    estado_id,
+    estados_lead(nombre)
+  ),
   metadata,
   unread_count,
   last_read_at,
   mensajes_conversacion (
     contenido,
     fecha_mensaje,
+    usuario_id,
     metadata
   )
 `;

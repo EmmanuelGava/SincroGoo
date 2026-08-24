@@ -36,6 +36,7 @@ import {
   unlockChatAudio,
 } from '@/lib/chat/chatNotifications';
 import { WA } from '@/app/chat/chatTheme';
+import { humanizeSeguimientoHoras } from '@/lib/crm/seguimientoInbox';
 
 interface Conversacion {
   id: string;
@@ -49,6 +50,9 @@ interface Conversacion {
   metadata?: any;
   unread_count?: number;
   match_kind?: string;
+  esperando_seguimiento?: boolean;
+  seguimiento_desde?: string | null;
+  seguimiento_horas?: number | null;
 }
 
 interface ChatSidebarProps {
@@ -299,17 +303,23 @@ export default function ChatSidebar({
               const displayPhone = conversacion.display_phone || conversationRealPhone(conversacion);
               const isActive = conversacionActiva?.id === conversacion.id;
               const unread = !isActive && (conversacion.unread_count || 0) > 0;
+              const seguimiento = Boolean(conversacion.esperando_seguimiento);
+              const seguimientoHint = seguimiento
+                ? `Esperando tu respuesta hace ${humanizeSeguimientoHoras(conversacion.seguimiento_horas)}`
+                : '';
               return (
               <ListItem key={conversacion.id} disablePadding>
+                <Tooltip title={seguimientoHint} placement="right" disableHoverListener={!seguimiento}>
                 <ListItemButton
                   selected={isActive}
                   onClick={() => onSelectConversacion(conversacion)}
                   sx={{
                     py: 1.1,
                     px: 1.5,
-                    bgcolor: isActive ? WA.selected : 'transparent',
+                    borderLeft: seguimiento ? '3px solid #ed6c02' : '3px solid transparent',
+                    bgcolor: isActive ? WA.selected : seguimiento ? 'rgba(237, 108, 2, 0.08)' : 'transparent',
                     '&:hover': {
-                      bgcolor: isActive ? WA.selected : '#202c33',
+                      bgcolor: isActive ? WA.selected : seguimiento ? 'rgba(237, 108, 2, 0.12)' : '#202c33',
                     },
                     '&.Mui-selected': {
                       bgcolor: WA.selected,
@@ -394,6 +404,19 @@ export default function ChatSidebar({
                             sx={{ height: 20, fontSize: '0.7rem' }}
                           />
                         )}
+                        {seguimiento && (
+                          <Chip
+                            label="Seguimiento"
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: '0.65rem',
+                              bgcolor: 'rgba(237, 108, 2, 0.15)',
+                              color: '#ffb74d',
+                              border: '1px solid rgba(237, 108, 2, 0.4)',
+                            }}
+                          />
+                        )}
                       </Box>
                     }
                     secondary={
@@ -420,6 +443,7 @@ export default function ChatSidebar({
                     }
                   />
                 </ListItemButton>
+                </Tooltip>
               </ListItem>
               );
             })}

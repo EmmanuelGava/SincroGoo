@@ -10,7 +10,14 @@
  *   (primer saliente − primer entrante) en conversaciones cuyo primer entrante
  *   cae en la ventana (default 7d). Sin saliente posterior → no cuenta.
  * - Conversión por etapa: conteo de leads por `estados_lead` del usuario (orden).
+ * - Seguimiento: no respondidas con umbral de tiempo (12h/24h); ver seguimientoInbox.
  */
+
+import {
+  countEsperandoSeguimiento,
+  DEFAULT_SEGUIMIENTO_CONFIG,
+  SEGUIMIENTO_DEFINITION,
+} from '@/lib/crm/seguimientoInbox';
 
 export const MS_24H = 24 * 60 * 60 * 1000;
 export const MS_7D = 7 * MS_24H;
@@ -26,6 +33,7 @@ export type ConversationStatsInput = {
   fecha_mensaje?: string | null;
   unread_count?: number | null;
   mensajes?: MessageDirectionInput[] | null;
+  leadEtapaNombre?: string | null;
 };
 
 export type EstadoLeadCountInput = {
@@ -196,11 +204,13 @@ export type InboxStatsSnapshot = {
   nuevas24h: number;
   nuevas7d: number;
   noRespondidas: number;
+  esperandoSeguimiento: number;
   tiempoPrimeraRespuesta: FirstResponseStats;
   conversionPorEtapa: ConversionPorEtapa[];
   definitions: {
     nuevas: string;
     noRespondidas: string;
+    esperandoSeguimiento: string;
     tiempoPrimeraRespuesta: string;
     conversionPorEtapa: string;
   };
@@ -211,6 +221,7 @@ export const INBOX_STATS_DEFINITIONS = {
     'Conversaciones con última actividad (fecha_mensaje) en las últimas 24h / 7d.',
   noRespondidas:
     'Conversaciones cuyo último mensaje es entrante (sin respuesta saliente posterior). No usa unread_count.',
+  esperandoSeguimiento: SEGUIMIENTO_DEFINITION,
   tiempoPrimeraRespuesta:
     'Mediana y promedio de (primer saliente − primer entrante) en conversaciones cuyo primer entrante fue en los últimos 7 días.',
   conversionPorEtapa:
@@ -228,6 +239,11 @@ export function buildInboxStatsSnapshot(input: {
     nuevas24h: countNuevas(input.conversaciones, nowMs - MS_24H, nowMs),
     nuevas7d: countNuevas(input.conversaciones, nowMs - MS_7D, nowMs),
     noRespondidas: countNoRespondidas(input.conversaciones),
+    esperandoSeguimiento: countEsperandoSeguimiento(
+      input.conversaciones,
+      DEFAULT_SEGUIMIENTO_CONFIG,
+      nowMs
+    ),
     tiempoPrimeraRespuesta: computeFirstResponseStats(
       input.conversaciones,
       nowMs - MS_7D,

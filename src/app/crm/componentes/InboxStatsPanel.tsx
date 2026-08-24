@@ -19,11 +19,13 @@ type InboxStatsResponse = {
   nuevas24h: number;
   nuevas7d: number;
   noRespondidas: number;
+  esperandoSeguimiento: number;
   tiempoPrimeraRespuesta: FirstResponseStats;
   conversionPorEtapa: ConversionPorEtapa[];
   definitions?: {
     nuevas?: string;
     noRespondidas?: string;
+    esperandoSeguimiento?: string;
     tiempoPrimeraRespuesta?: string;
     conversionPorEtapa?: string;
   };
@@ -162,6 +164,12 @@ export default function InboxStatsPanel() {
         label="Sin resp."
         value={data.noRespondidas}
         hint={data.definitions?.noRespondidas}
+      />
+      <CompactStat
+        label="Seguim."
+        value={data.esperandoSeguimiento}
+        hint={data.definitions?.esperandoSeguimiento}
+        accent="#ed6c02"
       />
       <CompactStat
         label="1ª resp."

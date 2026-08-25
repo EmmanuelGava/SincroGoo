@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
@@ -11,7 +13,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface AudioRecorderProps {
   onAudioRecorded: (audioBlob: Blob, duration: number) => void;
@@ -20,7 +22,7 @@ interface AudioRecorderProps {
   onBusyChange?: (busy: boolean) => void;
 }
 
-function Waveform({ active }: { active: boolean }) {
+function Waveform({ active, accent }: { active: boolean; accent: string }) {
   return (
     <Box
       sx={{
@@ -42,7 +44,7 @@ function Waveform({ active }: { active: boolean }) {
           sx={{
             width: 3,
             height: 8 + ((i * 7) % 16),
-            bgcolor: WA.accent,
+            bgcolor: accent,
             borderRadius: 1,
             transformOrigin: 'center',
             animation: active ? `waBar ${0.45 + (i % 5) * 0.08}s ${i * 0.03}s ease-in-out infinite alternate` : 'none',
@@ -60,6 +62,7 @@ export default function AudioRecorder({
   startRef,
   onBusyChange,
 }: AudioRecorderProps) {
+  const WA = useWaTheme();
   const [isRecording, setIsRecording] = useState(false);
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -277,7 +280,7 @@ export default function AudioRecorder({
           {formatTime(recordingTime)}
         </Typography>
 
-        <Waveform active={isRecording || isPlaying} />
+        <Waveform active={isRecording || isPlaying} accent={WA.accent} />
 
         {error ? (
           <Typography variant="caption" sx={{ color: '#f15c6d', mr: 1 }}>

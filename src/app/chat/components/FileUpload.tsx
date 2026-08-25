@@ -17,7 +17,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
 import CloseIcon from '@mui/icons-material/Close';
 import { FileUploadService } from '@/app/servicios/storage/FileUploadService';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface FileUploadProps {
   onFileUploaded: (url: string, fileName: string, fileType: string, mimeType?: string) => void;
@@ -51,6 +51,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
   { onFileUploaded, conversationId, disabled },
   ref
 ) {
+  const WA = useWaTheme();
   const [uploadingFiles, setUploadingFiles] = useState<{ file: File; progress: number; error?: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);

@@ -8,7 +8,10 @@ import ChatSidebar from './components/ChatSidebar';
 import ChatWindow from './components/ChatWindow';
 import { useChat } from './hooks/useChat';
 
+import { useWaTheme } from './chatTheme';
+
 function ChatPageInner() {
+  const WA = useWaTheme();
   const searchParams = useSearchParams();
   const conversacionParam = searchParams.get('conversacion');
   const {
@@ -38,7 +41,7 @@ function ChatPageInner() {
         width: '100vw',
         height: '100vh',
         display: 'flex',
-        bgcolor: '#0b141a',
+        bgcolor: WA.chatBg,
         pt: '70px',
       }}>
         <ChatSidebar

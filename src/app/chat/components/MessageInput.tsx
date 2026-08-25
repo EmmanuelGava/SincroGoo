@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,7 +26,7 @@ import EmojiPickerComponent from './EmojiPicker';
 import AudioRecorder from './AudioRecorder';
 import { QuickReplyManager, QuickReplyPicker } from './QuickReplies';
 import { CatalogPicker } from './CatalogPicker';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 import {
   draftNeedsCatalog,
   filterRespuestasRapidas,
@@ -90,6 +92,7 @@ export default function MessageInput({
   manageOpen,
   onManageOpenChange,
 }: MessageInputProps) {
+  const WA = useWaTheme();
   const router = useRouter();
   const [mensaje, setMensaje] = useState('');
   const [attachEl, setAttachEl] = useState<HTMLElement | null>(null);

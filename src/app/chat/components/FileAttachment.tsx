@@ -26,6 +26,7 @@ import {
   formatAttachmentSize,
   isDocumentImageMime,
 } from '@/lib/chat/fileKind';
+import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface FileAttachmentProps {
   url?: string;
@@ -74,14 +75,15 @@ function WhatsAppAudioPlayer({
   durationSec?: number;
   isOwn: boolean;
 }) {
+  const WA = useWaTheme();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(durationSec || 0);
   const [error, setError] = useState(false);
-  const fg = isOwn ? '#fff' : '#111b21';
-  const bar = isOwn ? 'rgba(255,255,255,0.45)' : 'rgba(17,27,33,0.25)';
-  const fill = isOwn ? '#fff' : '#00a884';
+  const fg = WA.text;
+  const bar = 'rgba(17,27,33,0.25)';
+  const fill = isOwn ? WA.text : WA.accent;
 
   useEffect(() => {
     const el = audioRef.current;

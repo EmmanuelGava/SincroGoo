@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 import {
   CATALOGO_TIPO_LABEL,
   CATALOGO_TIPOS,
@@ -36,6 +36,7 @@ export function CatalogPicker({
   onSelectLista?: (categoria: string) => void;
   onManage: () => void;
 }) {
+  const WA = useWaTheme();
   const [tipo, setTipo] = useState<CatalogoTipo | 'todos'>('todos');
   const listas = useMemo(() => listasConStock(items), [items]);
   const visibles = (tipo === 'todos' ? items : items.filter((item) => item.tipo === tipo));
@@ -80,7 +81,7 @@ export function CatalogPicker({
                 borderRadius: 1,
                 cursor: 'pointer',
                 bgcolor: WA.selected,
-                '&:hover': { bgcolor: WA.accent, color: '#111b21' },
+                '&:hover': { bgcolor: WA.accent, color: WA.onAccent },
               }}
             >
               <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
@@ -106,7 +107,7 @@ export function CatalogPicker({
               cursor: 'pointer',
               fontSize: '0.75rem',
               bgcolor: tipo === key ? WA.accent : WA.selected,
-              color: tipo === key ? '#111b21' : WA.text,
+              color: tipo === key ? WA.onAccent : WA.text,
             }}
           >
             {key === 'todos' ? 'Todos' : CATALOGO_TIPO_LABEL[key]}
@@ -178,7 +179,7 @@ export function CatalogPicker({
         sx={{
           px: 1.5,
           py: 1,
-          borderTop: '1px solid #2a3942',
+          borderTop: `1px solid ${WA.border}`,
           color: WA.muted,
           fontSize: '0.8rem',
           cursor: 'pointer',

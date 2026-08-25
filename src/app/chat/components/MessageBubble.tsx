@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { 
   Box, 
@@ -13,7 +15,7 @@ import FileAttachment from './FileAttachment';
 import LinkPreview from './LinkPreview';
 import { messageBubbleView } from '@/lib/chat/messageBubbleView';
 import { splitTextWithLinks } from '@/lib/chat/extractFirstUrl';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface Mensaje {
   id: string;
@@ -75,6 +77,7 @@ function LinkedCaption({ text, isOwn }: { text: string; isOwn: boolean }) {
 }
 
 export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
+  const WA = useWaTheme();
   const IconComponent = servicioIcons[mensaje.canal] || SmsIcon;
   const servicioColor = servicioColors[mensaje.canal] || '#90caf9';
 
@@ -119,6 +122,7 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
           borderRadius: '7.5px',
           borderTopLeftRadius: !isOwn ? '0px' : '7.5px',
           borderTopRightRadius: isOwn ? '0px' : '7.5px',
+          boxShadow: !isOwn ? WA.incomingShadow : 'none',
           overflow: 'hidden',
         }}
       >
@@ -155,7 +159,7 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
             <IconComponent sx={{ color: servicioColor, fontSize: 12 }} />
           )}
           <Typography variant="caption" sx={{ 
-            color: 'rgba(233,237,239,0.6)',
+            color: WA.muted,
             fontSize: '0.68rem',
             ml: 0.5,
           }}>

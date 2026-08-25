@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
@@ -10,7 +12,7 @@ import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import { conversationGreetingName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
-import { WA, WA_CHAT_BG } from '@/app/chat/chatTheme';
+import { useWaChatBgSx, useWaTheme } from '@/app/chat/chatTheme';
 
 interface Conversacion {
   id: string;
@@ -52,6 +54,8 @@ export default function ChatWindow({
   onRefreshMensajes,
   onDeleteConversacion,
 }: ChatWindowProps) {
+  const WA = useWaTheme();
+  const chatBg = useWaChatBgSx();
   const [mensajesLocal, setMensajes] = useState<Mensaje[]>([]);
   const [loading, setLoading] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -305,7 +309,7 @@ export default function ChatWindow({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        ...WA_CHAT_BG
+        ...chatBg
       }}>
         <Box sx={{ textAlign: 'center', color: WA.muted }}>
           <InfoIcon sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
@@ -339,7 +343,7 @@ export default function ChatWindow({
         flexGrow: 1, 
         overflowY: 'auto',
         p: 2,
-        ...WA_CHAT_BG,
+        ...chatBg,
         display: 'flex',
         flexDirection: 'column'
       }}>

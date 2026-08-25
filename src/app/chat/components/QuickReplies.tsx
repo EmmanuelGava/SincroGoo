@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 import {
   CATEGORIA_LABEL,
   categoriaDeAtajo,
@@ -35,6 +35,7 @@ export function QuickReplyPicker({
   onSelect: (item: RespuestaRapida) => void;
   onManage: () => void;
 }) {
+  const WA = useWaTheme();
   return (
     <Box
       sx={{
@@ -92,7 +93,7 @@ export function QuickReplyPicker({
         sx={{
           px: 1.5,
           py: 1,
-          borderTop: '1px solid #2a3942',
+          borderTop: `1px solid ${WA.border}`,
           color: WA.muted,
           fontSize: '0.8rem',
           cursor: 'pointer',
@@ -118,6 +119,7 @@ export function QuickReplyManager({
   onChanged: () => void;
   onOpenCatalog?: () => void;
 }) {
+  const WA = useWaTheme();
   const [atajo, setAtajo] = useState('');
   const [texto, setTexto] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
@@ -7,6 +9,8 @@ import {
 } from '@mui/material';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import EmojiPicker, { EmojiClickData, EmojiStyle, Theme } from 'emoji-picker-react';
+import { useThemeMode } from '@/app/lib/theme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface EmojiPickerComponentProps {
   onEmojiSelect: (emoji: string) => void;
@@ -14,6 +18,8 @@ interface EmojiPickerComponentProps {
 }
 
 export default function EmojiPickerComponent({ onEmojiSelect, disabled }: EmojiPickerComponentProps) {
+  const { mode } = useThemeMode();
+  const WA = useWaTheme();
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -42,7 +48,7 @@ export default function EmojiPickerComponent({ onEmojiSelect, disabled }: EmojiP
             disabled={disabled}
             onClick={handleClick}
             sx={{ 
-              color: open ? '#00a884' : '#8696a0'
+              color: open ? WA.accent : WA.icon
             }}
           >
             <EmojiEmotionsIcon />
@@ -73,7 +79,7 @@ export default function EmojiPickerComponent({ onEmojiSelect, disabled }: EmojiP
           <EmojiPicker
             onEmojiClick={handleEmojiClick}
             emojiStyle={EmojiStyle.NATIVE}
-            theme={Theme.DARK}
+            theme={mode === 'dark' ? Theme.DARK : Theme.LIGHT}
             width={320}
             height={400}
             searchDisabled={false}

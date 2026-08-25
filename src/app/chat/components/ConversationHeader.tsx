@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { 
   Box, 
@@ -29,7 +31,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import { useRouter } from 'next/navigation';
 import LeadProfileModal from './LeadProfileModal';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface Conversacion {
   id: string;
@@ -72,6 +74,7 @@ const servicioNames: Record<string, string> = {
 };
 
 export default function ConversationHeader({ conversacion, onDelete, onManageReplies }: ConversationHeaderProps) {
+  const WA = useWaTheme();
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);

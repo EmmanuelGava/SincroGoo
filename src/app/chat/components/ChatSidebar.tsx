@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { 
   Box, 
@@ -35,7 +37,7 @@ import {
   setChatSoundEnabled,
   unlockChatAudio,
 } from '@/lib/chat/chatNotifications';
-import { WA } from '@/app/chat/chatTheme';
+import { useWaTheme } from '@/app/chat/chatTheme';
 import { humanizeSeguimientoHoras } from '@/lib/crm/seguimientoInbox';
 
 interface Conversacion {
@@ -84,6 +86,7 @@ export default function ChatSidebar({
   onRefreshConversaciones,
   loading 
 }: ChatSidebarProps) {
+  const WA = useWaTheme();
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -175,8 +178,7 @@ export default function ChatSidebar({
     return (
       <Box sx={{ 
         width: 350, 
-        borderRight: '1px solid #2a3942',
-        borderColor: 'divider', 
+        borderRight: `1px solid ${WA.border}`,
         bgcolor: WA.panel,
         p: 2
       }}>
@@ -190,7 +192,7 @@ export default function ChatSidebar({
   return (
     <Box sx={{ 
       width: 350, 
-      borderRight: '1px solid #2a3942',
+      borderRight: `1px solid ${WA.border}`,
       bgcolor: WA.panel,
       height: '100%',
       display: 'flex',
@@ -319,7 +321,7 @@ export default function ChatSidebar({
                     borderLeft: seguimiento ? '3px solid #ed6c02' : '3px solid transparent',
                     bgcolor: isActive ? WA.selected : seguimiento ? 'rgba(237, 108, 2, 0.08)' : 'transparent',
                     '&:hover': {
-                      bgcolor: isActive ? WA.selected : seguimiento ? 'rgba(237, 108, 2, 0.12)' : '#202c33',
+                      bgcolor: isActive ? WA.selected : seguimiento ? 'rgba(237, 108, 2, 0.12)' : WA.hoverRow,
                     },
                     '&.Mui-selected': {
                       bgcolor: WA.selected,
@@ -333,7 +335,7 @@ export default function ChatSidebar({
                     <Box sx={{ position: 'relative', mr: 1 }}>
                       <Badge
                         badgeContent={unread ? conversacion.unread_count : 0}
-                        sx={{ '& .MuiBadge-badge': { bgcolor: '#00a884', color: '#111b21' } }}
+                        sx={{ '& .MuiBadge-badge': { bgcolor: WA.accent, color: WA.onAccent } }}
                         overlap="circular"
                       >
                         <Avatar sx={{ 
@@ -433,7 +435,7 @@ export default function ChatSidebar({
                           {conversacion.ultimo_mensaje || 'Sin mensajes'}
                         </Box>
                         <Box component="span" sx={{ 
-                          color: unread ? '#00a884' : WA.muted,
+                          color: unread ? WA.accent : WA.muted,
                           fontSize: '0.7rem',
                           fontWeight: unread ? 700 : 400,
                         }}>

@@ -18,6 +18,12 @@ export interface Estado {
 export type ConvertirIncomingExtra = {
   reuseLeadId?: string;
   forceNewLead?: boolean;
+  /** Preview para card optimista (nombre / último mensaje) */
+  preview?: {
+    nombre?: string;
+    telefono?: string | null;
+    ultimo_mensaje?: string;
+  };
 };
 
 export type ConvertirIncomingResult = {
@@ -25,6 +31,19 @@ export type ConvertirIncomingResult = {
   openLead: { id: string; nombre: string; estado_id: string };
   contactoId: string;
 };
+
+export type IncomingPreview = {
+  id: string;
+  remitente: string;
+  display_name?: string;
+  display_phone?: string | null;
+  ultimo_mensaje?: string;
+  contenido?: string;
+};
+
+function optimisticIncomingLeadId(conversationId: string) {
+  return `optimistic:${conversationId}`;
+}
 
 export interface LeadsKanbanContextProps {
   leads: Lead[];
@@ -42,6 +61,7 @@ export interface LeadsKanbanContextProps {
     estadoId: string,
     extra?: ConvertirIncomingExtra
   ) => Promise<ConvertirIncomingResult | void>;
+  registerIncomingPreviews: (items: IncomingPreview[]) => void;
   loading: boolean;
   error: string | null;
   refrescarLeads: () => void;
@@ -60,7 +80,16 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [incomingTick, setIncomingTick] = useState(0);
   const [incomingHiddenIds, setIncomingHiddenIds] = useState<string[]>([]);
+  const [incomingPreviews, setIncomingPreviews] = useState<Record<string, IncomingPreview>>({});
   const { data: session } = useSession();
+
+  const registerIncomingPreviews = useCallback((items: IncomingPreview[]) => {
+    setIncomingPreviews((prev) => {
+      const next = { ...prev };
+      for (const item of items) next[item.id] = item;
+      return next;
+    });
+  }, []);
 
   const leadsPorEstado = useMemo(() => leads.reduce((acc, lead) => {
     const estadoId = lead.estado_id;
@@ -121,38 +150,79 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     extra?: ConvertirIncomingExtra
   ) => {
     setError(null);
-    const res = await fetch('/api/crm/conversaciones/entrantes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, estadoId, ...extra }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error al pasar el chat al Kanban');
-    if (data.needsChoice && data.openLead && data.contactoId) {
-      return {
-        needsChoice: true as const,
-        openLead: data.openLead as { id: string; nombre: string; estado_id: string },
-        contactoId: data.contactoId as string,
-      };
-    }
-    // Optimista: sacar del sidebar ya; el lead aparece en la columna sin flash de loading.
+    const preview = extra?.preview || incomingPreviews[conversationId];
+    const tempId = optimisticIncomingLeadId(conversationId);
+    const now = new Date().toISOString();
+    const optimisticLead: Lead = {
+      id: tempId,
+      nombre: extra?.preview?.nombre
+        || preview?.display_name
+        || preview?.remitente
+        || 'Nuevo lead',
+      telefono: extra?.preview?.telefono ?? preview?.display_phone ?? undefined,
+      estado_id: estadoId,
+      ultimo_mensaje: extra?.preview?.ultimo_mensaje
+        || preview?.ultimo_mensaje
+        || preview?.contenido,
+      conversacion_id: conversationId,
+      fecha_creacion: now,
+      fecha_actualizacion: now,
+    };
+
+    // Igual que mover entre columnas: UI primero, API después.
     setIncomingHiddenIds((prev) => (
       prev.includes(conversationId) ? prev : [...prev, conversationId]
     ));
-    if (data.lead) {
-      setLeads((prev) => {
-        const idx = prev.findIndex((l) => l.id === data.lead.id);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = { ...prev[idx], ...data.lead };
-          return next;
-        }
-        return [...prev, data.lead];
+    setLeads((prev) => {
+      const withoutTemp = prev.filter((l) => l.id !== tempId);
+      return [...withoutTemp, optimisticLead];
+    });
+
+    const revertOptimistic = () => {
+      setIncomingHiddenIds((prev) => prev.filter((id) => id !== conversationId));
+      setLeads((prev) => prev.filter((l) => l.id !== tempId));
+    };
+
+    try {
+      const res = await fetch('/api/crm/conversaciones/entrantes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId,
+          estadoId,
+          ...(extra?.reuseLeadId ? { reuseLeadId: extra.reuseLeadId } : {}),
+          ...(extra?.forceNewLead ? { forceNewLead: true } : {}),
+        }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al pasar el chat al Kanban');
+
+      if (data.needsChoice && data.openLead && data.contactoId) {
+        revertOptimistic();
+        return {
+          needsChoice: true as const,
+          openLead: data.openLead as { id: string; nombre: string; estado_id: string },
+          contactoId: data.contactoId as string,
+        };
+      }
+
+      if (data.lead) {
+        setLeads((prev) => {
+          const withoutTemp = prev.filter((l) => l.id !== tempId && l.id !== data.lead.id);
+          return [...withoutTemp, data.lead];
+        });
+      }
+
+      // Reconciliar en background (no bloquear la fluidez del drag).
+      void fetchAll({ silent: true }).then(() => {
+        setIncomingTick((tick) => tick + 1);
+      });
+    } catch (e: any) {
+      revertOptimistic();
+      setError(e.message || 'Error al pasar el chat al Kanban');
+      throw e;
     }
-    await fetchAll({ silent: true });
-    setIncomingTick((tick) => tick + 1);
-  }, [fetchAll]);
+  }, [fetchAll, incomingPreviews]);
 
   const agregarLead = useCallback(async (lead: Partial<Lead>) => {
     setError(null);
@@ -301,6 +371,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     actualizarEstado,
     eliminarEstado,
     convertirIncomingEnLead,
+    registerIncomingPreviews,
     loading,
     error,
     refrescarLeads,
@@ -318,6 +389,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     actualizarEstado,
     eliminarEstado,
     convertirIncomingEnLead,
+    registerIncomingPreviews,
     loading,
     error,
     refrescarLeads,

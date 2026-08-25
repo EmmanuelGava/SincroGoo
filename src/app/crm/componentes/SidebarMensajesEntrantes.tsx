@@ -43,13 +43,15 @@ export default function SidebarMensajesEntrantes() {
   const [abierto, setAbierto] = useState(true);
   const [dialogoEliminar, setDialogoEliminar] = useState<string | null>(null);
   const { mostrarNotificacion } = useNotificacion();
-  const { incomingTick, incomingHiddenIds } = useLeadsKanbanContext();
+  const { incomingTick, incomingHiddenIds, registerIncomingPreviews } = useLeadsKanbanContext();
 
   const fetchMensajes = async () => {
     try {
       const res = await fetch('/api/crm/conversaciones/entrantes', { cache: 'no-store' });
       const data = await res.json();
-      setMensajes(data.mensajes || []);
+      const list = data.mensajes || [];
+      setMensajes(list);
+      registerIncomingPreviews(list);
     } catch {
       setMensajes([]);
     } finally {

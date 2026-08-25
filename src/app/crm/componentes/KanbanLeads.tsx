@@ -421,6 +421,8 @@ export default function KanbanLeads() {
     
     const leadToMove = leads.find(lead => String(lead.id) === String(draggableId));
     if (!leadToMove) return;
+    // Card optimista aún sin UUID real: no pegarle al API.
+    if (String(draggableId).startsWith('optimistic:')) return;
 
     const destEstado = estados.find((estado) => estado.id === destEstadoId);
     if (!destEstado) return;

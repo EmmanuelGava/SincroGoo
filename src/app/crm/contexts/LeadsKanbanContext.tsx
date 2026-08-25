@@ -46,6 +46,8 @@ export interface LeadsKanbanContextProps {
   error: string | null;
   refrescarLeads: () => void;
   incomingTick: number;
+  /** Chats quitados del sidebar en optimista tras pasarlos al Kanban */
+  incomingHiddenIds: string[];
 }
 
 const LeadsKanbanContext = createContext<LeadsKanbanContextProps | undefined>(undefined);
@@ -57,6 +59,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [incomingTick, setIncomingTick] = useState(0);
+  const [incomingHiddenIds, setIncomingHiddenIds] = useState<string[]>([]);
   const { data: session } = useSession();
 
   const leadsPorEstado = useMemo(() => leads.reduce((acc, lead) => {
@@ -83,14 +86,15 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     if (session?.user?.id && !usuarioId) fetchUsuarioId();
   }, [session?.user?.id, usuarioId]);
 
-  // Fetch estados y leads
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  // Fetch estados y leads. silent=true evita desmontar el tablero (p.ej. tras drag).
+  const fetchAll = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [estadosRes, leadsRes] = await Promise.all([
-        fetch("/api/supabase/estados_lead").then(r => r.json()),
-        fetch("/api/supabase/leads").then(r => r.json()),
+        fetch("/api/supabase/estados_lead", { cache: 'no-store' }).then(r => r.json()),
+        fetch("/api/supabase/leads", { cache: 'no-store' }).then(r => r.json()),
       ]);
       if (estadosRes.error) throw new Error(estadosRes.error);
       if (leadsRes.error) throw new Error(leadsRes.error);
@@ -99,7 +103,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       setError(e.message || "Error al cargar datos");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -131,6 +135,10 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
         contactoId: data.contactoId as string,
       };
     }
+    // Optimista: sacar del sidebar ya; el lead aparece en la columna sin flash de loading.
+    setIncomingHiddenIds((prev) => (
+      prev.includes(conversationId) ? prev : [...prev, conversationId]
+    ));
     if (data.lead) {
       setLeads((prev) => {
         const idx = prev.findIndex((l) => l.id === data.lead.id);
@@ -142,7 +150,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
         return [...prev, data.lead];
       });
     }
-    await fetchAll();
+    await fetchAll({ silent: true });
     setIncomingTick((tick) => tick + 1);
   }, [fetchAll]);
 
@@ -297,6 +305,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     error,
     refrescarLeads,
     incomingTick,
+    incomingHiddenIds,
   }), [
     leads,
     estados,
@@ -313,6 +322,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     error,
     refrescarLeads,
     incomingTick,
+    incomingHiddenIds,
   ]);
 
   return <LeadsKanbanContext.Provider value={value}>{children}</LeadsKanbanContext.Provider>;

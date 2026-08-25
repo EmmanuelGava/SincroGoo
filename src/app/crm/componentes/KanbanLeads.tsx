@@ -398,9 +398,11 @@ export default function KanbanLeads() {
     const destEstadoId = destination.droppableId;
     if (sourceEstadoId === destEstadoId) return;
 
+    // La lista de entrantes solo es origen; no se puede soltar leads ahí.
+    if (destEstadoId === 'incoming-chats') return;
+
     if (String(draggableId).startsWith('incoming:')) {
       const conversationId = String(draggableId).slice('incoming:'.length);
-      if (destEstadoId === 'incoming-chats') return;
       try {
         const result = await convertirIncomingEnLead(conversationId, destEstadoId);
         if (result?.needsChoice) {
@@ -421,6 +423,7 @@ export default function KanbanLeads() {
     if (!leadToMove) return;
 
     const destEstado = estados.find((estado) => estado.id === destEstadoId);
+    if (!destEstado) return;
     if (destEstado && isEstadoPerdido(destEstado.nombre)) {
       setMotivoPerdido('precio');
       setPendingPerdido({

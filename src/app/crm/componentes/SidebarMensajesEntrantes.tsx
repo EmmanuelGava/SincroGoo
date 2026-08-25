@@ -43,7 +43,7 @@ export default function SidebarMensajesEntrantes() {
   const [abierto, setAbierto] = useState(true);
   const [dialogoEliminar, setDialogoEliminar] = useState<string | null>(null);
   const { mostrarNotificacion } = useNotificacion();
-  const { incomingTick } = useLeadsKanbanContext();
+  const { incomingTick, incomingHiddenIds } = useLeadsKanbanContext();
 
   const fetchMensajes = async () => {
     try {
@@ -116,14 +116,16 @@ export default function SidebarMensajesEntrantes() {
       {loading ? (
         <Typography sx={{ p: 2, color: 'text.secondary' }}>Cargando...</Typography>
       ) : (
-        <Droppable droppableId="incoming-chats" type="LEAD">
-          {(provided) => (
+        <Droppable droppableId="incoming-chats" type="LEAD" isDropDisabled>
+          {(provided) => {
+            const visibles = mensajes.filter((msg) => !incomingHiddenIds.includes(msg.id));
+            return (
             <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ p: 2, pt: 0, minHeight: 80 }}>
-              {mensajes.length === 0 ? (
+              {visibles.length === 0 ? (
                 <Typography sx={{ color: 'text.secondary' }}>
                   No hay chats sin lead. Los mensajes de WhatsApp aparecen acá hasta que los pases al tablero.
                 </Typography>
-              ) : mensajes.map((msg, index) => {
+              ) : visibles.map((msg, index) => {
                 const color = servicioColor[msg.servicio_origen || 'whatsapp'] || servicioColor.default;
                 const Icon = servicioIcons[msg.servicio_origen || ''] || WhatsAppIcon;
                 const title = msg.display_name || msg.remitente;
@@ -174,7 +176,8 @@ export default function SidebarMensajesEntrantes() {
               })}
               {provided.placeholder}
             </Box>
-          )}
+            );
+          }}
         </Droppable>
       )}
       <Dialog open={!!dialogoEliminar} onClose={() => setDialogoEliminar(null)}>

@@ -40,7 +40,7 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 | Fase | Código | Certificado en prod |
 |------|--------|-------------------|
 | **0** Loop Chat ↔ Kanban | ✅ en `main` | ❌ falta demo con celular |
-| **1** Mensajería confiable | ✅ en `main` | ❌ falta outbox / ticks / media real |
+| **1** Mensajería confiable | ✅ en `main` | ⚠️ B1–B4+B6 OK (24 ago); faltan B5 media saliente / B7 anti-ban |
 | **2** Contactos (base CRM) | ✅ **cerrada** | ✅ migración + CRUD en prod |
 | **3** Kommo día a día | ✅ core cerrado | ⚠️ seguimiento recién deployado; backlog catálogo opcional |
 | **4+** Diferencial / canales | — | no empezado |
@@ -87,11 +87,11 @@ Sin esto el CRM es teatro. **Código listo; falta certificar en prod** (ver chec
 Catch-up cubre **entrantes** con socket caído. **Salientes** dependen del outbox. **Código listo; falta certificar en prod** (checklist B).
 
 - [x] Outbox + reintento (`whatsapp_outbox`, worker claim al reconectar).
-- [ ] **Prod:** worker down 1–2 min → texto queued → sale al volver (checklist B2).
+- [x] **Prod:** worker down 1–2 min → texto queued → sale al volver (checklist B2) — 24 ago 2026.
 - [x] Ticks reales: enviado / entregado / leído / error.
-- [ ] **Prod:** ver progresión de tildes en burbuja (checklist B3).
+- [x] **Prod:** ver progresión de tildes en burbuja (checklist B3) — 24 ago 2026.
 - [x] Media **entrante** persistida (Storage, no solo placeholder).
-- [ ] **Prod:** foto/audio entrante hoy y al día siguiente (checklist B4).
+- [x] **Prod:** foto/audio entrante visibles en KloSync (checklist B4) — 24 ago 2026; revalidar al día siguiente si se quiere.
 - [x] Límites de tamaño/tipo visibles en la UI (imagen 5 MB, audio 16 MB, video rechazado).
 - [x] Delay anti-ban entre envíos (~2.4–3.6 s entre salientes).
 - [x] Borrar servicios WhatsApp legacy. Solo vive `WhatsAppLiteService`.
@@ -191,8 +191,8 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 
 **Preparación (5 min)**
 
-- [ ] **P0** Abrir [klosync.vercel.app](https://klosync.vercel.app) logueado; worker Railway **Up** (`/configuracion/mensajeria` → conectado / QR no visible).
-- [ ] **P1** Segundo celular (o contacto de prueba) con WhatsApp listo para escribir al número vinculado.
+- [x] **P0** Abrir [klosync.vercel.app](https://klosync.vercel.app) logueado; worker Railway **Up** (`/configuracion/mensajeria` → conectado / QR no visible). — 24 ago 2026
+- [x] **P1** Segundo celular (o contacto de prueba) con WhatsApp listo para escribir al número vinculado. — 24 ago 2026
 - [ ] **P2** Pestaña `/crm` y `/chat` abiertas; consola del navegador por si hay 401/500.
 
 **A — Fase 0: loop Chat ↔ Kanban (~15 min)**
@@ -212,12 +212,12 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 
 | # | Acción | OK | Notas |
 |---|--------|----|-------|
-| B1 | Con worker **Up**, enviar texto desde `/chat` → llega al celular; burbuja pasa de “enviando” a **enviado** (1 tilde). | [ ] | |
-| B2 | **Outbox:** en Railway, **Stop** el servicio 1–2 min. Enviar texto desde `/chat` (debe quedar queued / no error fatal). **Start** worker → el mensaje **sale solo** al celular en &lt;2 min. | [ ] | Ver `whatsapp_outbox` si dudás |
-| B3 | **Ticks:** con el otro celular online, ver **2 grises** (entregado) y **2 celestes** (leído) al abrir el chat en el celular. | [ ] | |
-| B4 | **Media entrante:** mandar **foto** y **audio** desde celular de prueba → se ven en KloSync (no solo `[Imagen]`). Recargar `/chat` al día siguiente → siguen abriendo. | [ ] | |
+| B1 | Con worker **Up**, enviar texto desde `/chat` → llega al celular; burbuja pasa de “enviando” a **enviado** (1 tilde). | [x] | Cubierto en flujo B2 (24 ago) |
+| B2 | **Outbox:** en Railway, **Stop** el servicio 1–2 min. Enviar texto desde `/chat` (debe quedar queued / no error fatal). **Start** worker → el mensaje **sale solo** al celular en &lt;2 min. | [x] | 24 ago: `queued` → enviado; burbuja `entregado`; texto “en este momento el server esta offline” |
+| B3 | **Ticks:** con el otro celular online, ver **2 grises** (entregado) y **2 celestes** (leído) al abrir el chat en el celular. | [x] | 24 ago: confirmado por usuario |
+| B4 | **Media entrante:** mandar **foto** y **audio** desde celular de prueba → se ven en KloSync (no solo `[Imagen]`). Recargar `/chat` al día siguiente → siguen abriendo. | [x] | 24 ago: foto+audio OK (persistencia “mañana” pendiente si se quiere revalidar) |
 | B5 | **Media saliente:** enviar imagen &lt;5 MB desde KloSync → llega al celular. Probar PNG &gt;6 MB → **rechazo** visible en UI antes de enviar. | [ ] | |
-| B6 | **Reconexión:** con worker caído 2–5 min, que el otro celular escriba. Al levantar worker → mensaje aparece (catch-up). **Sin bucle 515** en logs Railway. | [ ] | |
+| B6 | **Reconexión:** con worker caído 2–5 min, que el otro celular escriba. Al levantar worker → mensaje aparece (catch-up). **Sin bucle 515** en logs Railway. | [x] | 24 ago: tras levantar Railway llegan msgs (`Ooooooo` entrante + hilo vivo); sesión `connected` |
 | B7 | Enviar 3 mensajes seguidos → en BD/logs, intervalo ~2–4 s entre salientes (anti-ban). | [ ] | |
 
 **C — Cierre de sesión**

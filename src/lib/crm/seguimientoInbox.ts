@@ -2,7 +2,7 @@ import {
   isOutgoingMessage,
   sortMessagesChronologically,
   type MessageDirectionInput,
-} from '@/lib/crm/inboxStats';
+} from '@/lib/crm/messageDirection';
 import { isEstadoTerminal } from '@/lib/contactos/estadoLead';
 
 export const MS_HOUR = 60 * 60 * 1000;

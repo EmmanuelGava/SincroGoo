@@ -1,6 +1,6 @@
 # KloSync — Orden de trabajo actual
 
-> Actualizado: 22 agosto 2026.  
+> Actualizado: 24 agosto 2026.  
 > Este archivo es el **orden de ahora**. No reemplaza los docs de detalle; apunta a ellos.  
 > Monetización, precios y lanzamiento comercial **no están en el camino**. Primero hay que tener un MVP que un vendedor use todos los días.
 
@@ -35,98 +35,102 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 
 ## Dónde estamos hoy (honesto)
 
+**Resumen por fase (24 ago 2026):**
+
+| Fase | Código | Certificado en prod |
+|------|--------|-------------------|
+| **0** Loop Chat ↔ Kanban | ✅ en `main` | ❌ falta demo con celular |
+| **1** Mensajería confiable | ✅ en `main` | ❌ falta outbox / ticks / media real |
+| **2** Contactos (base CRM) | ✅ **cerrada** | ✅ migración + CRUD en prod |
+| **3** Kommo día a día | ✅ core cerrado | ⚠️ seguimiento recién deployado; backlog catálogo opcional |
+| **4+** Diferencial / canales | — | no empezado |
+
+**El cuello de botella no es más código:** es la **sesión de prueba en prod** (checklist abajo). Hasta que Fase 0 + 1 pasen con celular real en klosync.vercel.app, no hay MVP para afuera.
+
 **Ya anda (no rehacer):**
 
 - Sync Tools y generación de slides (plantillas, preview, re-sync, enriquecimiento, historial).
 - Explorador: buscar por zona y exportar a Sheets.
-- WhatsApp Lite en Railway (QR, envío/recepción, live del inbox, media saliente imagen/audio, catch-up al reconectar).
-- Chat unificado + Kanban básico (etapas, tarjetas, drag entre columnas).
-- Inbox estilo WhatsApp Web, respuestas rápidas (`/`) y catálogo comercial en `/catalogo`.
+- WhatsApp Lite en Railway (QR, envío/recepción, live del inbox, media saliente imagen/audio, catch-up al reconectar, outbox, ticks).
+- Chat unificado + Kanban (drag chat→columna, ida y vuelta chat↔CRM, filtros, scoring, stats).
+- Inbox estilo WhatsApp Web, respuestas rápidas (`/`), catálogo + carrito multi-producto en `/catalogo`.
+- Contactos: CRUD, ficha, match automático, timeline, import, etiquetas, nuevo pedido.
+- Seguimiento inbox: alerta interna “esperando tu respuesta” (12 h / 24 h).
 - Login Google / NextAuth.
 
-**No es MVP todavía.** Falta el loop tipo Kommo de verdad:
+**Lo que falta certificar (no construir):**
 
-1. Chat nuevo aparece en la lista del CRM y se arrastra a una columna (código en prod; falta demo con celular real).
-2. Arrastrar el chat a una columna crea el lead.
-3. Desde el lead volvés al chat (y al revés).
-4. No se pierde un envío si Railway pega un 428 (outbox en código; falta prueba worker down).
-5. Una **ficha de contacto** con teléfono real, no un LID suelto (resolución LID→número en prod; tabla `contactos` con CRUD y ficha en `/contactos`).
-
-Hasta que eso no se pueda demoar en klosync.vercel.app con un celular real, no hay producto para afuera.
+1. Chat nuevo en sidebar CRM → arrastrar a columna → lead creado (celular real).
+2. Ida y vuelta lead ↔ chat en esa demo.
+3. Outbox: worker caído 1–2 min → texto no se pierde al volver.
+4. Ticks: 1 tilde → 2 grises → 2 celestes (con el otro celular).
+5. Media entrante: foto/audio se ven hoy y mañana (no solo `[Imagen]`).
+6. Identidad: un solo chat por contacto (LID + teléfono unificados); saludo sin número en `/hola`.
 
 ---
 
 ## Orden de ahora (hacer en esta secuencia)
 
-### Fase 0 — Cerrar el loop Chat ↔ Kanban (esta semana)
+### Fase 0 — Cerrar el loop Chat ↔ Kanban
 
-Sin esto el CRM es teatro.
+Sin esto el CRM es teatro. **Código listo; falta certificar en prod** (ver checklist § abajo).
 
-- [x] Drag: lista de chats sin lead a la izquierda → soltar en una columna → se crea el lead y sale de la lista. (en `main`)
-- [ ] Probar en prod: KloSync cerrado + worker up; worker down 2–5 min + contacto nuevo; reconectar sin 515 en bucle.
+- [x] Drag: lista de chats sin lead a la izquierda → soltar en una columna → se crea el lead y sale de la lista.
+- [ ] **Prod:** demo completa con celular (checklist A).
 - [x] Etapas por defecto si el usuario no tiene columnas (Nuevo, Contactado, Calificado, Propuesta, Ganado, Perdido).
 - [x] Ida y vuelta: del lead abrir el chat (`/chat?conversacion=`); del chat ver el lead y ir al Kanban (`/crm?lead=`).
 - [x] Nombres reales en la lista del CRM (contact_name / teléfono; no LID). No fusionar dos LID distintos.
-- [x] Resolver LID a teléfono real al abrir el chat y guardarlo en el lead (no mostrar el ID interno como número).
+- [x] Resolver LID a teléfono real al abrir el chat y guardarlo en el lead (fix `0a9cbff`).
 
 ### Fase 1 — Mensajería que no miente
 
-El catch-up cubre **entrantes** mientras el socket está caído. Los **salientes** todavía se pueden perder.
+Catch-up cubre **entrantes** con socket caído. **Salientes** dependen del outbox. **Código listo; falta certificar en prod** (checklist B).
 
-Hacer, en este orden (detalle en el plan de confiabilidad):
-
-- [x] Outbox + reintento (worker caído → el mensaje queda queued y sale al volver). *Código listo; falta probar en prod: worker down 1 min, texto no se pierde.*
-- [x] Ticks reales: enviado / entregado / leído / error (en `main`; falta demo 1 tilde → 2 grises → 2 celestes).
-- [x] Media **entrante** persistida (no solo placeholder `[Imagen]` / `[Audio]` en el catch-up). *En `main`; falta prueba con foto/audio reales (se ven y siguen abriendo al día siguiente).*
-- [x] Límites de tamaño/tipo visibles en la UI. *Código: imagen 5 MB, audio 16 MB, video rechazado. PNG de 6 MB se rechaza antes del outbox.*
-- [x] Delay anti-ban entre envíos. *En `main`; en BD los envíos seguidos salen ~2.4–3.6 s, no en 200 ms. El chat no espera ni muestra los ms.*
-- [x] Borrar servicios WhatsApp legacy (V2 / Old). La única clase viva es `WhatsAppLiteService`.
+- [x] Outbox + reintento (`whatsapp_outbox`, worker claim al reconectar).
+- [ ] **Prod:** worker down 1–2 min → texto queued → sale al volver (checklist B2).
+- [x] Ticks reales: enviado / entregado / leído / error.
+- [ ] **Prod:** ver progresión de tildes en burbuja (checklist B3).
+- [x] Media **entrante** persistida (Storage, no solo placeholder).
+- [ ] **Prod:** foto/audio entrante hoy y al día siguiente (checklist B4).
+- [x] Límites de tamaño/tipo visibles en la UI (imagen 5 MB, audio 16 MB, video rechazado).
+- [x] Delay anti-ban entre envíos (~2.4–3.6 s entre salientes).
+- [x] Borrar servicios WhatsApp legacy. Solo vive `WhatsAppLiteService`.
 
 No hacer acá: Cloud API de Meta, multiagente, broadcast.
 
-### Fase 2 — Contactos (base del CRM)
+### Fase 2 — Contactos (base del CRM) — **CERRADA**
 
 Sin esto el resto de Kommo se construye mal. Un chat no es un contacto.
 
-- Migración `contactos_persona_deal` aplicada en prod (tabla `contactos`, FKs, RPC `buscar_contactos`).
-
+- [x] Migración `contactos_persona_deal` en prod (tabla `contactos`, FKs, RPC `buscar_contactos`).
 - [x] Tabla `contactos` + CRUD + búsqueda (unaccent).
-- [x] Ficha: conversaciones + lead del Kanban (presentaciones después).
-- [x] Cruzar teléfono/WhatsApp entrante con contactos existentes (sin crear).
-- [x] Al mover el lead de etapa, registrar en la ficha (timeline).
+- [x] Ficha: conversaciones + leads del Kanban (presentaciones después).
+- [x] Cruzar teléfono/WhatsApp entrante con contactos existentes (sin crear automático).
+- [x] Al mover el lead de etapa, registrar en la ficha (`lead_etapa_historial`).
 - [x] Importar Sheets, CSV y Google Contacts.
 
-### Fase 3 — Que se sienta Kommo en el día a día
+### Fase 3 — Que se sienta Kommo en el día a día — **CORE CERRADO**
 
-Cuando el loop y los contactos existen:
+Backlog de catálogo (stock al Ganado, variantes, etc.) queda abajo; no bloquea MVP.
 
-Estas cuatro no estaban en el plan original de Fase 3 (solo figuraba “respuestas rápidas” como feature Kommo). Se crearon al hacerlas:
+UI chat, respuestas rápidas, catálogo y módulo `/catalogo` (hecho):
 
 - [x] UI del chat al estilo WhatsApp Web (compositor `+` / emoji / rayo, grabación, burbujas, ticks).
 - [x] Respuestas rápidas (`/` + plantillas, variables, editor). Spec: [`2026-08-21-catalogo-respuestas-design.md`](./superpowers/specs/2026-08-21-catalogo-respuestas-design.md).
 - [x] Catálogo seleccionable en el compositor (chip, placeholders de producto/precio/incluye, adjunto).
-- [x] Módulo `/catalogo` fuera del chat: import masivo CSV/Excel/Sheets y carga de a muchos archivos (foto, PDF, Word, Excel, PowerPoint). El chat solo elige.
+- [x] Módulo `/catalogo` fuera del chat: import masivo CSV/Excel/Sheets y carga de a muchos archivos.
 
-Pendiente **antes** de scoring/stats — orden de dependencia (no dos “inmediato” en paralelo):
-
-**1. Base de datos del catálogo** (spec [`2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md)) — primero; sin esto el picker no sabe qué es elegible:
+Catálogo + venta real (hecho):
 
 - [x] `categoria` + `stock` en `chat_catalogo` (CRUD, import, UI `/catalogo`).
-- [x] “Lista: {categoría}” en el picker: solo `stock > 0`, nombre + precio, sin cantidad al cliente.
+- [x] “Lista: {categoría}” en el picker: solo `stock > 0`, nombre + precio.
 - [x] Ocultar / deshabilitar ítems sin stock en picker y carrito.
-
-**2. Carrito que consume esa base** (spec venta real §1):
-
-- [x] Presupuesto multi-producto (carrito 3–4 ítems + total en un mensaje). Solo ítems con stock.
-- [x] Carrito **arriba** del textbox en el compositor.
-
-**3. CRM persona/deal** (independiente del catálogo; spec [`2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) §§2–4):
-
-- [x] **Nuevo pedido** en la ficha del contacto (lead nuevo en Nuevo, sin pisar un Ganado).
-- [x] Etiquetas en el contacto (chips + filtro en `/contactos`).
+- [x] Presupuesto multi-producto (carrito 3–4 ítems + total). Carrito **arriba** del textbox.
+- [x] **Nuevo pedido** en ficha contacto (lead nuevo en Nuevo, sin pisar Ganado).
+- [x] Etiquetas en contacto (chips + filtro `/contactos?etiqueta=`).
 - [x] Motivo obligatorio al mover a **Perdido**.
 
-Pendiente de esta fase (después de lo de arriba):
+CRM inbox / tablero (hecho):
 
 - [x] Búsqueda en historial de conversaciones.
 - [x] Valor monetario y fecha de cierre en la tarjeta del Kanban.
@@ -141,17 +145,7 @@ Pendiente de esta fase (después de lo de arriba):
 - [x] Badge/borde distinto en lista del inbox (`ChatSidebar`); contador “Seguim.” en stats.
 - [x] Limpieza automática al responder; persiste al recargar (no depende del socket).
 - [x] Ordenar inbox poniendo seguimiento arriba.
-
-Backlog catálogo (fuera de alcance v1 de categoría/stock; spec listas):
-
-- [ ] Descontar stock al marcar lead **Ganado** (o al confirmar pedido).
-- [ ] Alertas de bajo stock (umbral por usuario / por ítem).
-- [ ] Variantes anidadas (talle / color / sabor como sub-SKU).
-- [ ] Al enviar una lista, adjuntar varias fotos.
-- [ ] Atalho `/vapers` que inserte la lista si la categoría coincide.
-- [ ] Tabla `catalogo_categorias` + rename masivo.
-- [ ] Opción de mostrar “sin stock” en el mensaje (hoy se ocultan).
-- [ ] Reserva / hold de stock mientras el lead está en Propuesta.
+- [ ] **Prod:** marcar seguimiento tras umbral (12 h / 24 h) — checklist A6 (opcional si no hay tiempo de esperar: bajar umbral en dev).
 
 ### Fase 4 — Pegar el diferencial (Explorador + Slides al CRM)
 
@@ -193,6 +187,77 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 
 ---
 
+## Checklist — certificar MVP en prod (30–45 min)
+
+**Preparación (5 min)**
+
+- [ ] **P0** Abrir [klosync.vercel.app](https://klosync.vercel.app) logueado; worker Railway **Up** (`/configuracion/mensajeria` → conectado / QR no visible).
+- [ ] **P1** Segundo celular (o contacto de prueba) con WhatsApp listo para escribir al número vinculado.
+- [ ] **P2** Pestaña `/crm` y `/chat` abiertas; consola del navegador por si hay 401/500.
+
+**A — Fase 0: loop Chat ↔ Kanban (~15 min)**
+
+| # | Acción | OK | Notas |
+|---|--------|----|-------|
+| A1 | Desde el **celular de prueba**, mandar un mensaje nuevo a tu WA vinculado (contacto que **no** tenga lead aún). | [ ] | |
+| A2 | En `/crm`, el chat aparece en **“Chats entrantes”** (sidebar izquierdo) con nombre/teléfono legible (no LID crudo). | [ ] | |
+| A3 | **Arrastrar** el chat a columna **Nuevo** (o Contactado). El chat **sale** de entrantes y aparece tarjeta en la columna. | [ ] | |
+| A4 | Clic en tarjeta → **Editar** o ícono chat → abre `/chat?conversacion=…` con el hilo correcto. | [ ] | |
+| A5 | Desde el chat, ir al **Kanban** (`/crm?lead=…` o botón lead) → misma persona/deal. | [ ] | |
+| A6 | Responder desde KloSync; el celular recibe. `/hola` con `{{nombre}}` **no** muestra el número como nombre. | [ ] | |
+| A7 | Si el contacto ya existía en `/contactos`, verificar **match** (misma ficha, timeline con cambio de etapa). | [ ] | |
+| A8 | *(Opcional)* Dejar entrante sin responder 12+ h → badge **Seguimiento** en `/chat` y contador en stats CRM. | [ ] | |
+
+**B — Fase 1: mensajería confiable (~20 min)**
+
+| # | Acción | OK | Notas |
+|---|--------|----|-------|
+| B1 | Con worker **Up**, enviar texto desde `/chat` → llega al celular; burbuja pasa de “enviando” a **enviado** (1 tilde). | [ ] | |
+| B2 | **Outbox:** en Railway, **Stop** el servicio 1–2 min. Enviar texto desde `/chat` (debe quedar queued / no error fatal). **Start** worker → el mensaje **sale solo** al celular en &lt;2 min. | [ ] | Ver `whatsapp_outbox` si dudás |
+| B3 | **Ticks:** con el otro celular online, ver **2 grises** (entregado) y **2 celestes** (leído) al abrir el chat en el celular. | [ ] | |
+| B4 | **Media entrante:** mandar **foto** y **audio** desde celular de prueba → se ven en KloSync (no solo `[Imagen]`). Recargar `/chat` al día siguiente → siguen abriendo. | [ ] | |
+| B5 | **Media saliente:** enviar imagen &lt;5 MB desde KloSync → llega al celular. Probar PNG &gt;6 MB → **rechazo** visible en UI antes de enviar. | [ ] | |
+| B6 | **Reconexión:** con worker caído 2–5 min, que el otro celular escriba. Al levantar worker → mensaje aparece (catch-up). **Sin bucle 515** en logs Railway. | [ ] | |
+| B7 | Enviar 3 mensajes seguidos → en BD/logs, intervalo ~2–4 s entre salientes (anti-ban). | [ ] | |
+
+**C — Cierre de sesión**
+
+- [ ] Marcar arriba qué falló; si A3 o B2 fallan → **no MVP**; priorizar fix antes de Fase 4.
+- [ ] Actualizar checkboxes de Fase 0/1 en este doc con fecha de la prueba.
+- [ ] Si todo OK → **MVP certificado**; siguiente: Fase 4 (Explorador → contactos) o backlog catálogo.
+
+**Consultas útiles en prod (Supabase MCP / SQL):**
+
+```sql
+-- Outbox pendiente
+select id, status, attempts, created_at from whatsapp_outbox
+where status in ('queued','sending') order by created_at desc limit 10;
+
+-- Último mensaje por conversación (dirección)
+select c.id, m.fecha_mensaje, m.usuario_id, m.metadata->>'direction' as dir
+from conversaciones c
+join lateral (
+  select * from mensajes_conversacion where conversacion_id = c.id
+  order by fecha_mensaje desc limit 1
+) m on true
+order by m.fecha_mensaje desc limit 5;
+```
+
+---
+
+## Backlog catálogo (Fase 3+, no bloquea MVP)
+
+- [ ] Descontar stock al marcar lead **Ganado** (o al confirmar pedido).
+- [ ] Alertas de bajo stock (umbral por usuario / por ítem).
+- [ ] Variantes anidadas (talle / color / sabor como sub-SKU).
+- [ ] Al enviar una lista, adjuntar varias fotos.
+- [ ] Atajo `/vapers` que inserte la lista si la categoría coincide.
+- [ ] Tabla `catalogo_categorias` + rename masivo.
+- [ ] Opción de mostrar “sin stock” en el mensaje (hoy se ocultan).
+- [ ] Reserva / hold de stock mientras el lead está en Propuesta.
+
+---
+
 ## Visión completa — backlog que no se tira
 
 Todo esto **sigue siendo el producto**. Solo no se hace ahora. Si hay duda, no borrar: bajar de fase.
@@ -228,21 +293,21 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 
 | Feature | Ellos | KloSync |
 |---|---|---|
-| Kanban / embudo | Sí | Básico; loop chat→columna en prod, falta demo con celular |
+| Kanban / embudo | Sí | Sí (filtros, scoring, stats); falta **certificar** drag en prod |
 | WhatsApp | Sí | Lite (Baileys), no oficial |
 | Telegram | Kommo parcial | Recepción sí |
 | Multiagente mismo número | Sí | No |
-| Automatización / bienvenida / follow-up | Sí | No |
+| Automatización / bienvenida / follow-up | Sí | No (seguimiento = alerta interna, no auto-mensaje) |
 | Respuestas rápidas | Sí | Sí (`/` en el chat) |
-| Catálogo productos / cotizaciones | Algunos | Un ítem en el chat + `/catalogo`; falta carrito multi-producto |
+| Catálogo / cotizaciones | Algunos | Sí: catálogo + **carrito multi-producto** |
 | Chatbot | Sí | No |
 | Asignar chats | Sí | No |
 | Programados | Casi todos | No |
-| Seguimiento / “te debe respuesta” | Sí (Kommo-style) | Spec Fase 3; alerta interna, no auto-mensaje |
+| Seguimiento / “te debe respuesta” | Sí | Sí (badge inbox + stats; umbral 12 h / 24 h) |
 | Broadcast | La mayoría | No |
-| Módulo contactos | Sí | Sí (CRUD + match + import + timeline) |
-| Reportes de funnel | Sí | No |
-| Ticks entregado/leído | Sí | En prod (enviado / entregado / leído) |
+| Módulo contactos | Sí | Sí (CRUD + match + import + timeline + tags) |
+| Reportes de funnel | Sí | Stats mínimas (nuevas, sin resp., seguim., embudo) |
+| Ticks entregado/leído | Sí | Sí (falta certificar en prod) |
 | Sheet → Slides / sync Google / explorador | No | Sí (nuestro diferencial) |
 
 ### Fuera de este orden (guardar, no ejecutar)
@@ -253,10 +318,11 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 
 ## Cómo decidir qué toca ahora
 
-1. ¿El tester ve el WhatsApp en el Kanban arrastrando? Si no → Fase 0.  
-2. ¿Se pierde un envío o un lead en una caída de Railway? Si sí → Fase 1.  
-3. ¿El mismo humano es un LID en el chat y otra tarjeta en el Kanban? → Fase 2.  
-4. Recién ahí features de Kommo (rápidas, **carrito**, **nuevo pedido**, tags, motivo perdido; **seguimiento inbox**; después filtros/scoring).
-5. ¿El inbox ya no miente una semana? Recién ahí Instagram / ML. Después widget. Después bot.
+1. **¿Pasó el checklist de prod (A + B)?** Si no → Fase 0 + 1 (solo prueba, no features nuevas).
+2. ¿Se pierde un envío con worker down? → fix outbox antes de seguir.
+3. ¿Dos chats por el mismo humano (LID vs teléfono)? → ya fixeado; revalidar en A6.
+4. Fase 2 y core Fase 3 **cerrados** — no volver a “carrito/tags” salvo bugs.
+5. Con MVP certificado → Fase 4 (Explorador → contactos) o backlog catálogo.
+6. ¿Inbox estable una semana? → Instagram / ML. Después widget. Después bot.
 
-No saltar a widget, chatbot, multiagente, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario**, no en el catálogo de features.
+No saltar a widget, chatbot, multiagente, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario certificado en prod**, no en el catálogo de features.

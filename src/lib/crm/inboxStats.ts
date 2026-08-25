@@ -18,15 +18,17 @@ import {
   DEFAULT_SEGUIMIENTO_CONFIG,
   SEGUIMIENTO_DEFINITION,
 } from '@/lib/crm/seguimientoInbox';
+import {
+  isOutgoingMessage,
+  sortMessagesChronologically,
+  type MessageDirectionInput,
+} from '@/lib/crm/messageDirection';
+
+export type { MessageDirectionInput };
+export { isOutgoingMessage, sortMessagesChronologically };
 
 export const MS_24H = 24 * 60 * 60 * 1000;
 export const MS_7D = 7 * MS_24H;
-
-export type MessageDirectionInput = {
-  usuario_id?: string | null;
-  fecha_mensaje?: string | null;
-  metadata?: Record<string, unknown> | null;
-};
 
 export type ConversationStatsInput = {
   id: string;
@@ -47,23 +49,6 @@ export type LeadEstadoInput = {
   estado_id: string;
 };
 
-export function isOutgoingMessage(msg: MessageDirectionInput): boolean {
-  if (msg.usuario_id) return true;
-  const meta = msg.metadata && typeof msg.metadata === 'object' ? msg.metadata : {};
-  if (meta.direction === 'outgoing') return true;
-  if (meta.fromMe === true || meta.fromMe === 'true') return true;
-  return false;
-}
-
-export function sortMessagesChronologically<T extends MessageDirectionInput>(
-  mensajes: T[] | null | undefined
-): T[] {
-  return [...(mensajes || [])].sort(
-    (a, b) => new Date(a.fecha_mensaje || 0).getTime() - new Date(b.fecha_mensaje || 0).getTime()
-  );
-}
-
-/** Conversaciones con actividad (fecha_mensaje) >= sinceMs. */
 export function countNuevas(
   conversaciones: ConversationStatsInput[],
   sinceMs: number,

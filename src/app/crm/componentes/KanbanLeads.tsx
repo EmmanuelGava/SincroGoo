@@ -29,7 +29,6 @@ import { Lead } from '@/app/tipos/lead';
 import { Estado } from '../contexts/LeadsKanbanContext';
 import { FormularioLead } from './FormularioLead';
 import { FormularioEdicionLead } from './FormularioEdicionLead';
-import { supabase } from '@/lib/supabase/browserClient';
 import SidebarMensajesEntrantes from './SidebarMensajesEntrantes';
 import InboxStatsPanel from './InboxStatsPanel';
 import { isEstadoPerdido, MOTIVOS_PERDIDO, MOTIVO_PERDIDO_LABEL, type MotivoPerdido } from '@/lib/contactos/estadoLead';
@@ -241,7 +240,7 @@ export default function KanbanLeads() {
   
   const {
     estados: estadosGlobal,
-    leads: leadsGlobal,
+    leads,
     loading,
     error,
     moverLead,
@@ -249,12 +248,11 @@ export default function KanbanLeads() {
     actualizarEstado,
     eliminarEstado,
     eliminarLead,
-    refrescarLeads,
     convertirIncomingEnLead,
+    setDragLock,
   } = useLeadsKanbanContext();
 
   const [estados, setEstados] = useState<Estado[]>(estadosGlobal);
-  const [leads, setLeads] = useState<Lead[]>(leadsGlobal);
   const isDragging = useRef(false);
 
   useEffect(() => {
@@ -262,47 +260,6 @@ export default function KanbanLeads() {
       setEstados(estadosGlobal);
     }
   }, [estadosGlobal]);
-
-  useEffect(() => {
-    if (!isDragging.current) {
-      setLeads(leadsGlobal);
-    }
-  }, [leadsGlobal]);
-
-  useEffect(() => {
-    if (!supabase) {
-      return;
-    }
-    
-    console.log('Intentando suscribirse a realtime (leads)...');
-    const channel = supabase
-      .channel('mensajes_conversacion_leads')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'mensajes_conversacion' },
-        (payload) => {
-          console.log('Evento realtime recibido en leads', payload);
-          // Usar una función estable para refrescar
-          refrescarLeads();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'leads' },
-        (payload) => {
-          console.log('Lead actualizado:', payload);
-          refrescarLeads();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Estado de la suscripción realtime (leads):', status);
-      });
-      
-    return () => {
-      console.log('Eliminando canal realtime (leads)...');
-      channel.unsubscribe();
-    };
-  }, []); // Sin dependencias para evitar recrear la suscripción
 
   const [open, setOpen] = useState(false);
   const [nuevoLeadEstadoId, setNuevoLeadEstadoId] = useState<string | null>(null);
@@ -381,25 +338,38 @@ export default function KanbanLeads() {
 
   const onDragEnd = async (result: DropResult) => {
     isDragging.current = false;
-    if (!result.destination) return;
+    if (!result.destination) {
+      setDragLock(false);
+      return;
+    }
     if (result.type === 'COLUMN') {
       const sourceIdx = result.source.index;
       const destIdx = result.destination.index;
-      if (sourceIdx === destIdx) return;
+      if (sourceIdx === destIdx) {
+        setDragLock(false);
+        return;
+      }
       const newEstados = Array.from(estados);
       const [removed] = newEstados.splice(sourceIdx, 1);
       newEstados.splice(destIdx, 0, removed);
       setEstados(newEstados);
       await Promise.all(newEstados.map((estado, idx) => actualizarEstado(estado.id, { orden: idx })));
+      setDragLock(false);
       return;
     }
     const { source, destination, draggableId } = result;
     const sourceEstadoId = source.droppableId;
     const destEstadoId = destination.droppableId;
-    if (sourceEstadoId === destEstadoId) return;
+    if (sourceEstadoId === destEstadoId) {
+      setDragLock(false);
+      return;
+    }
 
     // La lista de entrantes solo es origen; no se puede soltar leads ahí.
-    if (destEstadoId === 'incoming-chats') return;
+    if (destEstadoId === 'incoming-chats') {
+      setDragLock(false);
+      return;
+    }
 
     if (String(draggableId).startsWith('incoming:')) {
       const conversationId = String(draggableId).slice('incoming:'.length);
@@ -415,17 +385,28 @@ export default function KanbanLeads() {
         }
       } catch (error) {
         console.error('Error pasando chat al Kanban:', error);
+      } finally {
+        setDragLock(false);
       }
       return;
     }
     
     const leadToMove = leads.find(lead => String(lead.id) === String(draggableId));
-    if (!leadToMove) return;
+    if (!leadToMove) {
+      setDragLock(false);
+      return;
+    }
     // Card optimista aún sin UUID real: no pegarle al API.
-    if (String(draggableId).startsWith('optimistic:')) return;
+    if (String(draggableId).startsWith('optimistic:')) {
+      setDragLock(false);
+      return;
+    }
 
     const destEstado = estados.find((estado) => estado.id === destEstadoId);
-    if (!destEstado) return;
+    if (!destEstado) {
+      setDragLock(false);
+      return;
+    }
     if (destEstado && isEstadoPerdido(destEstado.nombre)) {
       setMotivoPerdido('precio');
       setPendingPerdido({
@@ -433,20 +414,23 @@ export default function KanbanLeads() {
         destEstadoId,
         leadNombre: leadToMove.nombre || 'Lead',
       });
+      setDragLock(false);
       return;
     }
-    
-    const newLeads = leads.map(lead => String(lead.id) === String(draggableId) ? { ...lead, estado_id: destEstadoId } : lead);
-    setLeads(newLeads);
     
     try {
       await moverLead(draggableId, destEstadoId);
     } catch (error) {
-      setLeads(leads); // Revert on error
+      console.error('Error moviendo lead:', error);
+    } finally {
+      setDragLock(false);
     }
   };
 
-  const onBeforeDragStart = () => { isDragging.current = true; };
+  const onBeforeDragStart = () => {
+    isDragging.current = true;
+    setDragLock(true);
+  };
   const handleOpen = (estadoId?: string) => {
     setNuevoLeadEstadoId(estadoId || estados[0]?.id || null);
     setOpen(true);
@@ -529,18 +513,10 @@ export default function KanbanLeads() {
   const handleConfirmarPerdido = async () => {
     if (!pendingPerdido) return;
     const pending = pendingPerdido;
-    const snapshot = leads;
     setPendingPerdido(null);
-    const newLeads = snapshot.map((lead) =>
-      String(lead.id) === String(pending.leadId)
-        ? { ...lead, estado_id: pending.destEstadoId }
-        : lead
-    );
-    setLeads(newLeads);
     try {
       await moverLead(pending.leadId, pending.destEstadoId, motivoPerdido);
     } catch (error) {
-      setLeads(snapshot);
       console.error('Error moviendo lead a Perdido:', error);
     }
   };

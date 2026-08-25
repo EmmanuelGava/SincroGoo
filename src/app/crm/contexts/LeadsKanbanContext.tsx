@@ -1,8 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from "react";
 import { useSession } from 'next-auth/react';
 import { Lead } from '@/app/tipos/lead';
+import { supabase as supabaseBrowser } from '@/lib/supabase/browserClient';
+import { inboxChannelName } from '@/lib/chat/inboxChannel';
+import { initSocket, shouldInitializeSocket } from '@/lib/socket';
 
 // Tipos
 export interface Estado {
@@ -68,6 +71,8 @@ export interface LeadsKanbanContextProps {
   incomingTick: number;
   /** Chats quitados del sidebar en optimista tras pasarlos al Kanban */
   incomingHiddenIds: string[];
+  /** Evita que un fetchAll pise el tablero mientras hay un drag activo */
+  setDragLock: (locked: boolean) => void;
 }
 
 const LeadsKanbanContext = createContext<LeadsKanbanContextProps | undefined>(undefined);
@@ -81,7 +86,12 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   const [incomingTick, setIncomingTick] = useState(0);
   const [incomingHiddenIds, setIncomingHiddenIds] = useState<string[]>([]);
   const [incomingPreviews, setIncomingPreviews] = useState<Record<string, IncomingPreview>>({});
+  const dragLockRef = useRef(false);
   const { data: session } = useSession();
+
+  const setDragLock = useCallback((locked: boolean) => {
+    dragLockRef.current = locked;
+  }, []);
 
   const registerIncomingPreviews = useCallback((items: IncomingPreview[]) => {
     setIncomingPreviews((prev) => {
@@ -128,7 +138,10 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       if (estadosRes.error) throw new Error(estadosRes.error);
       if (leadsRes.error) throw new Error(leadsRes.error);
       setEstados(estadosRes);
-      setLeads(leadsRes);
+      // No pisar cards optimistas / drag en curso.
+      if (!dragLockRef.current) {
+        setLeads(leadsRes);
+      }
     } catch (e: any) {
       setError(e.message || "Error al cargar datos");
     } finally {
@@ -143,6 +156,41 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   const refrescarLeads = useCallback(() => {
     fetchAll();
   }, [fetchAll]);
+
+  const refrescarInboxLive = useCallback(() => {
+    setIncomingTick((tick) => tick + 1);
+    void fetchAll({ silent: true });
+  }, [fetchAll]);
+
+  // Mismo canal broadcast que /chat: mensajes nuevos sin ir a la página de chat.
+  useEffect(() => {
+    if (!session?.user?.id || !supabaseBrowser) return;
+    const client = supabaseBrowser;
+    const channel = client
+      .channel(inboxChannelName(session.user.id))
+      .on('broadcast', { event: 'new_message' }, () => {
+        refrescarInboxLive();
+      })
+      .subscribe();
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [session?.user?.id, refrescarInboxLive]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    if (typeof window !== 'undefined' && !shouldInitializeSocket()) return;
+    const socket = initSocket();
+    const onMessage = () => refrescarInboxLive();
+    const join = () => socket.emit('join-user-room', session.user.id);
+    socket.on('whatsapp-message', onMessage);
+    socket.on('connect', join);
+    if (socket.connected) join();
+    return () => {
+      socket.off('whatsapp-message', onMessage);
+      socket.off('connect', join);
+    };
+  }, [session?.user?.id, refrescarInboxLive]);
 
   const convertirIncomingEnLead = useCallback(async (
     conversationId: string,
@@ -260,6 +308,11 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
 
   const moverLead = useCallback(async (leadId: string, nuevoEstadoId: string, motivo?: string) => {
     setError(null);
+    let snapshot: Lead[] = [];
+    setLeads((prev) => {
+      snapshot = prev;
+      return prev.map((l) => (l.id === leadId ? { ...l, estado_id: nuevoEstadoId } : l));
+    });
     try {
       const res = await fetch("/api/supabase/leads", {
         method: "PATCH",
@@ -272,8 +325,9 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al mover lead");
-      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...data } : l));
+      setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, ...data } : l)));
     } catch (e: any) {
+      setLeads(snapshot);
       setError(e.message);
       throw e;
     }
@@ -377,6 +431,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     refrescarLeads,
     incomingTick,
     incomingHiddenIds,
+    setDragLock,
   }), [
     leads,
     estados,
@@ -395,6 +450,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     refrescarLeads,
     incomingTick,
     incomingHiddenIds,
+    setDragLock,
   ]);
 
   return <LeadsKanbanContext.Provider value={value}>{children}</LeadsKanbanContext.Provider>;

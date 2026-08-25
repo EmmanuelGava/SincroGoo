@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ElementType } from 'react';
 import { Box, Typography, Paper, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -44,8 +44,9 @@ export default function SidebarMensajesEntrantes() {
   const [dialogoEliminar, setDialogoEliminar] = useState<string | null>(null);
   const { mostrarNotificacion } = useNotificacion();
   const { incomingTick, incomingHiddenIds, registerIncomingPreviews } = useLeadsKanbanContext();
+  const fetchMensajesRef = useRef<() => Promise<void>>(async () => {});
 
-  const fetchMensajes = async () => {
+  const fetchMensajes = useCallback(async () => {
     try {
       const res = await fetch('/api/crm/conversaciones/entrantes', { cache: 'no-store' });
       const data = await res.json();
@@ -57,14 +58,21 @@ export default function SidebarMensajesEntrantes() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [registerIncomingPreviews]);
 
   useEffect(() => {
-    fetchMensajes();
-  }, [incomingTick]);
+    fetchMensajesRef.current = fetchMensajes;
+  }, [fetchMensajes]);
 
   useEffect(() => {
-    const id = setInterval(fetchMensajes, 3000);
+    void fetchMensajes();
+  }, [incomingTick, fetchMensajes]);
+
+  // Respaldo por si el broadcast se pierde (igual que /chat).
+  useEffect(() => {
+    const id = setInterval(() => {
+      void fetchMensajesRef.current();
+    }, 3000);
     return () => clearInterval(id);
   }, []);
 
@@ -79,7 +87,7 @@ export default function SidebarMensajesEntrantes() {
       if (data.success) {
         mostrarNotificacion({ tipo: 'success', mensaje: 'Chat quitado de la lista.' });
         setDialogoEliminar(null);
-        fetchMensajes();
+        void fetchMensajes();
       } else {
         mostrarNotificacion({ tipo: 'error', mensaje: data.error || 'Error al eliminar.' });
       }

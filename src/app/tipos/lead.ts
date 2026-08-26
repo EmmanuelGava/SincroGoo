@@ -26,4 +26,6 @@ export interface Lead {
   unread_count?: number;
   /** Canal de la conversación vinculada (whatsapp / telegram / email / …). */
   canal?: string | null;
+  /** Posición manual dentro de la columna del Kanban. */
+  orden?: number;
 } 

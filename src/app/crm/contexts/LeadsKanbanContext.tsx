@@ -6,6 +6,11 @@ import { Lead } from '@/app/tipos/lead';
 import { supabase as supabaseBrowser } from '@/lib/supabase/browserClient';
 import { inboxChannelName } from '@/lib/chat/inboxChannel';
 import { initSocket, shouldInitializeSocket } from '@/lib/socket';
+import {
+  applyKanbanReorderUpdates,
+  buildLeadsPorEstado,
+  computeKanbanReorderUpdates,
+} from '@/lib/crm/kanbanOrder';
 
 // Tipos
 export interface Estado {
@@ -21,6 +26,8 @@ export interface Estado {
 export type ConvertirIncomingExtra = {
   reuseLeadId?: string;
   forceNewLead?: boolean;
+  /** Índice destino dentro de la columna del Kanban. */
+  destIndex?: number;
   /** Preview para card optimista (nombre / último mensaje) */
   preview?: {
     nombre?: string;
@@ -65,7 +72,11 @@ export interface LeadsKanbanContextProps {
   leadsPorEstado: Record<string, Lead[]>;
   agregarLead: (lead: Partial<Lead>) => Promise<void>;
   actualizarLead: (id: string, lead: Partial<Lead>) => Promise<void>;
-  moverLead: (leadId: string, nuevoEstadoId: string, motivo?: string) => Promise<void>;
+  moverLead: (
+    leadId: string,
+    nuevoEstadoId: string,
+    options?: { destIndex?: number; motivo?: string; sourceEstadoId?: string },
+  ) => Promise<void>;
   eliminarLead: (id: string) => Promise<void>;
   agregarEstado: (estado: Partial<Estado>) => Promise<void>;
   actualizarEstado: (id: string, estado: Partial<Estado>) => Promise<void>;
@@ -112,14 +123,10 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const leadsPorEstado = useMemo(() => leads.reduce((acc, lead) => {
-    const estadoId = lead.estado_id;
-    if (!acc[estadoId]) {
-      acc[estadoId] = [];
-    }
-    acc[estadoId].push(lead);
-    return acc;
-  }, {} as Record<string, Lead[]>), [leads]);
+  const leadsPorEstado = useMemo(
+    () => buildLeadsPorEstado(leads, estados.map((estado) => estado.id)),
+    [leads, estados],
+  );
 
   // Obtener usuario_id de Supabase
   useEffect(() => {
@@ -228,6 +235,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     extra?: ConvertirIncomingExtra
   ) => {
     setError(null);
+    const destIndex = extra?.destIndex ?? 0;
     const cached = incomingPreviews[conversationId];
     const fields = incomingPreviewFields(extra?.preview, cached);
     const tempId = optimisticIncomingLeadId(conversationId);
@@ -241,6 +249,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       conversacion_id: conversationId,
       fecha_creacion: now,
       fecha_actualizacion: now,
+      orden: destIndex,
     };
 
     // Igual que mover entre columnas: UI primero, API después.
@@ -249,7 +258,9 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     ));
     setLeads((prev) => {
       const withoutTemp = prev.filter((l) => l.id !== tempId);
-      return [...withoutTemp, optimisticLead];
+      const withTemp = [...withoutTemp, optimisticLead];
+      const updates = computeKanbanReorderUpdates(withTemp, tempId, estadoId, estadoId, destIndex);
+      return applyKanbanReorderUpdates(withTemp, updates);
     });
 
     const revertOptimistic = () => {
@@ -264,6 +275,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           conversationId,
           estadoId,
+          destIndex,
           ...(extra?.reuseLeadId ? { reuseLeadId: extra.reuseLeadId } : {}),
           ...(extra?.forceNewLead ? { forceNewLead: true } : {}),
         }),
@@ -281,10 +293,21 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.lead) {
+        let reorderUpdates: ReturnType<typeof computeKanbanReorderUpdates> = [];
         setLeads((prev) => {
           const withoutTemp = prev.filter((l) => l.id !== tempId && l.id !== data.lead.id);
-          return [...withoutTemp, data.lead];
+          const withReal = [...withoutTemp, { ...data.lead, estado_id: estadoId }];
+          reorderUpdates = computeKanbanReorderUpdates(withReal, data.lead.id, estadoId, estadoId, destIndex);
+          return applyKanbanReorderUpdates(withReal, reorderUpdates);
         });
+
+        if (reorderUpdates.length > 0) {
+          await fetch('/api/supabase/leads/reorder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates: reorderUpdates }),
+          });
+        }
       }
 
       // Reconciliar en background (no bloquear la fluidez del drag).
@@ -332,26 +355,53 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const moverLead = useCallback(async (leadId: string, nuevoEstadoId: string, motivo?: string) => {
+  const moverLead = useCallback(async (
+    leadId: string,
+    nuevoEstadoId: string,
+    options?: { destIndex?: number; motivo?: string; sourceEstadoId?: string },
+  ) => {
     setError(null);
     let snapshot: Lead[] = [];
+    let updates: ReturnType<typeof computeKanbanReorderUpdates> = [];
+
     setLeads((prev) => {
       snapshot = prev;
-      return prev.map((l) => (l.id === leadId ? { ...l, estado_id: nuevoEstadoId } : l));
+      const lead = prev.find((item) => item.id === leadId);
+      const sourceEstadoId = options?.sourceEstadoId || lead?.estado_id;
+      if (!sourceEstadoId) return prev;
+
+      const destIndex = options?.destIndex ?? buildLeadsPorEstado(prev, [nuevoEstadoId])[nuevoEstadoId]?.length ?? 0;
+      updates = computeKanbanReorderUpdates(prev, leadId, sourceEstadoId, nuevoEstadoId, destIndex);
+      return applyKanbanReorderUpdates(prev, updates);
     });
+
+    if (updates.length === 0) return;
+
+    const sourceEstadoId = options?.sourceEstadoId || snapshot.find((item) => item.id === leadId)?.estado_id;
+    const crossColumn = sourceEstadoId && sourceEstadoId !== nuevoEstadoId;
+
     try {
-      const res = await fetch("/api/supabase/leads", {
-        method: "PATCH",
+      if (crossColumn) {
+        const res = await fetch("/api/supabase/leads", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: leadId,
+            estado_id: nuevoEstadoId,
+            ...(options?.motivo ? { motivo: options.motivo } : {}),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al mover lead");
+      }
+
+      const res = await fetch("/api/supabase/leads/reorder", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: leadId,
-          estado_id: nuevoEstadoId,
-          ...(motivo ? { motivo } : {}),
-        }),
+        body: JSON.stringify({ updates }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al mover lead");
-      setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, ...data } : l)));
+      if (!res.ok) throw new Error(data.error || "Error al reordenar lead");
     } catch (e: any) {
       setLeads(snapshot);
       setError(e.message);

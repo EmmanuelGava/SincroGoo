@@ -41,6 +41,7 @@ import {
   type LeadKanbanFiltros,
   type LeadScore,
 } from '@/lib/crm/leadKanbanFilters';
+import { buildLeadsPorEstado } from '@/lib/crm/kanbanOrder';
 
 const scoreChipColor: Record<LeadScore, 'error' | 'warning' | 'default'> = {
   alta: 'error',
@@ -279,12 +280,15 @@ export default function KanbanLeads() {
   const [pendingIncomingChoice, setPendingIncomingChoice] = useState<null | {
     conversationId: string;
     estadoId: string;
+    destIndex: number;
     contactoId: string;
     openLead: { id: string; nombre: string; estado_id: string };
   }>(null);
   const [pendingPerdido, setPendingPerdido] = useState<null | {
     leadId: string;
     destEstadoId: string;
+    sourceEstadoId: string;
+    destIndex: number;
     leadNombre: string;
   }>(null);
   const [motivoPerdido, setMotivoPerdido] = useState<MotivoPerdido>('precio');
@@ -326,15 +330,10 @@ export default function KanbanLeads() {
     setCollapsedColumns(newCollapsed);
   };
 
-  const leadsPorEstado: Record<string, Lead[]> = {};
-  estados.forEach((estado) => {
-    leadsPorEstado[estado.id] = [];
-  });
-  leadsFiltrados.forEach((lead) => {
-    if (lead.estado_id && leadsPorEstado[lead.estado_id]) {
-      leadsPorEstado[lead.estado_id].push(lead);
-    }
-  });
+  const leadsPorEstado = buildLeadsPorEstado(
+    leadsFiltrados,
+    estados.map((estado) => estado.id),
+  );
 
   const onDragEnd = async (result: DropResult) => {
     isDragging.current = false;
@@ -360,10 +359,7 @@ export default function KanbanLeads() {
     const { source, destination, draggableId } = result;
     const sourceEstadoId = source.droppableId;
     const destEstadoId = destination.droppableId;
-    if (sourceEstadoId === destEstadoId) {
-      setDragLock(false);
-      return;
-    }
+    const destIndex = destination.index;
 
     // La lista de entrantes solo es origen; no se puede soltar leads ahí.
     if (destEstadoId === 'incoming-chats') {
@@ -374,11 +370,12 @@ export default function KanbanLeads() {
     if (String(draggableId).startsWith('incoming:')) {
       const conversationId = String(draggableId).slice('incoming:'.length);
       try {
-        const result = await convertirIncomingEnLead(conversationId, destEstadoId);
+        const result = await convertirIncomingEnLead(conversationId, destEstadoId, { destIndex });
         if (result?.needsChoice) {
           setPendingIncomingChoice({
             conversationId,
             estadoId: destEstadoId,
+            destIndex,
             contactoId: result.contactoId,
             openLead: result.openLead,
           });
@@ -412,6 +409,8 @@ export default function KanbanLeads() {
       setPendingPerdido({
         leadId: draggableId,
         destEstadoId,
+        sourceEstadoId,
+        destIndex,
         leadNombre: leadToMove.nombre || 'Lead',
       });
       setDragLock(false);
@@ -419,7 +418,7 @@ export default function KanbanLeads() {
     }
     
     try {
-      await moverLead(draggableId, destEstadoId);
+      await moverLead(draggableId, destEstadoId, { destIndex, sourceEstadoId });
     } catch (error) {
       console.error('Error moviendo lead:', error);
     } finally {
@@ -491,6 +490,7 @@ export default function KanbanLeads() {
     try {
       await convertirIncomingEnLead(pending.conversationId, pending.estadoId, {
         reuseLeadId: pending.openLead.id,
+        destIndex: pending.destIndex,
       });
     } catch (error) {
       console.error('Error moviendo el deal existente:', error);
@@ -504,6 +504,7 @@ export default function KanbanLeads() {
     try {
       await convertirIncomingEnLead(pending.conversationId, pending.estadoId, {
         forceNewLead: true,
+        destIndex: pending.destIndex,
       });
     } catch (error) {
       console.error('Error creando un deal nuevo:', error);
@@ -515,7 +516,11 @@ export default function KanbanLeads() {
     const pending = pendingPerdido;
     setPendingPerdido(null);
     try {
-      await moverLead(pending.leadId, pending.destEstadoId, motivoPerdido);
+      await moverLead(pending.leadId, pending.destEstadoId, {
+        destIndex: pending.destIndex,
+        sourceEstadoId: pending.sourceEstadoId,
+        motivo: motivoPerdido,
+      });
     } catch (error) {
       console.error('Error moviendo lead a Perdido:', error);
     }

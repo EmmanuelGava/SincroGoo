@@ -48,7 +48,10 @@ export default function SidebarMensajesEntrantes() {
 
   const fetchMensajes = useCallback(async () => {
     try {
-      const res = await fetch('/api/crm/conversaciones/entrantes', { cache: 'no-store' });
+      const res = await fetch(
+        `/api/crm/conversaciones/entrantes?_=${Date.now()}`,
+        { cache: 'no-store', credentials: 'include' },
+      );
       const data = await res.json();
       const list = data.mensajes || [];
       setMensajes(list);
@@ -68,11 +71,11 @@ export default function SidebarMensajesEntrantes() {
     void fetchMensajes();
   }, [incomingTick, fetchMensajes]);
 
-  // Respaldo por si el broadcast se pierde (igual que /chat).
+  // Respaldo local (el poll principal vive en LeadsKanbanProvider).
   useEffect(() => {
     const id = setInterval(() => {
       void fetchMensajesRef.current();
-    }, 3000);
+    }, 5000);
     return () => clearInterval(id);
   }, []);
 

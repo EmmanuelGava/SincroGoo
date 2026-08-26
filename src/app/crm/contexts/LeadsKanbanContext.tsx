@@ -48,6 +48,17 @@ function optimisticIncomingLeadId(conversationId: string) {
   return `optimistic:${conversationId}`;
 }
 
+function incomingPreviewFields(
+  extraPreview?: ConvertirIncomingExtra['preview'],
+  cached?: IncomingPreview,
+) {
+  return {
+    nombre: extraPreview?.nombre || cached?.display_name || cached?.remitente || 'Nuevo lead',
+    telefono: extraPreview?.telefono ?? cached?.display_phone ?? undefined,
+    ultimo_mensaje: extraPreview?.ultimo_mensaje || cached?.ultimo_mensaje || cached?.contenido,
+  };
+}
+
 export interface LeadsKanbanContextProps {
   leads: Lead[];
   estados: Estado[];
@@ -87,7 +98,7 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
   const [incomingHiddenIds, setIncomingHiddenIds] = useState<string[]>([]);
   const [incomingPreviews, setIncomingPreviews] = useState<Record<string, IncomingPreview>>({});
   const dragLockRef = useRef(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const setDragLock = useCallback((locked: boolean) => {
     dragLockRef.current = locked;
@@ -164,21 +175,25 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
 
   // Mismo canal broadcast que /chat: mensajes nuevos sin ir a la página de chat.
   useEffect(() => {
-    if (!session?.user?.id || !supabaseBrowser) return;
+    if (status !== 'authenticated' || !session?.user?.id || !supabaseBrowser) return;
     const client = supabaseBrowser;
     const channel = client
       .channel(inboxChannelName(session.user.id))
       .on('broadcast', { event: 'new_message' }, () => {
         refrescarInboxLive();
       })
-      .subscribe();
+      .subscribe((subStatus) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Realtime inbox CRM:', subStatus);
+        }
+      });
     return () => {
       client.removeChannel(channel);
     };
-  }, [session?.user?.id, refrescarInboxLive]);
+  }, [status, session?.user?.id, refrescarInboxLive]);
 
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (status !== 'authenticated' || !session?.user?.id) return;
     if (typeof window !== 'undefined' && !shouldInitializeSocket()) return;
     const socket = initSocket();
     const onMessage = () => refrescarInboxLive();
@@ -190,7 +205,22 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       socket.off('whatsapp-message', onMessage);
       socket.off('connect', join);
     };
-  }, [session?.user?.id, refrescarInboxLive]);
+  }, [status, session?.user?.id, refrescarInboxLive]);
+
+  // Poll + foco de pestaña (igual patrón que useChat).
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const poll = () => setIncomingTick((tick) => tick + 1);
+    const id = setInterval(poll, 3000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [status]);
 
   const convertirIncomingEnLead = useCallback(async (
     conversationId: string,
@@ -198,20 +228,16 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     extra?: ConvertirIncomingExtra
   ) => {
     setError(null);
-    const preview = extra?.preview || incomingPreviews[conversationId];
+    const cached = incomingPreviews[conversationId];
+    const fields = incomingPreviewFields(extra?.preview, cached);
     const tempId = optimisticIncomingLeadId(conversationId);
     const now = new Date().toISOString();
     const optimisticLead: Lead = {
       id: tempId,
-      nombre: extra?.preview?.nombre
-        || preview?.display_name
-        || preview?.remitente
-        || 'Nuevo lead',
-      telefono: extra?.preview?.telefono ?? preview?.display_phone ?? undefined,
+      nombre: fields.nombre,
+      telefono: fields.telefono,
       estado_id: estadoId,
-      ultimo_mensaje: extra?.preview?.ultimo_mensaje
-        || preview?.ultimo_mensaje
-        || preview?.contenido,
+      ultimo_mensaje: fields.ultimo_mensaje,
       conversacion_id: conversationId,
       fecha_creacion: now,
       fecha_actualizacion: now,

@@ -11,6 +11,8 @@ import {
   type LeadConEstado,
 } from '@/lib/contactos/matchContacto';
 
+export const dynamic = 'force-dynamic';
+
 async function requireCrm() {
   const session = await getServerSession(authOptions);
   if (!session) return null;

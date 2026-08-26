@@ -31,6 +31,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ChatIcon from '@mui/icons-material/Chat';
 import HistoryIcon from '@mui/icons-material/History';
+import LeadEtapaTimeline from '@/app/crm/componentes/LeadEtapaTimeline';
 import { useRouter } from 'next/navigation';
 import { isPlaceholderLeadEmail, leadFormPhone } from '@/lib/chat/conversationIdentity';
 
@@ -305,6 +306,15 @@ export default function LeadProfileModal({ open, onClose, leadId }: LeadProfileM
               </Card>
             </Grid>
           )}
+
+          {/* Historial de etapas */}
+          <Grid item xs={12}>
+            <Card elevation={1}>
+              <CardContent>
+                <LeadEtapaTimeline leadId={leadId} />
+              </CardContent>
+            </Card>
+          </Grid>
 
           {/* Historial de Interacciones */}
           <Grid item xs={12}>

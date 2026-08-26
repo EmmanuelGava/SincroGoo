@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
         canal,
         usuario_id,
         metadata,
-        estado_envio
+        estado_envio,
+        wa_message_id
       `)
       .eq('conversacion_id', conversacionId)
       .order('fecha_mensaje', { ascending: true });

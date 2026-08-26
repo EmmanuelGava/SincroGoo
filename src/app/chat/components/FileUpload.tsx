@@ -15,6 +15,7 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ImageIcon from '@mui/icons-material/Image';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
+import VideocamIcon from '@mui/icons-material/Videocam';
 import CloseIcon from '@mui/icons-material/Close';
 import { FileUploadService } from '@/app/servicios/storage/FileUploadService';
 import { useWaTheme } from '@/app/chat/chatTheme';
@@ -35,6 +36,7 @@ const IMAGE_ACCEPT = {
   'image/png': ['.png'],
   'image/webp': ['.webp'],
   'image/gif': ['.gif'],
+  'video/mp4': ['.mp4'],
 };
 
 const DOC_ACCEPT = {
@@ -133,7 +135,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
         ref={imageInputRef}
         type="file"
         hidden
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,.mp4"
         multiple
         disabled={disabled}
         onChange={(e) => {
@@ -180,6 +182,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
               }}
             >
               {FileUploadService.getFileType(uploadingFile.file) === 'image' ? <ImageIcon />
+                : FileUploadService.getFileType(uploadingFile.file) === 'video' ? <VideocamIcon />
                 : FileUploadService.getFileType(uploadingFile.file) === 'file' ? <DescriptionIcon />
                   : FileUploadService.getFileType(uploadingFile.file) === 'audio' ? <AudioFileIcon />
                     : <AttachFileIcon />}

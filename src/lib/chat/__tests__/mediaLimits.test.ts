@@ -23,11 +23,24 @@ describe('validateOutgoingMedia', () => {
     expect(result).toEqual({ ok: true, kind: 'image' });
   });
 
-  it('rechaza video', () => {
+  it('acepta video MP4 dentro de 16 MB', () => {
     const result = validateOutgoingMedia(file({ type: 'video/mp4', size: 1000, name: 'clip.mp4' }));
+    expect(result).toEqual({ ok: true, kind: 'video' });
+  });
+
+  it('rechaza video que no sea MP4', () => {
+    const result = validateOutgoingMedia(file({ type: 'video/webm', size: 1000, name: 'clip.webm' }));
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toMatch(/video/i);
+      expect(result.error).toMatch(/MP4/i);
+    }
+  });
+
+  it('rechaza video de más de 16 MB', () => {
+    const result = validateOutgoingMedia(file({ type: 'video/mp4', size: 17 * 1024 * 1024, name: 'clip.mp4' }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/16 MB/);
     }
   });
 
@@ -90,6 +103,6 @@ describe('validateOutgoingMedia', () => {
   it('expone los límites en un texto para la UI', () => {
     expect(outgoingMediaHint()).toMatch(/5 MB/);
     expect(outgoingMediaHint()).toMatch(/16 MB/);
-    expect(outgoingMediaHint()).toMatch(/sin video/i);
+    expect(outgoingMediaHint()).not.toMatch(/sin video/i);
   });
 });

@@ -5,7 +5,7 @@ export interface FileUploadResult {
   url?: string;
   path?: string;
   bucket?: string;
-  fileType?: 'image' | 'audio' | 'file';
+  fileType?: 'image' | 'audio' | 'file' | 'video';
   error?: string;
 }
 
@@ -18,10 +18,11 @@ export class FileUploadService {
     return { valid: true };
   }
 
-  static getFileType(file: File): 'image' | 'file' | 'audio' | 'unknown' {
+  static getFileType(file: File): 'image' | 'file' | 'audio' | 'video' | 'unknown' {
     const mime = (file.type || '').split(';')[0].trim().toLowerCase();
     if (mime.startsWith('image/')) return 'image';
     if (mime.startsWith('audio/')) return 'audio';
+    if (mime === 'video/mp4') return 'video';
     if (
       mime === 'application/pdf' ||
       mime === 'application/msword' ||

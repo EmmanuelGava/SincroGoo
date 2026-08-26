@@ -8,6 +8,7 @@ export type MessageBubbleView = {
   filePresentation: FilePresentation;
   showImage: boolean;
   showAudio: boolean;
+  showVideo: boolean;
   redundantCaption: boolean;
   urlOnly: boolean;
   /** Etiqueta amigable si el media no está disponible (sin file_url). */
@@ -49,7 +50,8 @@ export function messageBubbleView(mensaje: {
 
   const showImage = fileType === 'image' && Boolean(fileUrl);
   const showAudio = fileType === 'audio' && Boolean(fileUrl);
-  const isFile = fileType === 'file' || fileType === 'document' || fileType === 'video';
+  const showVideo = fileType === 'video' && Boolean(fileUrl);
+  const isFile = fileType === 'file' || fileType === 'document';
 
   const redundantCaption =
     Boolean(fileUrl || isFile || placeholder) && (
@@ -72,16 +74,16 @@ export function messageBubbleView(mensaje: {
   if (isFile) {
     filePresentation = fileUrl ? 'card' : 'unavailable';
     if (!fileUrl) unavailableLabel = fileName || placeholderLabel(caption, fileType);
-  } else if ((fileType === 'image' || fileType === 'audio') && !fileUrl) {
+  } else if ((fileType === 'image' || fileType === 'audio' || fileType === 'video') && !fileUrl) {
     filePresentation = 'unavailable';
     unavailableLabel = fileName || placeholderLabel(caption, fileType);
-  } else if (placeholder && !fileUrl && !showImage && !showAudio) {
+  } else if (placeholder && !fileUrl && !showImage && !showAudio && !showVideo) {
     filePresentation = 'unavailable';
     unavailableLabel = placeholderLabel(caption, fileType);
   }
 
   // Si hay media renderizable, no hace falta chip unavailable.
-  if (showImage || showAudio) {
+  if (showImage || showAudio || showVideo) {
     filePresentation = null;
     unavailableLabel = null;
   }
@@ -92,6 +94,7 @@ export function messageBubbleView(mensaje: {
     filePresentation,
     showImage,
     showAudio,
+    showVideo,
     redundantCaption,
     urlOnly,
     unavailableLabel,

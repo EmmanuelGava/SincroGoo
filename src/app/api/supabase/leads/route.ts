@@ -8,9 +8,21 @@ import {
 } from '@/lib/crm/leadConversationUnread';
 import { shouldRecordEtapaChange } from '@/lib/crm/leadEtapaHistorial';
 import { isEstadoPerdido, isMotivoPerdido } from '@/lib/contactos/estadoLead';
+import type { ProximaTareaLead } from '@/lib/crm/leadTaskBadge';
 
 type ConvRow = LeadConversationLink & {
-  mensajes_conversacion?: Array<{ contenido?: string | null; fecha_mensaje?: string | null }> | null;
+  mensajes_conversacion?: Array<{
+    contenido?: string | null;
+    fecha_mensaje?: string | null;
+    usuario_id?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }> | null;
+};
+
+type LeadRow = {
+  id: string;
+  contacto_id?: string | null;
+  estados_lead?: { nombre?: string | null } | { nombre?: string | null }[] | null;
 };
 
 function toLeadConversationLinks(rows: ConvRow[] | null | undefined): LeadConversationLink[] {
@@ -24,8 +36,46 @@ function toLeadConversationLinks(rows: ConvRow[] | null | undefined): LeadConver
       fecha_mensaje: preview.fecha_mensaje || conv.fecha_mensaje || null,
       ultimo_mensaje: preview.contenido,
       servicio_origen: conv.servicio_origen || null,
+      mensajes: (conv.mensajes_conversacion || []).map((m) => ({
+        fecha_mensaje: m.fecha_mensaje,
+        usuario_id: m.usuario_id,
+        metadata: m.metadata,
+      })),
     };
   });
+}
+
+function attachContactoEtiquetas<T extends { contacto_id?: string | null }>(
+  leads: T[],
+  contactos: Array<{ id: string; etiquetas?: string[] | null }> | null | undefined
+): Array<T & { contacto_etiquetas: string[] }> {
+  const byId = new Map((contactos || []).map((c) => [c.id, c.etiquetas || []]));
+  return leads.map((lead) => ({
+    ...lead,
+    contacto_etiquetas: lead.contacto_id ? (byId.get(lead.contacto_id) || []) : [],
+  }));
+}
+
+function attachProximaTarea<T extends { id: string }>(
+  leads: T[],
+  tasks: Array<{ id: string; lead_id: string; due_date: string; title?: string | null }> | null | undefined
+): Array<T & { proxima_tarea: ProximaTareaLead | null }> {
+  const byLead = new Map<string, ProximaTareaLead>();
+  for (const task of tasks || []) {
+    if (!task.lead_id || !task.due_date) continue;
+    const prev = byLead.get(task.lead_id);
+    if (!prev || new Date(task.due_date).getTime() < new Date(prev.due_date).getTime()) {
+      byLead.set(task.lead_id, {
+        id: task.id,
+        due_date: task.due_date,
+        title: task.title,
+      });
+    }
+  }
+  return leads.map((lead) => ({
+    ...lead,
+    proxima_tarea: byLead.get(lead.id) || null,
+  }));
 }
 
 // Helper: supabaseToken si existe; si no, fallback a admin + usuario_id (cuando signInWithIdToken falló)
@@ -51,7 +101,6 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const estado_id = searchParams.get('estado_id');
     
-    // Try vista first, fallback to basic leads table
     let query = supabase.from('leads').select(`
       *,
       estados_lead(nombre, color)
@@ -68,7 +117,7 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const leads = (data || []) as Array<{ id: string; contacto_id?: string | null }>;
+    const leads = (data || []) as LeadRow[];
     const ids = leads.map((lead) => lead.id);
     const contactoIds = [...new Set(leads.map((lead) => lead.contacto_id).filter((id): id is string => Boolean(id)))];
     const convSelect = `
@@ -80,7 +129,9 @@ export async function GET(request: NextRequest) {
       servicio_origen,
       mensajes_conversacion (
         contenido,
-        fecha_mensaje
+        fecha_mensaje,
+        usuario_id,
+        metadata
       )
     `;
     const convRows: ConvRow[] = [];
@@ -102,9 +153,32 @@ export async function GET(request: NextRequest) {
       convRows.push(...((byContacto || []) as ConvRow[]));
     }
 
-    return NextResponse.json(
-      attachLeadConversationMeta(leads, toLeadConversationLinks(convRows))
-    );
+    let contactosRows: Array<{ id: string; etiquetas?: string[] | null }> = [];
+    if (contactoIds.length > 0) {
+      const { data: contactosData } = await supabase
+        .from('contactos')
+        .select('id, etiquetas')
+        .in('id', contactoIds);
+      contactosRows = (contactosData || []) as Array<{ id: string; etiquetas?: string[] | null }>;
+    }
+
+    let tasksRows: Array<{ id: string; lead_id: string; due_date: string; title?: string | null }> = [];
+    if (ids.length > 0) {
+      const { data: tasksData } = await supabase
+        .from('tasks')
+        .select('id, lead_id, due_date, title')
+        .eq('usuario_id', userId)
+        .in('lead_id', ids)
+        .in('status', ['pending', 'in_progress'])
+        .order('due_date', { ascending: true });
+      tasksRows = (tasksData || []) as Array<{ id: string; lead_id: string; due_date: string; title?: string | null }>;
+    }
+
+    const withConv = attachLeadConversationMeta(leads, toLeadConversationLinks(convRows));
+    const withTags = attachContactoEtiquetas(withConv, contactosRows);
+    const result = attachProximaTarea(withTags, tasksRows);
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error completo en GET leads:', error);
     const { error: errorMessage, status } = formatErrorResponse(error);
@@ -192,7 +266,6 @@ export async function PATCH(request: NextRequest) {
     if (fields.score === '') fields.score = null;
     if (fields.fecha_cierre === '') fields.fecha_cierre = null;
     if (fields.valor_potencial === '' || fields.valor_potencial === undefined) {
-      // leave as-is if undefined; empty string → null
       if (fields.valor_potencial === '') fields.valor_potencial = null;
     }
 
@@ -266,4 +339,4 @@ export async function DELETE(request: NextRequest) {
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });
   }
-} 
+}

@@ -25,7 +25,7 @@ export const MEDIA_LIMITS = {
   },
 } as const;
 
-export type OutgoingMediaKind = 'image' | 'audio' | 'file';
+export type OutgoingMediaKind = 'image' | 'audio' | 'file' | 'video';
 
 export type MediaInput = {
   type?: string;
@@ -67,8 +67,8 @@ export function validateOutgoingMedia(input: MediaInput): ValidateOutgoingMediaR
   const mime = normalizeOutgoingMime(input.type || '');
   const kind = classifyOutgoingMedia(mime);
 
-  if (kind === 'video') {
-    return { ok: false, error: 'El video aún no se puede enviar por este chat' };
+  if (kind === 'video' && mime !== 'video/mp4') {
+    return { ok: false, error: 'Solo se permiten videos MP4' };
   }
 
   if (kind === 'image' && !IMAGE_TYPES.has(mime)) {
@@ -76,11 +76,11 @@ export function validateOutgoingMedia(input: MediaInput): ValidateOutgoingMediaR
   }
 
   if (kind === 'audio' && !AUDIO_TYPES.has(mime) && !mime.startsWith('audio/')) {
-    return { ok: false, error: 'Solo se permiten imágenes, audio o documentos PDF, Word, Excel o PowerPoint' };
+    return { ok: false, error: 'Solo se permiten imágenes, audio, video MP4 o documentos PDF, Word, Excel o PowerPoint' };
   }
 
-  if (kind !== 'image' && kind !== 'audio' && kind !== 'file') {
-    return { ok: false, error: 'Solo se permiten imágenes, audio o documentos PDF, Word, Excel o PowerPoint' };
+  if (kind !== 'image' && kind !== 'audio' && kind !== 'file' && kind !== 'video') {
+    return { ok: false, error: 'Solo se permiten imágenes, audio, video MP4 o documentos PDF, Word, Excel o PowerPoint' };
   }
 
   if (kind === 'image' && input.size > MEDIA_LIMITS.image.maxBytes) {
@@ -89,6 +89,10 @@ export function validateOutgoingMedia(input: MediaInput): ValidateOutgoingMediaR
 
   if (kind === 'audio' && input.size > MEDIA_LIMITS.audio.maxBytes) {
     return { ok: false, error: 'Audio máximo 16 MB' };
+  }
+
+  if (kind === 'video' && input.size > MEDIA_LIMITS.video.maxBytes) {
+    return { ok: false, error: 'El video no puede superar 16 MB' };
   }
 
   if (kind === 'file' && input.size > MEDIA_LIMITS.file.maxBytes) {
@@ -101,19 +105,19 @@ export function validateOutgoingMedia(input: MediaInput): ValidateOutgoingMediaR
 export function dropzoneRejectMessage(errors: ReadonlyArray<{ code: string }>, fileType?: string): string {
   const mime = normalizeOutgoingMime(fileType || '');
   const kind = classifyOutgoingMedia(mime);
-  if (mime.startsWith('video/')) {
-    return 'El video aún no se puede enviar por este chat';
+  if (mime.startsWith('video/') && mime !== 'video/mp4') {
+    return 'Solo se permiten videos MP4';
   }
   if (errors.some((e) => e.code === 'file-too-large')) {
-    if (kind === 'file' || kind === 'audio') return 'El archivo no puede superar 16 MB';
+    if (kind === 'video' || kind === 'file' || kind === 'audio') return 'El archivo no puede superar 16 MB';
     return 'La imagen no puede superar 5 MB';
   }
   if (errors.some((e) => e.code === 'file-invalid-type')) {
-    return 'Solo se permiten imágenes JPG, PNG, WEBP o GIF, o documentos PDF, Word, Excel o PowerPoint';
+    return 'Solo se permiten imágenes JPG, PNG, WEBP o GIF, video MP4, o documentos PDF, Word, Excel o PowerPoint';
   }
   return 'Archivo no válido';
 }
 
 export function outgoingMediaHint(): string {
-  return 'Imagen hasta 5 MB · audio 16 MB · PDF/Word/Excel/PowerPoint 16 MB · sin video';
+  return 'Imagen hasta 5 MB · audio/video 16 MB · PDF/Word/Excel/PowerPoint 16 MB';
 }

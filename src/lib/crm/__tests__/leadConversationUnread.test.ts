@@ -52,6 +52,8 @@ describe('attachLeadConversationMeta', () => {
     expect(result.fecha_ultimo_mensaje).toBe('2026-08-21T10:00:00Z');
     expect(result.estado_id).toBe('col-a');
     expect(result.canal).toBeNull();
+    expect(result.esperando_seguimiento).toBe(false);
+    expect(result.seguimiento_horas).toBeNull();
   });
 
   it('adjunta canal desde servicio_origen', () => {
@@ -120,5 +122,31 @@ describe('attachLeadConversationMeta', () => {
     const [result] = attachLeadConversationMeta(leads, conversaciones);
 
     expect(result.unread_count).toBe(0);
+  });
+
+  it('calcula seguimiento cuando último mensaje entrante supera umbral', () => {
+    const nowMs = Date.parse('2026-08-24T12:00:00.000Z');
+    const leads = [{ id: 'lead-1', contacto_id: null, estado_id: 'col-a', estados_lead: { nombre: 'Nuevo' } }];
+    const conversaciones = [
+      {
+        id: 'conv-1',
+        lead_id: 'lead-1',
+        contacto_id: null,
+        unread_count: 1,
+        fecha_mensaje: '2026-08-23T08:00:00.000Z',
+        ultimo_mensaje: 'hola?',
+        mensajes: [{ fecha_mensaje: '2026-08-23T08:00:00.000Z', metadata: { direction: 'incoming' } }],
+      },
+    ];
+
+    const originalNow = Date.now;
+    Date.now = () => nowMs;
+    try {
+      const [result] = attachLeadConversationMeta(leads, conversaciones);
+      expect(result.esperando_seguimiento).toBe(true);
+      expect(result.seguimiento_horas).toBeGreaterThan(12);
+    } finally {
+      Date.now = originalNow;
+    }
   });
 });

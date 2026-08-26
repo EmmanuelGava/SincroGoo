@@ -4,7 +4,7 @@ import {
   PACING_GAP_SPAN_MS,
 } from '@/app/servicios/messaging/whatsapp/modules/sendPacing';
 
-export type OutboxStatus = 'queued' | 'sending' | 'sent' | 'failed';
+export type OutboxStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'scheduled' | 'cancelled';
 export type OutboxFailureKind = 'transient' | 'permanent';
 
 export interface EnqueueWhatsAppOutboxInput {
@@ -17,6 +17,8 @@ export interface EnqueueWhatsAppOutboxInput {
   mimetype?: string | null;
   file_name?: string | null;
   metadata?: Record<string, unknown>;
+  /** Si es futuro, el worker espera hasta esa fecha. */
+  sendAt?: Date | string | null;
 }
 
 export interface WhatsAppOutboxRow {
@@ -72,19 +74,32 @@ export async function enqueueWhatsAppOutbox(
   supabase: SupabaseClient,
   input: EnqueueWhatsAppOutboxInput
 ): Promise<{ id: string }> {
-  const staggerGapMs = PACING_GAP_MIN_MS + Math.floor(Math.random() * PACING_GAP_SPAN_MS);
-  const { data: tailRow } = await outboxTable(supabase)
-    .select('next_attempt_at')
-    .eq('usuario_id', input.usuario_id)
-    .in('status', ['queued', 'sending'])
-    .order('next_attempt_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const sendAtMs = input.sendAt ? new Date(input.sendAt).getTime() : NaN;
+  const isScheduled = Number.isFinite(sendAtMs) && sendAtMs > Date.now() + 1000;
 
-  const tailAt = tailRow
-    ? new Date(String((tailRow as { next_attempt_at?: string }).next_attempt_at || 0)).getTime()
-    : 0;
-  const nextAttemptAt = new Date(Math.max(Date.now(), tailAt + staggerGapMs)).toISOString();
+  let nextAttemptAt: string;
+  if (isScheduled) {
+    nextAttemptAt = new Date(sendAtMs).toISOString();
+  } else {
+    const staggerGapMs = PACING_GAP_MIN_MS + Math.floor(Math.random() * PACING_GAP_SPAN_MS);
+    const { data: tailRow } = await outboxTable(supabase)
+      .select('next_attempt_at')
+      .eq('usuario_id', input.usuario_id)
+      .in('status', ['queued', 'sending'])
+      .order('next_attempt_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const tailAt = tailRow
+      ? new Date(String((tailRow as { next_attempt_at?: string }).next_attempt_at || 0)).getTime()
+      : 0;
+    nextAttemptAt = new Date(Math.max(Date.now(), tailAt + staggerGapMs)).toISOString();
+  }
+
+  const metadata = {
+    ...(input.metadata || {}),
+    ...(isScheduled ? { scheduled_by_user: true, scheduled_for: nextAttemptAt } : {}),
+  };
 
   const { data, error } = await outboxTable(supabase)
     .insert({
@@ -98,7 +113,7 @@ export async function enqueueWhatsAppOutbox(
       file_name: input.file_name || null,
       status: 'queued',
       next_attempt_at: nextAttemptAt,
-      metadata: input.metadata || {},
+      metadata,
     } as never)
     .select('id')
     .single();

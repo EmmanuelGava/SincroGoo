@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { platform, to, message, messageType, filePath, metadata } = body;
+    const { platform, to, message, messageType, filePath, metadata, scheduled_for } = body;
 
     console.log('📥 Datos recibidos en /api/chat/send:', {
       platform,
@@ -59,15 +59,19 @@ export async function POST(request: NextRequest) {
       messageType,
       filePath,
       userId: session.user.id,
-      metadata
+      metadata,
+      scheduledFor: scheduled_for || null,
     });
 
     if (result.success) {
       return NextResponse.json({
         success: true,
-        message: `Mensaje enviado exitosamente via ${platform}`,
+        message: result.scheduled
+          ? `Mensaje programado via ${platform}`
+          : `Mensaje enviado exitosamente via ${platform}`,
         platformDetails: result.platformDetails,
         outbox_id: result.outboxId,
+        scheduled: Boolean(result.scheduled),
       });
     } else {
       // Usar 400 en lugar de 500 para errores de configuración/estado

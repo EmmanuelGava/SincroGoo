@@ -10,6 +10,7 @@ export interface SendMessageData {
   filePath?: string;
   userId?: string;
   metadata?: Record<string, any>;
+  scheduledFor?: string | Date | null;
 }
 
 /**
@@ -29,6 +30,7 @@ export async function sendMessage(data: SendMessageData) {
     let error = null;
     let alreadySaved = false;
     let outboxId: string | undefined;
+    let scheduled = false;
 
     // Enviar según la plataforma
     switch (data.platform) {
@@ -40,6 +42,7 @@ export async function sendMessage(data: SendMessageData) {
         error = queued.error;
         alreadySaved = queued.alreadySaved;
         outboxId = queued.outboxId;
+        scheduled = Boolean(queued.scheduled);
         break;
       }
       
@@ -73,7 +76,7 @@ export async function sendMessage(data: SendMessageData) {
       console.log(`✅ Mensaje enviado exitosamente via ${data.platform}`);
     }
 
-    return { success, platformDetails, error, outboxId };
+    return { success, platformDetails, error, outboxId, scheduled };
   } catch (error) {
     console.error(`❌ Error enviando mensaje via ${data.platform}:`, error);
     throw error;
@@ -109,6 +112,7 @@ async function enqueueWhatsAppOutgoing(data: SendMessageData): Promise<{
   error?: string;
   alreadySaved: boolean;
   outboxId?: string;
+  scheduled?: boolean;
 }> {
   const platformDetails = 'whatsapp-lite-baileys';
   if (!data.userId) {
@@ -116,8 +120,13 @@ async function enqueueWhatsAppOutgoing(data: SendMessageData): Promise<{
   }
 
   const sendJid = await resolveWhatsAppSendJid(data);
-  const pending = await saveOutgoingMessage(data, platformDetails, 'enviando');
-  if (!pending?.messageId) {
+  const scheduledMs = data.scheduledFor ? new Date(data.scheduledFor).getTime() : NaN;
+  const isScheduled = Number.isFinite(scheduledMs) && scheduledMs > Date.now() + 1000;
+
+  const pending = isScheduled
+    ? null
+    : await saveOutgoingMessage(data, platformDetails, 'enviando');
+  if (!isScheduled && !pending?.messageId) {
     return { success: false, platformDetails, error: 'No se pudo guardar el mensaje', alreadySaved: false };
   }
 
@@ -125,7 +134,7 @@ async function enqueueWhatsAppOutgoing(data: SendMessageData): Promise<{
   try {
     const { id } = await enqueueWhatsAppOutbox(getSupabaseAdmin(), {
       usuario_id: data.userId,
-      conversacion_id: pending.conversacionId,
+      conversacion_id: pending?.conversacionId || data.metadata?.conversacion_id || null,
       to_jid: sendJid,
       message_type: data.messageType || 'text',
       contenido: data.message,
@@ -136,15 +145,23 @@ async function enqueueWhatsAppOutgoing(data: SendMessageData): Promise<{
           ? 'audio/webm'
           : null,
       file_name: typeof data.metadata?.file_name === 'string' ? data.metadata.file_name : null,
-      metadata: { inbox_message_id: pending.messageId },
+      metadata: {
+        ...(data.metadata || {}),
+        ...(pending?.messageId ? { inbox_message_id: pending.messageId } : {}),
+      },
+      sendAt: isScheduled ? new Date(scheduledMs) : null,
     });
-    await attachOutboxId(pending.messageId, id);
-    console.log('📥 WhatsApp encolado en outbox:', id, 'jid:', sendJid);
-    return { success: true, platformDetails, alreadySaved: true, outboxId: id };
+    if (pending?.messageId) {
+      await attachOutboxId(pending.messageId, id);
+    }
+    console.log('📥 WhatsApp encolado en outbox:', id, 'jid:', sendJid, isScheduled ? '(programado)' : '');
+    return { success: true, platformDetails, alreadySaved: Boolean(pending), outboxId: id, scheduled: isScheduled };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo encolar';
-    await updateOutgoingStatus(pending.messageId, 'error', message);
-    return { success: false, platformDetails, error: message, alreadySaved: true };
+    if (pending?.messageId) {
+      await updateOutgoingStatus(pending.messageId, 'error', message);
+    }
+    return { success: false, platformDetails, error: message, alreadySaved: Boolean(pending) };
   }
 }
 

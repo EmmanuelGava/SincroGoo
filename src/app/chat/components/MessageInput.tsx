@@ -20,6 +20,9 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import HeadsetIcon from '@mui/icons-material/Headset';
 import SendIcon from '@mui/icons-material/Send';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import BoltIcon from '@mui/icons-material/Bolt';
 import FileUpload, { type FileUploadHandle } from './FileUpload';
 import EmojiPickerComponent from './EmojiPicker';
@@ -38,9 +41,10 @@ import {
 import { type CatalogoItem } from '@/lib/chat/catalogoVentas';
 import { armarPresupuesto, primeraImagenCarrito } from '@/lib/chat/armarPresupuesto';
 import { armarListaCategoria } from '@/lib/chat/armarListaCategoria';
+import { quotedPreviewLabel, type ReplyToMessage } from '@/lib/chat/quotedMessage';
 
 interface MessageInputProps {
-  onSendMessage: (contenido: string) => void;
+  onSendMessage: (contenido: string, options?: { scheduledFor?: string }) => void;
   onSendFile?: (url: string, fileName: string, fileType: string, mimeType?: string, caption?: string) => void;
   onSendAudio?: (audioBlob: Blob, duration: number) => void;
   conversationId?: string;
@@ -48,6 +52,8 @@ interface MessageInputProps {
   placeholder?: string;
   enviando?: boolean;
   onTyping?: (isTyping: boolean) => void;
+  replyTo?: ReplyToMessage | null;
+  onCancelReply?: () => void;
   respuestaVars?: RespuestaVars;
   manageOpen?: boolean;
   onManageOpenChange?: (open: boolean) => void;
@@ -87,7 +93,10 @@ export default function MessageInput({
   conversationId,
   disabled = false,
   placeholder = 'Escribe un mensaje o / para respuestas',
+  enviando,
   onTyping,
+  replyTo,
+  onCancelReply,
   respuestaVars,
   manageOpen,
   onManageOpenChange,
@@ -104,12 +113,51 @@ export default function MessageInput({
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const [carrito, setCarrito] = useState<CatalogoItem[]>([]);
+  const [programar, setProgramar] = useState(false);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const [fechaProgramada, setFechaProgramada] = useState(tomorrow.toISOString().slice(0, 10));
+  const [horaProgramada, setHoraProgramada] = useState('09:00');
+  const [programados, setProgramados] = useState<Array<{ id: string; contenido?: string; next_attempt_at?: string }>>([]);
   const manage = manageOpen ?? localManageOpen;
   const setManage = onManageOpenChange ?? setLocalManageOpen;
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<FileUploadHandle>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioStartRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (!conversationId) {
+      setProgramados([]);
+      return;
+    }
+    let cancelled = false;
+    void fetch(`/api/chat/scheduled?conversacion_id=${encodeURIComponent(conversationId)}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setProgramados(Array.isArray(data.scheduled) ? data.scheduled : []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, mensaje]);
+
+  const reloadProgramados = async () => {
+    if (!conversationId) return;
+    try {
+      const res = await fetch(`/api/chat/scheduled?conversacion_id=${encodeURIComponent(conversationId)}`, { cache: 'no-store' });
+      const data = await res.json();
+      setProgramados(Array.isArray(data.scheduled) ? data.scheduled : []);
+    } catch {
+      /* noop */
+    }
+  };
+
+  const cancelProgramado = async (id: string) => {
+    await fetch(`/api/chat/scheduled?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await reloadProgramados();
+  };
 
   const loadRespuestas = async () => {
     try {
@@ -216,12 +264,23 @@ export default function MessageInput({
     if (attach && onSendFile) {
       onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto);
     } else {
-      onSendMessage(texto);
+      let scheduledFor: string | undefined;
+      if (programar) {
+        const when = new Date(`${fechaProgramada}T${horaProgramada}:00`);
+        if (Number.isFinite(when.getTime()) && when.getTime() > Date.now()) {
+          scheduledFor = when.toISOString();
+        }
+      }
+      onSendMessage(texto, scheduledFor ? { scheduledFor } : undefined);
+      if (scheduledFor) {
+        void reloadProgramados();
+      }
     }
     setMensaje('');
     setCarrito([]);
     setCatalogOpen(false);
     setSlashDismissed(false);
+    setProgramar(false);
     onTyping?.(false);
   };
 
@@ -389,6 +448,83 @@ export default function MessageInput({
           </Box>
         </Box>
       ) : null}
+
+      {replyTo ? (
+        <Box
+          sx={{
+            mx: 0.5,
+            mb: 0.75,
+            px: 1.25,
+            py: 0.75,
+            borderLeft: `3px solid ${WA.accent}`,
+            bgcolor: WA.inputField,
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 1,
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="caption" sx={{ color: WA.accent, fontWeight: 600, display: 'block' }}>
+              Respondiendo
+            </Typography>
+            <Typography variant="body2" sx={{ color: WA.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {quotedPreviewLabel(replyTo)}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={onCancelReply} aria-label="Cancelar cita" sx={{ color: WA.icon }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      ) : null}
+
+      {programados.length > 0 ? (
+        <Box sx={{ px: 0.5, pb: 0.75 }}>
+          <Typography variant="caption" sx={{ color: WA.muted, display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <ScheduleIcon sx={{ fontSize: 14 }} /> Programados
+          </Typography>
+          <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+            {programados.map((item) => (
+              <Chip
+                key={item.id}
+                size="small"
+                label={`${(item.contenido || '').slice(0, 24)}${(item.contenido || '').length > 24 ? '…' : ''} · ${item.next_attempt_at ? new Date(item.next_attempt_at).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}`}
+                onDelete={() => void cancelProgramado(item.id)}
+                sx={{ maxWidth: '100%' }}
+              />
+            ))}
+          </Stack>
+        </Box>
+      ) : null}
+
+      {programar ? (
+        <Stack direction="row" spacing={1} sx={{ px: 0.5, pb: 0.75, flexWrap: 'wrap' }}>
+          <TextField
+            type="date"
+            size="small"
+            value={fechaProgramada}
+            onChange={(e) => setFechaProgramada(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 150 }}
+          />
+          <TextField
+            type="time"
+            size="small"
+            value={horaProgramada}
+            onChange={(e) => setHoraProgramada(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 120 }}
+          />
+        </Stack>
+      ) : null}
+
+      <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, pb: 0.25 }}>
+        <FormControlLabel
+          control={<Switch size="small" checked={programar} onChange={(e) => setProgramar(e.target.checked)} />}
+          label={<Typography variant="caption" sx={{ color: WA.muted }}>Programar envío</Typography>}
+          sx={{ m: 0 }}
+        />
+      </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.25, width: '100%' }}>
         <Box

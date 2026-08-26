@@ -45,6 +45,7 @@ type ConversacionRow = {
   metadata?: Record<string, unknown> | null;
   unread_count?: number | null;
   last_read_at?: string | null;
+  archived_at?: string | null;
   mensajes_conversacion?: MensajeRow[] | null;
 };
 
@@ -60,6 +61,7 @@ type ConversacionListaItem = {
   metadata: Record<string, unknown>;
   unread_count: number;
   ultimo_mensaje: string | null;
+  archived_at?: string | null;
   match_kind?: ConversationSearchMatchKind;
   esperando_seguimiento: boolean;
   seguimiento_desde: string | null;
@@ -129,6 +131,7 @@ function mapConversacionRow(conv: ConversacionRow): ConversacionListaItem {
     metadata,
     unread_count: conv.unread_count || 0,
     ultimo_mensaje: ultimoMensaje?.contenido || null,
+    archived_at: conv.archived_at || null,
     esperando_seguimiento: seguimiento.esperando_seguimiento,
     seguimiento_desde: seguimiento.seguimiento_desde,
     seguimiento_horas: seguimiento.seguimiento_horas,
@@ -202,6 +205,7 @@ const CONVERSACION_SELECT = `
   metadata,
   unread_count,
   last_read_at,
+  archived_at,
   mensajes_conversacion (
     contenido,
     fecha_mensaje,
@@ -210,9 +214,15 @@ const CONVERSACION_SELECT = `
   )
 `;
 
+function parseArchivedParam(value: string | null): boolean {
+  const v = String(value || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
 async function searchConversaciones(
   supabase: ReturnType<typeof getSupabaseAdmin>,
-  query: string
+  query: string,
+  archivedOnly = false
 ): Promise<ConversacionListaItem[]> {
   const pattern = ilikeContainsPattern(query);
   if (!pattern) return [];
@@ -339,11 +349,14 @@ async function searchConversaciones(
   const ids = [...idSet];
   if (ids.length === 0) return [];
 
-  const { data: conversaciones, error } = await supabase
+  let convQuery = supabase
     .from('conversaciones')
     .select(CONVERSACION_SELECT)
-    .in('id', ids.slice(0, 80))
-    .order('fecha_mensaje', { ascending: false });
+    .in('id', ids.slice(0, 80));
+  convQuery = archivedOnly
+    ? convQuery.not('archived_at', 'is', null)
+    : convQuery.is('archived_at', null);
+  const { data: conversaciones, error } = await convQuery.order('fecha_mensaje', { ascending: false });
 
   if (error) throw error;
 
@@ -394,11 +407,12 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseAdmin();
     const q = normalizeSearchQuery(req.nextUrl.searchParams.get('q'));
+    const archivedOnly = parseArchivedParam(req.nextUrl.searchParams.get('archived'));
 
     if (q) {
-      const conversaciones = await searchConversaciones(supabase, q);
+      const conversaciones = await searchConversaciones(supabase, q, archivedOnly);
       return NextResponse.json(
-        { conversaciones, q },
+        { conversaciones, q, archived: archivedOnly },
         {
           status: 200,
           headers: { 'Cache-Control': 'no-store' },
@@ -406,10 +420,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data: conversaciones, error } = await supabase
-      .from('conversaciones')
-      .select(CONVERSACION_SELECT)
-      .order('fecha_mensaje', { ascending: false });
+    let listQuery = supabase.from('conversaciones').select(CONVERSACION_SELECT);
+    listQuery = archivedOnly
+      ? listQuery.not('archived_at', 'is', null)
+      : listQuery.is('archived_at', null);
+    const { data: conversaciones, error } = await listQuery.order('fecha_mensaje', { ascending: false });
 
     if (error) throw error;
 
@@ -419,7 +434,7 @@ export async function GET(req: NextRequest) {
     const conversacionesUnicas = mergeByIdentity(conversacionesConUltimoMensaje);
 
     return NextResponse.json(
-      { conversaciones: conversacionesUnicas },
+      { conversaciones: conversacionesUnicas, archived: archivedOnly },
       {
         status: 200,
         headers: { 'Cache-Control': 'no-store' },

@@ -20,6 +20,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import DownloadIcon from '@mui/icons-material/Download';
+import VideocamIcon from '@mui/icons-material/Videocam';
 import {
   attachmentIconKind,
   extensionFromFileName,
@@ -36,6 +37,7 @@ interface FileAttachmentProps {
   duration?: number;
   mimeType?: string;
   isOwn?: boolean;
+  uploading?: boolean;
 }
 
 function toSameOriginMedia(url: string): string {
@@ -197,10 +199,46 @@ export default function FileAttachment({
   duration,
   mimeType,
   isOwn = false,
+  uploading = false,
 }: FileAttachmentProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [pdfError, setPdfError] = useState(false);
+
+  if (fileType === 'video') {
+    if (!url) {
+      return (
+        <Chip
+          icon={<VideocamIcon sx={{ fontSize: 18, color: '#fff !important' }} />}
+          label={`${fileName || 'Video'} · ${uploading ? 'enviando…' : 'no disponible'}`}
+          size="small"
+          sx={{
+            maxWidth: 280,
+            height: 28,
+            bgcolor: '#546e7a',
+            color: '#fff',
+            '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
+          }}
+        />
+      );
+    }
+    return (
+      <Box sx={{ maxWidth: 280, lineHeight: 0, borderRadius: 1.5, overflow: 'hidden' }}>
+        <Box
+          component="video"
+          src={toSameOriginMedia(url)}
+          controls
+          preload="metadata"
+          sx={{ width: '100%', maxHeight: 320, display: 'block', bgcolor: '#000' }}
+        />
+        {uploading ? (
+          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.75 }}>
+            Enviando video…
+          </Typography>
+        ) : null}
+      </Box>
+    );
+  }
 
   if (fileType === 'image') {
     return (

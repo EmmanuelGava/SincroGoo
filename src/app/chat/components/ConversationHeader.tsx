@@ -27,7 +27,12 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
+import UnarchiveOutlinedIcon from '@mui/icons-material/UnarchiveOutlined';
 import BoltIcon from '@mui/icons-material/Bolt';
+import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
+import AlarmIcon from '@mui/icons-material/Alarm';
+import RecordatorioLeadModal from '@/app/crm/componentes/RecordatorioLeadModal';
 import { useRouter } from 'next/navigation';
 import LeadProfileModal from './LeadProfileModal';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
@@ -44,12 +49,17 @@ interface Conversacion {
   contacto_id?: string;
   ultimo_mensaje?: string;
   metadata?: any;
+  archived_at?: string | null;
 }
 
 interface ConversationHeaderProps {
   conversacion: Conversacion;
   onDelete?: (conversacionId: string) => Promise<boolean> | boolean;
+  onArchive?: (conversacionId: string, archived: boolean) => Promise<boolean> | boolean;
+  archivedView?: boolean;
   onManageReplies?: () => void;
+  drawerOpen?: boolean;
+  onToggleDrawer?: () => void;
 }
 
 const servicioIcons: Record<string, React.ElementType> = {
@@ -73,14 +83,25 @@ const servicioNames: Record<string, string> = {
   sms: 'SMS',
 };
 
-export default function ConversationHeader({ conversacion, onDelete, onManageReplies }: ConversationHeaderProps) {
+export default function ConversationHeader({
+  conversacion,
+  onDelete,
+  onArchive,
+  archivedView = false,
+  onManageReplies,
+  drawerOpen,
+  onToggleDrawer,
+}: ConversationHeaderProps) {
   const WA = useWaTheme();
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [creatingPedido, setCreatingPedido] = useState(false);
   const [resolvedLeadId, setResolvedLeadId] = useState<string | null>(conversacion.lead_id || null);
+  const [recordatorioOpen, setRecordatorioOpen] = useState(false);
   const router = useRouter();
   
   useEffect(() => {
@@ -192,6 +213,30 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        {onToggleDrawer ? (
+          <Tooltip title={drawerOpen ? 'Ocultar panel contacto' : 'Panel contacto/deals'}>
+            <IconButton
+              size="small"
+              onClick={onToggleDrawer}
+              aria-label="Panel contacto"
+              sx={{ color: drawerOpen ? WA.accent : WA.icon }}
+            >
+              <ViewSidebarIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+        {resolvedLeadId ? (
+          <Tooltip title="Recordarme">
+            <IconButton
+              size="small"
+              onClick={() => setRecordatorioOpen(true)}
+              aria-label="Recordarme"
+              sx={{ color: WA.icon }}
+            >
+              <AlarmIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
         {resolvedLeadId ? (
           <Tooltip title="Ver en el Kanban">
             <IconButton
@@ -281,6 +326,29 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
             <ListItemText>Respuestas rápidas</ListItemText>
           </MenuItem>
         ) : null}
+        {onArchive ? (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              if (archivedView) {
+                void (async () => {
+                  setArchiving(true);
+                  const ok = await onArchive(conversacion.id, false);
+                  setArchiving(false);
+                  if (ok) setConfirmArchive(false);
+                })();
+              } else {
+                setConfirmArchive(true);
+              }
+            }}
+            disabled={archiving}
+          >
+            <ListItemIcon sx={{ color: WA.icon }}>
+              {archivedView ? <UnarchiveOutlinedIcon fontSize="small" /> : <ArchiveOutlinedIcon fontSize="small" />}
+            </ListItemIcon>
+            <ListItemText>{archivedView ? 'Desarchivar chat' : 'Archivar chat'}</ListItemText>
+          </MenuItem>
+        ) : null}
         <MenuItem
           onClick={() => {
             setMenuAnchor(null);
@@ -291,6 +359,30 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
           <ListItemText>Eliminar chat</ListItemText>
         </MenuItem>
       </Menu>
+
+      <Dialog open={confirmArchive} onClose={() => !archiving && setConfirmArchive(false)}>
+        <DialogTitle>Archivar chat</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            El chat desaparece del inbox principal pero conservás el historial y el lead en el Kanban. Podés recuperarlo desde Archivados.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmArchive(false)} disabled={archiving}>Cancelar</Button>
+          <Button
+            disabled={archiving}
+            onClick={async () => {
+              if (!onArchive) return;
+              setArchiving(true);
+              const ok = await onArchive(conversacion.id, true);
+              setArchiving(false);
+              if (ok) setConfirmArchive(false);
+            }}
+          >
+            {archiving ? 'Archivando…' : 'Archivar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={confirmDelete} onClose={() => !deleting && setConfirmDelete(false)}>
         <DialogTitle>Eliminar chat</DialogTitle>
@@ -324,6 +416,15 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
           leadId={resolvedLeadId}
         />
       )}
+      {resolvedLeadId ? (
+        <RecordatorioLeadModal
+          open={recordatorioOpen}
+          onClose={() => setRecordatorioOpen(false)}
+          leadId={resolvedLeadId}
+          leadNombre={displayName}
+          conversationId={conversacion.id}
+        />
+      ) : null}
     </Box>
   );
 }

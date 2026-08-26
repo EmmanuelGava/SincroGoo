@@ -1,3 +1,6 @@
+import { computeSeguimientoMeta } from '@/lib/crm/seguimientoInbox';
+import type { MessageDirectionInput } from '@/lib/crm/messageDirection';
+
 export type LeadConversationLink = {
   id: string;
   lead_id?: string | null;
@@ -6,6 +9,7 @@ export type LeadConversationLink = {
   fecha_mensaje?: string | null;
   ultimo_mensaje?: string | null;
   servicio_origen?: string | null;
+  mensajes?: MessageDirectionInput[] | null;
 };
 
 export type LeadWithContacto = {
@@ -68,7 +72,17 @@ export function pickUltimoMensaje(
   };
 }
 
-export function attachLeadConversationMeta<T extends LeadWithContacto>(
+type LeadWithEtapa = LeadWithContacto & {
+  estados_lead?: { nombre?: string | null } | { nombre?: string | null }[] | null;
+};
+
+function leadEtapaNombre(lead: LeadWithEtapa): string | null {
+  const estado = Array.isArray(lead.estados_lead) ? lead.estados_lead[0] : lead.estados_lead;
+  const nombre = String(estado?.nombre || '').trim();
+  return nombre || null;
+}
+
+export function attachLeadConversationMeta<T extends LeadWithEtapa>(
   leads: T[],
   conversaciones: LeadConversationLink[]
 ): Array<
@@ -78,6 +92,9 @@ export function attachLeadConversationMeta<T extends LeadWithContacto>(
     ultimo_mensaje: string | null;
     fecha_ultimo_mensaje: string | null;
     canal: string | null;
+    esperando_seguimiento: boolean;
+    seguimiento_desde: string | null;
+    seguimiento_horas: number | null;
   }
 > {
   const byLeadId = new Map<string, LeadConversationLink>();
@@ -98,6 +115,10 @@ export function attachLeadConversationMeta<T extends LeadWithContacto>(
     const conv =
       byLeadId.get(lead.id)
       || (lead.contacto_id ? byContactoId.get(lead.contacto_id) : undefined);
+    const seguimiento = computeSeguimientoMeta({
+      mensajes: conv?.mensajes,
+      leadEtapaNombre: leadEtapaNombre(lead),
+    });
     return {
       ...lead,
       conversacion_id: conv?.id || null,
@@ -105,6 +126,9 @@ export function attachLeadConversationMeta<T extends LeadWithContacto>(
       ultimo_mensaje: conv?.ultimo_mensaje || null,
       fecha_ultimo_mensaje: conv?.fecha_mensaje || null,
       canal: conv?.servicio_origen || null,
+      esperando_seguimiento: seguimiento.esperando_seguimiento,
+      seguimiento_desde: seguimiento.seguimiento_desde,
+      seguimiento_horas: seguimiento.seguimiento_horas,
     };
   });
 }

@@ -24,6 +24,11 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import { IconButton, Tooltip } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
+import SearchIcon from '@mui/icons-material/Search';
+import AlarmIcon from '@mui/icons-material/Alarm';
+import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+import Autocomplete from '@mui/material/Autocomplete';
 import { useLeadsKanbanContext } from '../contexts/LeadsKanbanContext';
 import { Lead } from '@/app/tipos/lead';
 import { Estado } from '../contexts/LeadsKanbanContext';
@@ -36,11 +41,16 @@ import {
   filtrarLeadsKanban,
   formatFechaCierreLead,
   formatValorLead,
+  hayFiltrosKanbanActivos,
+  collectEtiquetasUnicas,
   LEAD_SCORE_LABEL,
   type KanbanCanalFiltro,
   type LeadKanbanFiltros,
   type LeadScore,
 } from '@/lib/crm/leadKanbanFilters';
+import { humanizeSeguimientoHoras } from '@/lib/crm/seguimientoInbox';
+import { resolveTaskBadgeKind, TASK_BADGE_LABEL } from '@/lib/crm/leadTaskBadge';
+import RecordatorioLeadModal from './RecordatorioLeadModal';
 import { buildLeadsPorEstado } from '@/lib/crm/kanbanOrder';
 
 const scoreChipColor: Record<LeadScore, 'error' | 'warning' | 'default'> = {
@@ -79,10 +89,36 @@ const iconList = Object.keys(iconMap);
 
 // Remove hardcoded colors - will use theme colors instead
 
-function TarjetaLead({ lead, index, onEdit, onDelete, colors, highlighted }: { lead: Lead; index: number, onEdit: (lead: Lead) => void, onDelete: (lead:Lead) => void, colors: any, highlighted?: boolean }) {
+function TarjetaLead({
+  lead,
+  index,
+  onEdit,
+  onDelete,
+  onRecordatorio,
+  onCompleteTask,
+  colors,
+  highlighted,
+}: {
+  lead: Lead;
+  index: number;
+  onEdit: (lead: Lead) => void;
+  onDelete: (lead: Lead) => void;
+  onRecordatorio: (lead: Lead) => void;
+  onCompleteTask: (lead: Lead) => void;
+  colors: any;
+  highlighted?: boolean;
+}) {
   const theme = useTheme();
   const router = useRouter();
-  
+  const seguimiento = Boolean(lead.esperando_seguimiento);
+  const seguimientoHint = seguimiento
+    ? `Esperando tu respuesta hace ${humanizeSeguimientoHoras(lead.seguimiento_horas)}`
+    : '';
+  const taskBadge = resolveTaskBadgeKind(lead.proxima_tarea);
+  const etiquetas = lead.contacto_etiquetas || [];
+  const visibleTags = etiquetas.slice(0, 2);
+  const extraTags = etiquetas.length - visibleTags.length;
+
   return (
     <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
       {(provided, snapshot) => (
@@ -94,10 +130,17 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors, highlighted }: { l
           elevation={0}
           sx={{
             p: 1.5,
-            bgcolor: highlighted ? theme.palette.action.selected : colors.card,
+            bgcolor: highlighted
+              ? theme.palette.action.selected
+              : seguimiento
+                ? 'rgba(237, 108, 2, 0.08)'
+                : colors.card,
             border: highlighted
               ? `2px solid ${theme.palette.primary.main}`
-              : `1px solid ${colors.border}`,
+              : seguimiento
+                ? '2px solid #ed6c02'
+                : `1px solid ${colors.border}`,
+            borderLeft: seguimiento ? '4px solid #ed6c02' : undefined,
             boxShadow: highlighted ? `0 0 0 2px ${theme.palette.primary.main}33` : 'none',
             borderRadius: 2,
             cursor: 'grab',
@@ -113,6 +156,34 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors, highlighted }: { l
             <Typography variant="body2" sx={{ color: colors.textPrimary, fontWeight: 500, flex: 1, minWidth: 0 }}>
               {lead.nombre}
             </Typography>
+            {seguimiento && (
+              <Tooltip title={seguimientoHint}>
+                <Chip
+                  label="Seguimiento"
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.65rem',
+                    bgcolor: 'rgba(237, 108, 2, 0.15)',
+                    color: '#ffb74d',
+                    border: '1px solid rgba(237, 108, 2, 0.4)',
+                  }}
+                />
+              </Tooltip>
+            )}
+            {taskBadge === 'overdue' || taskBadge === 'today' ? (
+              <Tooltip title={lead.proxima_tarea?.title || TASK_BADGE_LABEL[taskBadge]}>
+                <Chip
+                  label={taskBadge === 'overdue' ? '🔴 Vencida' : '🟡 Hoy'}
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCompleteTask(lead);
+                  }}
+                  sx={{ height: 20, fontSize: '0.65rem', cursor: 'pointer' }}
+                />
+              </Tooltip>
+            ) : null}
             {(lead.unread_count || 0) > 0 && (
               <Badge
                 badgeContent={lead.unread_count}
@@ -122,6 +193,24 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors, highlighted }: { l
               />
             )}
           </Box>
+
+          {visibleTags.length > 0 && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.75 }}>
+              {visibleTags.map((tag) => (
+                <Chip
+                  key={tag}
+                  icon={<LocalOfferOutlinedIcon sx={{ fontSize: '0.75rem !important' }} />}
+                  label={tag}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 20, fontSize: '0.65rem' }}
+                />
+              ))}
+              {extraTags > 0 ? (
+                <Chip label={`+${extraTags}`} size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
+              ) : null}
+            </Box>
+          )}
 
           {lead.empresa && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -195,6 +284,11 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors, highlighted }: { l
               transition: 'opacity 0.2s',
             }}
           >
+            <Tooltip title="Recordarme">
+              <IconButton size="small" onClick={() => onRecordatorio(lead)}>
+                <AlarmIcon sx={{ fontSize: '1rem', color: colors.textSecondary }} />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Abrir chat">
               <span>
                 <IconButton
@@ -255,6 +349,7 @@ export default function KanbanLeads() {
     eliminarLead,
     convertirIncomingEnLead,
     setDragLock,
+    refrescarLeads,
   } = useLeadsKanbanContext();
 
   const [estados, setEstados] = useState<Estado[]>(estadosGlobal);
@@ -328,7 +423,19 @@ export default function KanbanLeads() {
     valorMax: null,
     fechaCierreDesde: null,
     fechaCierreHasta: null,
+    query: '',
+    soloSeguimiento: false,
+    etiquetas: [],
   });
+  const [busquedaInput, setBusquedaInput] = useState('');
+  const [recordatorioLead, setRecordatorioLead] = useState<Lead | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFiltros((prev) => ({ ...prev, query: busquedaInput.trim() }));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [busquedaInput]);
 
   const parseOptionalNumber = (raw: string): number | null => {
     if (raw.trim() === '') return null;
@@ -336,15 +443,9 @@ export default function KanbanLeads() {
     return Number.isFinite(n) ? n : null;
   };
 
-  const hayFiltrosActivos = Boolean(
-    filtros.canal
-    || filtros.valorMin != null
-    || filtros.valorMax != null
-    || filtros.fechaCierreDesde
-    || filtros.fechaCierreHasta
-  );
-
-  const leadsFiltrados = hayFiltrosActivos ? filtrarLeadsKanban(leads, filtros) : leads;
+  const hayFiltrosActivos = hayFiltrosKanbanActivos(filtros);
+  const etiquetaOpciones = collectEtiquetasUnicas(leads);
+  const leadsFiltrados = filtrarLeadsKanban(leads, filtros);
 
   // Función para alternar el colapso de una columna
   const toggleColumnCollapse = (estadoId: string) => {
@@ -538,6 +639,20 @@ export default function KanbanLeads() {
     }
   };
 
+  const handleCompleteTask = async (lead: Lead) => {
+    if (!lead.proxima_tarea?.id) return;
+    try {
+      await fetch('/api/dashboard/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: lead.proxima_tarea.id, status: 'completed' }),
+      });
+      refrescarLeads();
+    } catch (error) {
+      console.error('Error completando tarea:', error);
+    }
+  };
+
   const handleConfirmarPerdido = async () => {
     if (!pendingPerdido) return;
     const pending = pendingPerdido;
@@ -581,6 +696,16 @@ export default function KanbanLeads() {
             }}
           >
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', minWidth: 0 }}>
+              <TextField
+                size="small"
+                placeholder="Buscar nombre, teléfono…"
+                value={busquedaInput}
+                onChange={(e) => setBusquedaInput(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ fontSize: 18, color: colors.textSecondary, mr: 0.5 }} />,
+                }}
+                sx={{ minWidth: 180, maxWidth: 220 }}
+              />
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel id="filtro-canal-label">Canal</InputLabel>
                 <Select
@@ -631,16 +756,42 @@ export default function KanbanLeads() {
                 onChange={(e) => setFiltros((prev) => ({ ...prev, fechaCierreHasta: e.target.value || null }))}
                 sx={{ width: 145 }}
               />
+              <Chip
+                icon={<FilterAltOutlinedIcon />}
+                label="Solo seguimiento"
+                size="small"
+                clickable
+                color={filtros.soloSeguimiento ? 'warning' : 'default'}
+                variant={filtros.soloSeguimiento ? 'filled' : 'outlined'}
+                onClick={() => setFiltros((prev) => ({ ...prev, soloSeguimiento: !prev.soloSeguimiento }))}
+              />
+              <Autocomplete
+                multiple
+                size="small"
+                options={etiquetaOpciones}
+                value={filtros.etiquetas || []}
+                onChange={(_e, value) => setFiltros((prev) => ({ ...prev, etiquetas: value }))}
+                renderInput={(params) => (
+                  <TextField {...params} label="Etiquetas" placeholder="Filtrar" />
+                )}
+                sx={{ minWidth: 160, maxWidth: 240 }}
+              />
               {hayFiltrosActivos && (
                 <Button
                   size="small"
-                  onClick={() => setFiltros({
-                    canal: '',
-                    valorMin: null,
-                    valorMax: null,
-                    fechaCierreDesde: null,
-                    fechaCierreHasta: null,
-                  })}
+                  onClick={() => {
+                    setBusquedaInput('');
+                    setFiltros({
+                      canal: '',
+                      valorMin: null,
+                      valorMax: null,
+                      fechaCierreDesde: null,
+                      fechaCierreHasta: null,
+                      query: '',
+                      soloSeguimiento: false,
+                      etiquetas: [],
+                    });
+                  }}
                   sx={{ textTransform: 'none', color: colors.textSecondary }}
                 >
                   Limpiar
@@ -862,6 +1013,8 @@ export default function KanbanLeads() {
                                             index={idx}
                                             onEdit={handleOpenEditLead}
                                             onDelete={setConfirmDeleteLead}
+                                            onRecordatorio={setRecordatorioLead}
+                                            onCompleteTask={handleCompleteTask}
                                             colors={colors}
                                             highlighted={highlightLeadId === lead.id}
                                           />
@@ -1067,6 +1220,16 @@ export default function KanbanLeads() {
             </Button>
           </DialogActions>
         </Dialog>
+        {recordatorioLead ? (
+          <RecordatorioLeadModal
+            open={Boolean(recordatorioLead)}
+            onClose={() => setRecordatorioLead(null)}
+            leadId={recordatorioLead.id}
+            leadNombre={recordatorioLead.nombre}
+            conversationId={recordatorioLead.conversacion_id}
+            onCreated={() => refrescarLeads()}
+          />
+        ) : null}
       </Box>
       </>
       )}

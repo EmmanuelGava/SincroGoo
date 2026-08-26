@@ -39,13 +39,13 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 
 | Fase | Código | Certificado en prod |
 |------|--------|-------------------|
-| **0** Loop Chat ↔ Kanban | ✅ en `main` | ❌ falta demo con celular |
-| **1** Mensajería confiable | ✅ en `main` | ⚠️ B1–B4+B6 OK (24 ago); faltan B5 media saliente / B7 anti-ban |
+| **0** Loop Chat ↔ Kanban | ✅ en `main` | ✅ A1–A8 OK (26 ago) |
+| **1** Mensajería confiable | ✅ en `main` | ✅ B1–B7 OK (26 ago) |
 | **2** Contactos (base CRM) | ✅ **cerrada** | ✅ migración + CRUD en prod |
-| **3** Kommo día a día | ✅ core cerrado | ⚠️ seguimiento recién deployado; backlog catálogo opcional |
+| **3** Kommo día a día | ✅ core cerrado | ✅ seguimiento OK en prod (A8, 26 ago) |
 | **4+** Diferencial / canales | — | no empezado |
 
-**El cuello de botella no es más código:** es la **sesión de prueba en prod** (checklist abajo). Hasta que Fase 0 + 1 pasen con celular real en klosync.vercel.app, no hay MVP para afuera.
+**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Siguiente: Fase 4 (Explorador → contactos) o backlog catálogo.
 
 **Ya anda (no rehacer):**
 
@@ -58,14 +58,9 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 - Seguimiento inbox: alerta interna “esperando tu respuesta” (12 h / 24 h).
 - Login Google / NextAuth.
 
-**Lo que falta certificar (no construir):**
+**Certificado en prod (26 ago 2026):** checklist A (incl. A8) + B completos con celular real en klosync.vercel.app.
 
-1. Chat nuevo en sidebar CRM → arrastrar a columna → lead creado (celular real).
-2. Ida y vuelta lead ↔ chat en esa demo.
-3. Outbox: worker caído 1–2 min → texto no se pierde al volver.
-4. Ticks: 1 tilde → 2 grises → 2 celestes (con el otro celular).
-5. Media entrante: foto/audio se ven hoy y mañana (no solo `[Imagen]`).
-6. Identidad: un solo chat por contacto (LID + teléfono unificados); saludo sin número en `/hola`.
+**Opcional pendiente:** revalidar persistencia media entrante “al día siguiente” (B4).
 
 ---
 
@@ -73,10 +68,10 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 
 ### Fase 0 — Cerrar el loop Chat ↔ Kanban
 
-Sin esto el CRM es teatro. **Código listo; falta certificar en prod** (ver checklist § abajo).
+Sin esto el CRM es teatro. **Certificado en prod (26 ago 2026).**
 
 - [x] Drag: lista de chats sin lead a la izquierda → soltar en una columna → se crea el lead y sale de la lista.
-- [ ] **Prod:** demo completa con celular (checklist A).
+- [x] **Prod:** demo completa con celular (checklist A) — 26 ago 2026.
 - [x] Etapas por defecto si el usuario no tiene columnas (Nuevo, Contactado, Calificado, Propuesta, Ganado, Perdido).
 - [x] Ida y vuelta: del lead abrir el chat (`/chat?conversacion=`); del chat ver el lead y ir al Kanban (`/crm?lead=`).
 - [x] Nombres reales en la lista del CRM (contact_name / teléfono; no LID). No fusionar dos LID distintos.
@@ -84,7 +79,7 @@ Sin esto el CRM es teatro. **Código listo; falta certificar en prod** (ver chec
 
 ### Fase 1 — Mensajería que no miente
 
-Catch-up cubre **entrantes** con socket caído. **Salientes** dependen del outbox. **Código listo; falta certificar en prod** (checklist B).
+Catch-up cubre **entrantes** con socket caído. **Salientes** dependen del outbox. **Certificado en prod (26 ago 2026).**
 
 - [x] Outbox + reintento (`whatsapp_outbox`, worker claim al reconectar).
 - [x] **Prod:** worker down 1–2 min → texto queued → sale al volver (checklist B2) — 24 ago 2026.
@@ -93,7 +88,8 @@ Catch-up cubre **entrantes** con socket caído. **Salientes** dependen del outbo
 - [x] Media **entrante** persistida (Storage, no solo placeholder).
 - [x] **Prod:** foto/audio entrante visibles en KloSync (checklist B4) — 24 ago 2026; revalidar al día siguiente si se quiere.
 - [x] Límites de tamaño/tipo visibles en la UI (imagen 5 MB, audio 16 MB, video rechazado).
-- [x] Delay anti-ban entre envíos (~2.4–3.6 s entre salientes).
+- [x] **Prod:** media saliente + rechazo &gt;5 MB (checklist B5) — 26 ago 2026.
+- [x] **Prod:** anti-ban 2–4 s entre salientes (checklist B7) — 26 ago 2026.
 - [x] Borrar servicios WhatsApp legacy. Solo vive `WhatsAppLiteService`.
 
 No hacer acá: Cloud API de Meta, multiagente, broadcast.
@@ -145,7 +141,7 @@ CRM inbox / tablero (hecho):
 - [x] Badge/borde distinto en lista del inbox (`ChatSidebar`); contador “Seguim.” en stats.
 - [x] Limpieza automática al responder; persiste al recargar (no depende del socket).
 - [x] Ordenar inbox poniendo seguimiento arriba.
-- [ ] **Prod:** marcar seguimiento tras umbral (12 h / 24 h) — checklist A6 (opcional si no hay tiempo de esperar: bajar umbral en dev).
+- [x] **Prod:** marcar seguimiento tras umbral (12 h / 24 h) — checklist A8 — 26 ago 2026.
 
 ### Fase 4 — Pegar el diferencial (Explorador + Slides al CRM)
 
@@ -203,10 +199,10 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 | A2 | En `/crm`, el chat aparece en **“Chats entrantes”** (sidebar izquierdo) con nombre/teléfono legible (no LID crudo). | [x] | 26 ago |
 | A3 | **Arrastrar** el chat a columna **Nuevo** (o Contactado). El chat **sale** de entrantes y aparece tarjeta en la columna. | [x] | 26 ago: drag OK + orden en posición de drop |
 | A4 | Clic en tarjeta → **Editar** o ícono chat → abre `/chat?conversacion=…` con el hilo correcto. | [x] | 26 ago |
-| A5 | Desde el chat, ir al **Kanban** (`/crm?lead=…` o botón lead) → misma persona/deal. | [ ] | Fix: resaltar card, no abrir editar |
+| A5 | Desde el chat, ir al **Kanban** (`/crm?lead=…` o botón lead) → misma persona/deal. | [x] | 26 ago: resalta card, sin abrir editar |
 | A6 | Responder desde KloSync; el celular recibe. `/hola` con `{{nombre}}` **no** muestra el número como nombre. | [x] | 26 ago |
-| A7 | Si el contacto ya existía en `/contactos`, verificar **match** (misma ficha, timeline con cambio de etapa). | [ ] | Fix dedupe aplicado; revalidar |
-| A8 | *(Opcional)* Dejar entrante sin responder 12+ h → badge **Seguimiento** en `/chat` y contador en stats CRM. | [ ] | |
+| A7 | Si el contacto ya existía en `/contactos`, verificar **match** (misma ficha, timeline con cambio de etapa). | [x] | 26 ago: dedupe wa_jid OK |
+| A8 | *(Opcional)* Dejar entrante sin responder 12+ h → badge **Seguimiento** en `/chat` y contador en stats CRM. | [x] | 26 ago |
 
 **B — Fase 1: mensajería confiable (~20 min)**
 
@@ -222,9 +218,9 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 
 **C — Cierre de sesión**
 
-- [ ] Marcar arriba qué falló; si A3 o B2 fallan → **no MVP**; priorizar fix antes de Fase 4.
-- [ ] Actualizar checkboxes de Fase 0/1 en este doc con fecha de la prueba.
-- [ ] Si todo OK → **MVP certificado**; siguiente: Fase 4 (Explorador → contactos) o backlog catálogo.
+- [x] Checklist A + B pasaron en prod (26 ago 2026).
+- [x] Actualizar checkboxes de Fase 0/1 en este doc.
+- [x] **MVP Fase 0 + 1 certificado**; siguiente: Fase 4 (Explorador → contactos) o backlog catálogo.
 
 **Consultas útiles en prod (Supabase MCP / SQL):**
 
@@ -318,11 +314,10 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 
 ## Cómo decidir qué toca ahora
 
-1. **¿Pasó el checklist de prod (A + B)?** Si no → Fase 0 + 1 (solo prueba, no features nuevas).
-2. ¿Se pierde un envío con worker down? → fix outbox antes de seguir.
-3. ¿Dos chats por el mismo humano (LID vs teléfono)? → ya fixeado; revalidar en A6.
-4. Fase 2 y core Fase 3 **cerrados** — no volver a “carrito/tags” salvo bugs.
-5. Con MVP certificado → Fase 4 (Explorador → contactos) o backlog catálogo.
-6. ¿Inbox estable una semana? → Instagram / ML. Después widget. Después bot.
+1. **MVP Fase 0 + 1** — ✅ certificado (26 ago 2026). Checklist A1–A8 + B1–B7.
+2. **Roadmap mensajería + Kanban** — **P0+P1 completo en código** (K6–M5, 26 ago); deploy Vercel + Railway worker + QA manual → [`ROADMAP-MENSAJERIA-KANBAN.md`](./ROADMAP-MENSAJERIA-KANBAN.md). Solo N1 (notas internas) queda P2 bajo demanda.
+3. Alternativa en paralelo: **Fase 4** (Explorador → contactos) o backlog catálogo.
+4. ¿Se pierde un envío con worker down? → fix outbox antes de features nuevas.
+5. ¿Inbox estable una semana? → Instagram / ML. Después widget. Después bot.
 
 No saltar a widget, chatbot, multiagente, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario certificado en prod**, no en el catálogo de features.

@@ -1,20 +1,24 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Typography, 
   Paper,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
+import ReplyIcon from '@mui/icons-material/Reply';
 import MessageStatus from './MessageStatus';
 import FileAttachment from './FileAttachment';
 import LinkPreview from './LinkPreview';
 import { messageBubbleView } from '@/lib/chat/messageBubbleView';
 import { splitTextWithLinks } from '@/lib/chat/extractFirstUrl';
+import { type QuotedMessageMeta } from '@/lib/chat/quotedMessage';
 import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface Mensaje {
@@ -25,6 +29,7 @@ interface Mensaje {
   fecha_mensaje: string;
   canal: string;
   usuario_id?: string;
+  wa_message_id?: string | null;
   metadata?: any;
   estado_envio?: string | null;
 }
@@ -32,6 +37,7 @@ interface Mensaje {
 interface MessageBubbleProps {
   mensaje: Mensaje;
   isOwn: boolean;
+  onReply?: () => void;
 }
 
 const servicioIcons: Record<string, React.ElementType> = {
@@ -76,8 +82,32 @@ function LinkedCaption({ text, isOwn }: { text: string; isOwn: boolean }) {
   );
 }
 
-export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
+function QuotedBlock({ quoted, isOwn }: { quoted: QuotedMessageMeta; isOwn: boolean }) {
   const WA = useWaTheme();
+  return (
+    <Box
+      sx={{
+        mb: 0.75,
+        px: 1,
+        py: 0.5,
+        borderLeft: `3px solid ${isOwn ? 'rgba(255,255,255,0.5)' : WA.accent}`,
+        bgcolor: isOwn ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)',
+        borderRadius: 0.5,
+      }}
+    >
+      <Typography variant="caption" sx={{ color: isOwn ? WA.muted : WA.accent, fontWeight: 600, display: 'block' }}>
+        Citado
+      </Typography>
+      <Typography variant="body2" sx={{ color: WA.muted, fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {quoted.text}
+      </Typography>
+    </Box>
+  );
+}
+
+export default function MessageBubble({ mensaje, isOwn, onReply }: MessageBubbleProps) {
+  const WA = useWaTheme();
+  const [hover, setHover] = useState(false);
   const IconComponent = servicioIcons[mensaje.canal] || SmsIcon;
   const servicioColor = servicioColors[mensaje.canal] || '#90caf9';
 
@@ -99,18 +129,41 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
   );
   const duration = Number(mensaje.metadata?.duration || 0);
   const caption = String(mensaje.contenido || '').trim();
-  const showFile = view.showImage || view.showAudio || Boolean(view.filePresentation);
-  const attachmentType = view.filePresentation === 'unavailable' && !view.showImage && !view.showAudio
+  const quotedMessage = mensaje.metadata?.quoted_message as QuotedMessageMeta | undefined;
+  const showFile = view.showImage || view.showAudio || view.showVideo || Boolean(view.filePresentation);
+  const attachmentType = view.filePresentation === 'unavailable' && !view.showImage && !view.showAudio && !view.showVideo
     ? 'file'
     : (fileType || 'unknown');
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      justifyContent: isOwn ? 'flex-end' : 'flex-start',
-      mb: 0.35,
-      px: 1,
-    }}>
+    <Box
+      sx={{ 
+        display: 'flex', 
+        justifyContent: isOwn ? 'flex-end' : 'flex-start',
+        mb: 0.35,
+        px: 1,
+        position: 'relative',
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {!isOwn && onReply && hover ? (
+        <Tooltip title="Responder">
+          <IconButton
+            size="small"
+            onClick={onReply}
+            sx={{
+              alignSelf: 'center',
+              mr: 0.5,
+              color: WA.icon,
+              bgcolor: WA.inputField,
+            }}
+            aria-label="Responder"
+          >
+            <ReplyIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ) : null}
       <Paper
         elevation={0}
         sx={{
@@ -126,6 +179,10 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
           overflow: 'hidden',
         }}
       >
+        {quotedMessage?.text ? (
+          <QuotedBlock quoted={quotedMessage} isOwn={isOwn} />
+        ) : null}
+
         {showFile && (
           <Box sx={{ mb: view.showRawText ? 1 : 0 }}>
             <FileAttachment
@@ -136,6 +193,7 @@ export default function MessageBubble({ mensaje, isOwn }: MessageBubbleProps) {
               mimeType={mensaje.metadata?.mime_type}
               duration={duration}
               isOwn={isOwn}
+              uploading={mensaje.metadata?.estado_envio === 'enviando' && fileType === 'video'}
             />
           </Box>
         )}

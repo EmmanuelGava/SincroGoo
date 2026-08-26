@@ -1,4 +1,7 @@
-export type LeadScore = 'alta' | 'media' | 'baja';
+import { LeadScore } from '@/lib/crm/leadKanbanFilters';
+import type { ProximaTareaLead } from '@/lib/crm/leadTaskBadge';
+
+export type { LeadScore };
 
 export interface Lead {
   id: string;
@@ -8,8 +11,10 @@ export interface Lead {
   empresa?: string;
   cargo?: string;
   estado_id: string;
+  contacto_id?: string | null;
   probabilidad_cierre?: number;
   tags?: string[];
+  contacto_etiquetas?: string[];
   valor_potencial?: number | null;
   fecha_cierre?: string | null;
   score?: LeadScore | null;
@@ -28,4 +33,8 @@ export interface Lead {
   canal?: string | null;
   /** Posición manual dentro de la columna del Kanban. */
   orden?: number;
+  esperando_seguimiento?: boolean;
+  seguimiento_desde?: string | null;
+  seguimiento_horas?: number | null;
+  proxima_tarea?: ProximaTareaLead | null;
 } 

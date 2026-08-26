@@ -12,6 +12,7 @@ import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import { conversationGreetingName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
+import { buildQuotedMeta, type ReplyToMessage } from '@/lib/chat/quotedMessage';
 import { useWaChatBgSx, useWaTheme } from '@/app/chat/chatTheme';
 
 interface Conversacion {
@@ -25,6 +26,7 @@ interface Conversacion {
   contacto_id?: string;
   ultimo_mensaje?: string;
   metadata?: any;
+  archived_at?: string | null;
 }
 
 interface Mensaje {
@@ -35,6 +37,7 @@ interface Mensaje {
   fecha_mensaje: string;
   canal: string;
   usuario_id?: string;
+  wa_message_id?: string | null;
   metadata?: any;
   estado_envio?: string | null;
 }
@@ -45,6 +48,10 @@ interface ChatWindowProps {
   onRefreshConversaciones: () => void;
   onRefreshMensajes?: () => void;
   onDeleteConversacion?: (conversacionId: string) => Promise<boolean>;
+  onArchiveConversacion?: (conversacionId: string, archived: boolean) => Promise<boolean>;
+  archivedView?: boolean;
+  drawerOpen?: boolean;
+  onToggleDrawer?: () => void;
 }
 
 export default function ChatWindow({
@@ -53,6 +60,10 @@ export default function ChatWindow({
   onRefreshConversaciones,
   onRefreshMensajes,
   onDeleteConversacion,
+  onArchiveConversacion,
+  archivedView = false,
+  drawerOpen,
+  onToggleDrawer,
 }: ChatWindowProps) {
   const WA = useWaTheme();
   const chatBg = useWaChatBgSx();
@@ -62,6 +73,7 @@ export default function ChatWindow({
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<Mensaje[]>([]);
   const [manageReplies, setManageReplies] = useState(false);
+  const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -100,6 +112,7 @@ export default function ChatWindow({
 
   useEffect(() => {
     setOptimistic([]);
+    setReplyTo(null);
   }, [conversacion?.id]);
 
   useEffect(() => {
@@ -115,24 +128,34 @@ export default function ChatWindow({
     scrollToBottom();
   }, [mensajes]);
 
-  const handleSendMessage = async (contenido: string) => {
+  const handleSendMessage = async (contenido: string, options?: { scheduledFor?: string }) => {
     if (!conversacion || !contenido.trim()) return;
 
     const texto = contenido.trim();
+    const isScheduled = Boolean(options?.scheduledFor);
     const tempId = `temp-${Date.now()}`;
-    const pending: Mensaje = {
-      id: tempId,
-      contenido: texto,
-      tipo: 'text',
-      remitente: 'yo',
-      fecha_mensaje: new Date().toISOString(),
-      canal: conversacion.servicio_origen,
-      usuario_id: 'local',
-      estado_envio: 'enviando',
-      metadata: { estado_envio: 'enviando', direction: 'outgoing' },
-    };
-    setOptimistic((prev) => [...prev, pending]);
+    if (!isScheduled) {
+      const pending: Mensaje = {
+        id: tempId,
+        contenido: texto,
+        tipo: 'text',
+        remitente: 'yo',
+        fecha_mensaje: new Date().toISOString(),
+        canal: conversacion.servicio_origen,
+        usuario_id: 'local',
+        estado_envio: 'enviando',
+        metadata: { estado_envio: 'enviando', direction: 'outgoing' },
+      };
+      setOptimistic((prev) => [...prev, pending]);
+    }
     setErrorEnvio(null);
+
+    const remoteJid = conversacion.metadata?.remote_jid
+      || conversacion.metadata?.phone_number
+      || conversacion.remitente;
+    const quotedMessage = replyTo
+      ? buildQuotedMeta(replyTo, String(remoteJid || ''))
+      : null;
 
     try {
       const res = await fetch('/api/chat/send', {
@@ -140,14 +163,14 @@ export default function ChatWindow({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           platform: conversacion.servicio_origen === 'whatsapp-lite' ? 'whatsapp' : conversacion.servicio_origen,
-          to: conversacion.metadata?.remote_jid
-            || conversacion.metadata?.phone_number
-            || conversacion.remitente,
+          to: remoteJid,
           message: texto,
           messageType: 'text',
+          scheduled_for: options?.scheduledFor || undefined,
           metadata: {
             conversacion_id: conversacion.id,
-            original_canal: conversacion.servicio_origen
+            original_canal: conversacion.servicio_origen,
+            ...(quotedMessage ? { quoted_message: quotedMessage } : {}),
           }
         })
       });
@@ -156,19 +179,28 @@ export default function ChatWindow({
       console.log('📤 Respuesta del servidor:', { status: res.status, data });
 
       if (res.ok && data.success) {
-        fetchMensajes();
+        if (!isScheduled) {
+          fetchMensajes();
+        }
         onRefreshConversaciones();
-        setTimeout(() => {
-          setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
-        }, 1500);
+        setReplyTo(null);
+        if (!isScheduled) {
+          setTimeout(() => {
+            setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+          }, 1500);
+        }
       } else {
         const errorMessage = data.error || 'Error enviando mensaje';
-        setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+        if (!isScheduled) {
+          setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+        }
         setErrorEnvio(errorMessage);
       }
     } catch (error) {
       console.error('Error enviando mensaje:', error);
-      setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+      if (!isScheduled) {
+        setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+      }
       setErrorEnvio(error instanceof Error ? error.message : 'Error de conexión');
     }
   };
@@ -197,13 +229,19 @@ export default function ChatWindow({
             || conversacion.metadata?.phone_number
             || conversacion.remitente,
           message: caption?.trim() || fileName,
-          messageType: fileType === 'image' ? 'image' : fileType === 'audio' ? 'audio' : 'file',
+          messageType: fileType === 'image'
+            ? 'image'
+            : fileType === 'audio'
+              ? 'audio'
+              : fileType === 'video'
+                ? 'video'
+                : 'file',
           filePath: url,
           metadata: {
             conversacion_id: conversacion.id,
             original_canal: conversacion.servicio_origen,
             file_name: fileName,
-            file_type: fileType === 'image' || fileType === 'audio' ? fileType : 'file',
+            file_type: fileType === 'image' || fileType === 'audio' || fileType === 'video' ? fileType : 'file',
             file_url: url,
             mime_type: mimeType || undefined,
           }
@@ -335,7 +373,11 @@ export default function ChatWindow({
       <ConversationHeader
         conversacion={conversacion}
         onDelete={onDeleteConversacion}
+        onArchive={onArchiveConversacion}
+        archivedView={archivedView}
         onManageReplies={() => setManageReplies(true)}
+        drawerOpen={drawerOpen}
+        onToggleDrawer={onToggleDrawer}
       />
 
       {/* Área de mensajes */}
@@ -379,6 +421,19 @@ export default function ChatWindow({
                   || mensaje.metadata?.direction === 'outgoing'
                   || String(mensaje.id).startsWith('temp-')
                 }
+                onReply={
+                  !mensaje.usuario_id
+                  && mensaje.metadata?.direction !== 'outgoing'
+                  && (mensaje.wa_message_id || mensaje.metadata?.wa_message_id)
+                    ? () => setReplyTo({
+                        id: mensaje.id,
+                        wa_message_id: mensaje.wa_message_id || mensaje.metadata?.wa_message_id,
+                        contenido: mensaje.contenido,
+                        remitente: mensaje.remitente,
+                        metadata: mensaje.metadata,
+                      })
+                    : undefined
+                }
               />
             ))}
             
@@ -395,6 +450,8 @@ export default function ChatWindow({
         disabled={loading}
         placeholder="Escribe un mensaje o / para respuestas"
         enviando={enviando}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
         respuestaVars={{
           nombre: conversationGreetingName(conversacion),
           telefono: conversacion.display_phone || conversationRealPhone(conversacion),

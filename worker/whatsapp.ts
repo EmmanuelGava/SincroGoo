@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { whatsappLiteService } from '../src/app/servicios/messaging/whatsapp/WhatsAppLiteService';
 import { getSupabaseAdmin } from '../src/lib/supabase/client';
 import { processOutboxBatch, type WhatsAppOutboxRow } from '../src/lib/chat/outbox';
+import { buildBaileysQuotedStub, type QuotedMessageMeta } from '../src/lib/chat/quotedMessage';
 import { SendPacer } from '../src/app/servicios/messaging/whatsapp/modules/sendPacing';
 
 const whatsappSendPacer = new SendPacer();
@@ -204,6 +205,7 @@ const server = createServer(async (req, res) => {
       const filePath = body.filePath ? String(body.filePath) : undefined;
       const mimetype = body.mimetype ? String(body.mimetype) : undefined;
       const fileName = body.fileName ? String(body.fileName) : undefined;
+      const quoted = body.quoted && typeof body.quoted === 'object' ? body.quoted : undefined;
       if (!to || (!message && !filePath)) {
         json(res, 400, { success: false, error: 'to y message o filePath requeridos' });
         return;
@@ -233,6 +235,7 @@ const server = createServer(async (req, res) => {
         filePath,
         mimetype,
         fileName,
+        quoted,
       });
       if (sent.success) {
         whatsappSendPacer.recordSent(pacingUserId);
@@ -341,11 +344,17 @@ async function sendOutboxRow(row: WhatsAppOutboxRow) {
     return { success: false, error: 'WhatsApp Lite no está conectado' };
   }
   try {
+    const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+    const quotedMeta = meta.quoted_message as QuotedMessageMeta | undefined;
+    const quoted = quotedMeta?.wa_message_id
+      ? buildBaileysQuotedStub(row.to_jid, quotedMeta)
+      : undefined;
     const sent = await whatsappLiteService.sendMessage(row.to_jid, row.contenido, {
       type: row.message_type,
       filePath: row.file_url || undefined,
       mimetype: row.mimetype || undefined,
       fileName: row.file_name || undefined,
+      quoted,
     });
     return {
       success: sent.success,

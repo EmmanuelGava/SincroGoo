@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Box, 
   Typography, 
@@ -39,6 +40,14 @@ import {
 } from '@/lib/chat/chatNotifications';
 import { useWaTheme } from '@/app/chat/chatTheme';
 import { humanizeSeguimientoHoras } from '@/lib/crm/seguimientoInbox';
+import {
+  countInboxFiltro,
+  filtrarConversacionesInbox,
+  INBOX_FILTRO_CHIPS,
+  inboxFiltroUsesArchivedApi,
+  parseInboxFiltroFromUrl,
+  type InboxFiltroTipo,
+} from '@/lib/chat/inboxFilters';
 
 interface Conversacion {
   id: string;
@@ -87,12 +96,21 @@ export default function ChatSidebar({
   loading 
 }: ChatSidebarProps) {
   const WA = useWaTheme();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [resultadosBusqueda, setResultadosBusqueda] = useState<Conversacion[] | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
+  const [inboxFiltro, setInboxFiltro] = useState<InboxFiltroTipo>(() =>
+    parseInboxFiltroFromUrl(searchParams.get('filtro'))
+  );
+
+  useEffect(() => {
+    setInboxFiltro(parseInboxFiltroFromUrl(searchParams.get('filtro')));
+  }, [searchParams]);
 
   useEffect(() => {
     setSoundOn(isChatSoundEnabled());
@@ -112,7 +130,8 @@ export default function ChatSidebar({
       setBuscando(true);
       setErrorBusqueda(null);
       try {
-        const res = await fetch(`/api/chat/conversaciones?q=${encodeURIComponent(q)}`, {
+        const archivedQs = inboxFiltroUsesArchivedApi(inboxFiltro) ? '&archived=1' : '';
+        const res = await fetch(`/api/chat/conversaciones?q=${encodeURIComponent(q)}${archivedQs}`, {
           cache: 'no-store',
           signal: controller.signal,
         });
@@ -135,7 +154,7 @@ export default function ChatSidebar({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [busqueda]);
+  }, [busqueda, inboxFiltro]);
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -172,7 +191,20 @@ export default function ChatSidebar({
   };
 
   const q = busqueda.trim();
-  const visibles = q ? (resultadosBusqueda ?? []) : conversaciones;
+  const baseList = q ? (resultadosBusqueda ?? []) : conversaciones;
+  const visibles = filtrarConversacionesInbox(baseList, { tipo: inboxFiltro });
+
+  const handleInboxFiltro = (tipo: InboxFiltroTipo) => {
+    setInboxFiltro(tipo);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tipo === 'todos') {
+      params.delete('filtro');
+    } else {
+      params.set('filtro', tipo);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/chat?${qs}` : '/chat', { scroll: false });
+  };
 
   if (loading) {
     return (
@@ -233,7 +265,9 @@ export default function ChatSidebar({
           <Typography variant="body2" sx={{ 
             color: WA.muted
           }}>
-            {conversaciones.length} conversaciones activas
+            {inboxFiltroUsesArchivedApi(inboxFiltro)
+              ? `${conversaciones.length} archivados`
+              : `${conversaciones.length} conversaciones activas`}
           </Typography>
           <MessagingStatusIndicator
             hasWhatsappChats={conversaciones.some((c) => String(c.servicio_origen || '').startsWith('whatsapp'))}
@@ -261,6 +295,31 @@ export default function ChatSidebar({
             sx={{ color: WA.text, fontSize: '0.9rem', '& input::placeholder': { color: WA.muted, opacity: 1 } }}
           />
           {buscando ? <CircularProgress size={16} sx={{ color: WA.icon }} /> : null}
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+          {INBOX_FILTRO_CHIPS.map((chip) => {
+            const count = chip.id === 'todos'
+              ? conversaciones.length
+              : chip.id === 'archivados'
+                ? null
+                : countInboxFiltro(conversaciones, chip.id);
+            const active = inboxFiltro === chip.id;
+            const label = chip.id === 'archivados' || chip.id === 'todos'
+              ? chip.label
+              : `${chip.label} (${count})`;
+            return (
+              <Chip
+                key={chip.id}
+                label={label}
+                size="small"
+                clickable
+                onClick={() => handleInboxFiltro(chip.id)}
+                color={active ? 'primary' : 'default'}
+                variant={active ? 'filled' : 'outlined'}
+                sx={{ height: 24, fontSize: '0.7rem' }}
+              />
+            );
+          })}
         </Box>
       </Box>
 
@@ -297,7 +356,11 @@ export default function ChatSidebar({
             ) : visibles.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography sx={{ color: WA.muted }}>
-                  {q ? `No hay resultados para “${q}”` : 'No hay chats'}
+                  {q
+                    ? `No hay resultados para “${q}”`
+                    : inboxFiltroUsesArchivedApi(inboxFiltro)
+                      ? 'No hay chats archivados'
+                      : 'No hay chats'}
                 </Typography>
               </Box>
             ) : visibles.map((conversacion) => {

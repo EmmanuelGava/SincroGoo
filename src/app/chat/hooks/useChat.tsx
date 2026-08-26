@@ -20,9 +20,11 @@ interface Conversacion {
   servicio_origen: string;
   fecha_mensaje: string;
   lead_id?: string;
+  contacto_id?: string;
   ultimo_mensaje?: string;
   metadata?: any;
   unread_count?: number;
+  archived_at?: string | null;
   esperando_seguimiento?: boolean;
   seguimiento_desde?: string | null;
   seguimiento_horas?: number | null;
@@ -36,11 +38,17 @@ interface Mensaje {
   fecha_mensaje: string;
   canal: string;
   usuario_id?: string;
+  wa_message_id?: string | null;
   metadata?: any;
   estado_envio?: string | null;
 }
 
-export function useChat() {
+type UseChatOptions = {
+  archivedView?: boolean;
+};
+
+export function useChat(options: UseChatOptions = {}) {
+  const archivedView = Boolean(options.archivedView);
   const { data: session, status } = useSession();
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
   const [conversacionActiva, setConversacionActiva] = useState<Conversacion | null>(null);
@@ -71,7 +79,8 @@ export function useChat() {
     try {
       setError(null);
       
-      const res = await fetch('/api/chat/conversaciones', { cache: 'no-store' });
+      const archivedQs = archivedView ? '?archived=1' : '';
+      const res = await fetch(`/api/chat/conversaciones${archivedQs}`, { cache: 'no-store' });
       const data = await res.json();
       
       if (!res.ok) {
@@ -97,7 +106,7 @@ export function useChat() {
     } finally {
       setLoading(false);
     }
-  }, [session, status]);
+  }, [session, status, archivedView]);
 
   // Actualizar ref cuando cambie la función
   useEffect(() => {
@@ -264,6 +273,30 @@ export function useChat() {
     }
   }, []);
 
+  const archivarConversacion = useCallback(async (conversacionId: string, archived: boolean) => {
+    try {
+      const res = await fetch(`/api/chat/conversaciones/${encodeURIComponent(conversacionId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'No se pudo archivar el chat');
+      }
+      setConversaciones((prev) => prev.filter((c) => c.id !== conversacionId));
+      if (conversacionActivaRef.current?.id === conversacionId) {
+        setConversacionActiva(null);
+        setMensajes([]);
+      }
+      return true;
+    } catch (error) {
+      console.error('Error archivando conversación:', error);
+      setError(error instanceof Error ? error.message : 'Error archivando el chat');
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     conversacionActivaRef.current = conversacionActiva;
   }, [conversacionActiva]);
@@ -378,6 +411,7 @@ export function useChat() {
     seleccionarConversacion,
     limpiarConversacionActiva,
     eliminarConversacion,
+    archivarConversacion,
     
     // Utilidades
     hasConversaciones: conversaciones.length > 0,

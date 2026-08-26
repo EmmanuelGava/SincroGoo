@@ -74,6 +74,15 @@ describe('messageBubbleView', () => {
     });
   });
 
+  it('video con file_url: player', () => {
+    const view = messageBubbleView({
+      contenido: 'Mirá este clip',
+      metadata: { file_type: 'video', file_url: 'https://x/v.mp4' },
+    });
+    expect(view.showVideo).toBe(true);
+    expect(view.showRawText).toBe(true);
+  });
+
   it('video / archivo placeholder sin url: no muestra el corchete como texto', () => {
     expect(messageBubbleView({
       contenido: '[Video]',

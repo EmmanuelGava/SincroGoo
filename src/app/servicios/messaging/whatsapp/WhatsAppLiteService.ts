@@ -299,7 +299,8 @@ export class WhatsAppLiteService {
     }
     const jid = toWhatsAppJid(phoneNumber);
     const payload = await buildWhatsAppPayload(message, options);
-    const sent = await this.state.socket!.sendMessage(jid, payload);
+    const sendOptions = options.quoted ? { quoted: options.quoted } : undefined;
+    const sent = await this.state.socket!.sendMessage(jid, payload, sendOptions);
     const waMessageId = sent?.key?.id ? String(sent.key.id) : undefined;
     console.log(`✅ Mensaje enviado a ${jid}`, options.type || 'text');
     return { success: true, waMessageId };
@@ -803,7 +804,7 @@ function toWhatsAppJid(to: string): string {
 async function buildWhatsAppPayload(message: string, options: MessageOptions): Promise<AnyMessageContent> {
   const type = options.type || 'text';
   const filePath = options.filePath;
-  if ((type === 'image' || type === 'audio' || type === 'file') && filePath) {
+  if ((type === 'image' || type === 'audio' || type === 'file' || type === 'video') && filePath) {
     const media = await downloadMedia(filePath);
     if (type === 'image') {
       return {
@@ -816,6 +817,13 @@ async function buildWhatsAppPayload(message: string, options: MessageOptions): P
         audio: media,
         mimetype: options.mimetype || guessAudioMime(filePath),
         ptt: true,
+      };
+    }
+    if (type === 'video') {
+      return {
+        video: media,
+        mimetype: options.mimetype || 'video/mp4',
+        caption: message && !message.startsWith('📎') ? message : undefined,
       };
     }
     return {

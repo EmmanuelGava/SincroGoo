@@ -102,7 +102,7 @@ export async function upsertContactoPorTelefono(
     }
 
     return data?.id ?? null;
-  };
+  }
 
   const selectExisting = async () => {
     const { data } = await supabase

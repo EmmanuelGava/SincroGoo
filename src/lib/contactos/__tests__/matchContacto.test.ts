@@ -228,7 +228,26 @@ describe('upsertContactoPorTelefono', () => {
     expect(db.rows[0].nombre).toBe('María');
   });
 
-  it('inserta sin unique si no hay dígitos de teléfono', async () => {
+  it('reutiliza contacto existente por wa_jid si no hay teléfono', async () => {
+    const { client, db } = fakeContactos([{
+      id: 'lid-emma',
+      usuario_id: 'u1',
+      nombre: 'Emma',
+      telefono: null,
+      wa_jid: '205613590122651@lid',
+    }]);
+    const id = await upsertContactoPorTelefono(client, {
+      usuarioId: 'u1',
+      nombre: 'Emma',
+      telefonoDisplay: null,
+      waJid: '205613590122651@lid',
+    });
+    expect(id).toBe('lid-emma');
+    expect(db.insertCalls).toBe(0);
+    expect(db.rows).toHaveLength(1);
+  });
+
+  it('inserta sin unique si no hay dígitos de teléfono ni wa_jid', async () => {
     const { client, db } = fakeContactos([]);
     const id = await upsertContactoPorTelefono(client, {
       usuarioId: 'u1',

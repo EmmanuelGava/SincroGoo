@@ -199,13 +199,13 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 
 | # | Acción | OK | Notas |
 |---|--------|----|-------|
-| A1 | Desde el **celular de prueba**, mandar un mensaje nuevo a tu WA vinculado (contacto que **no** tenga lead aún). | [ ] | |
-| A2 | En `/crm`, el chat aparece en **“Chats entrantes”** (sidebar izquierdo) con nombre/teléfono legible (no LID crudo). | [ ] | |
-| A3 | **Arrastrar** el chat a columna **Nuevo** (o Contactado). El chat **sale** de entrantes y aparece tarjeta en la columna. | [ ] | |
-| A4 | Clic en tarjeta → **Editar** o ícono chat → abre `/chat?conversacion=…` con el hilo correcto. | [ ] | |
-| A5 | Desde el chat, ir al **Kanban** (`/crm?lead=…` o botón lead) → misma persona/deal. | [ ] | |
-| A6 | Responder desde KloSync; el celular recibe. `/hola` con `{{nombre}}` **no** muestra el número como nombre. | [ ] | |
-| A7 | Si el contacto ya existía en `/contactos`, verificar **match** (misma ficha, timeline con cambio de etapa). | [ ] | |
+| A1 | Desde el **celular de prueba**, mandar un mensaje nuevo a tu WA vinculado (contacto que **no** tenga lead aún). | [x] | 26 ago |
+| A2 | En `/crm`, el chat aparece en **“Chats entrantes”** (sidebar izquierdo) con nombre/teléfono legible (no LID crudo). | [x] | 26 ago |
+| A3 | **Arrastrar** el chat a columna **Nuevo** (o Contactado). El chat **sale** de entrantes y aparece tarjeta en la columna. | [x] | 26 ago: drag OK + orden en posición de drop |
+| A4 | Clic en tarjeta → **Editar** o ícono chat → abre `/chat?conversacion=…` con el hilo correcto. | [x] | 26 ago |
+| A5 | Desde el chat, ir al **Kanban** (`/crm?lead=…` o botón lead) → misma persona/deal. | [ ] | Fix: botón Kanban visible + resolver lead por contacto |
+| A6 | Responder desde KloSync; el celular recibe. `/hola` con `{{nombre}}` **no** muestra el número como nombre. | [x] | 26 ago |
+| A7 | Si el contacto ya existía en `/contactos`, verificar **match** (misma ficha, timeline con cambio de etapa). | [ ] | Fix: dedupe contactos LID/wa_jid |
 | A8 | *(Opcional)* Dejar entrante sin responder 12+ h → badge **Seguimiento** en `/chat` y contador en stats CRM. | [ ] | |
 
 **B — Fase 1: mensajería confiable (~20 min)**
@@ -216,9 +216,9 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 | B2 | **Outbox:** en Railway, **Stop** el servicio 1–2 min. Enviar texto desde `/chat` (debe quedar queued / no error fatal). **Start** worker → el mensaje **sale solo** al celular en &lt;2 min. | [x] | 24 ago: `queued` → enviado; burbuja `entregado`; texto “en este momento el server esta offline” |
 | B3 | **Ticks:** con el otro celular online, ver **2 grises** (entregado) y **2 celestes** (leído) al abrir el chat en el celular. | [x] | 24 ago: confirmado por usuario |
 | B4 | **Media entrante:** mandar **foto** y **audio** desde celular de prueba → se ven en KloSync (no solo `[Imagen]`). Recargar `/chat` al día siguiente → siguen abriendo. | [x] | 24 ago: foto+audio OK (persistencia “mañana” pendiente si se quiere revalidar) |
-| B5 | **Media saliente:** enviar imagen &lt;5 MB desde KloSync → llega al celular. Probar PNG &gt;6 MB → **rechazo** visible en UI antes de enviar. | [ ] | |
+| B5 | **Media saliente:** enviar imagen &lt;5 MB desde KloSync → llega al celular. Probar PNG &gt;6 MB → **rechazo** visible en UI antes de enviar. | [x] | 26 ago |
 | B6 | **Reconexión:** con worker caído 2–5 min, que el otro celular escriba. Al levantar worker → mensaje aparece (catch-up). **Sin bucle 515** en logs Railway. | [x] | 24 ago: tras levantar Railway llegan msgs (`Ooooooo` entrante + hilo vivo); sesión `connected` |
-| B7 | Enviar 3 mensajes seguidos → en BD/logs, intervalo ~2–4 s entre salientes (anti-ban). | [ ] | |
+| B7 | Enviar 3 mensajes seguidos → en BD/logs, intervalo ~2–4 s entre salientes (anti-ban). | [ ] | Fix: pacing 2–4s + stagger en outbox |
 
 **C — Cierre de sesión**
 

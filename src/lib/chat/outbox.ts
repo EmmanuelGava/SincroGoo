@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  PACING_GAP_MIN_MS,
+  PACING_GAP_SPAN_MS,
+} from '@/app/servicios/messaging/whatsapp/modules/sendPacing';
 
 export type OutboxStatus = 'queued' | 'sending' | 'sent' | 'failed';
 export type OutboxFailureKind = 'transient' | 'permanent';
@@ -68,6 +72,20 @@ export async function enqueueWhatsAppOutbox(
   supabase: SupabaseClient,
   input: EnqueueWhatsAppOutboxInput
 ): Promise<{ id: string }> {
+  const staggerGapMs = PACING_GAP_MIN_MS + Math.floor(Math.random() * PACING_GAP_SPAN_MS);
+  const { data: tailRow } = await outboxTable(supabase)
+    .select('next_attempt_at')
+    .eq('usuario_id', input.usuario_id)
+    .in('status', ['queued', 'sending'])
+    .order('next_attempt_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const tailAt = tailRow
+    ? new Date(String((tailRow as { next_attempt_at?: string }).next_attempt_at || 0)).getTime()
+    : 0;
+  const nextAttemptAt = new Date(Math.max(Date.now(), tailAt + staggerGapMs)).toISOString();
+
   const { data, error } = await outboxTable(supabase)
     .insert({
       usuario_id: input.usuario_id,
@@ -79,6 +97,7 @@ export async function enqueueWhatsAppOutbox(
       mimetype: input.mimetype || null,
       file_name: input.file_name || null,
       status: 'queued',
+      next_attempt_at: nextAttemptAt,
       metadata: input.metadata || {},
     } as never)
     .select('id')

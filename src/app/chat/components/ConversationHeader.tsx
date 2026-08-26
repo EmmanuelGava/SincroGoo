@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -80,7 +80,29 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [creatingPedido, setCreatingPedido] = useState(false);
+  const [resolvedLeadId, setResolvedLeadId] = useState<string | null>(conversacion.lead_id || null);
   const router = useRouter();
+  
+  useEffect(() => {
+    if (conversacion.lead_id) {
+      setResolvedLeadId(conversacion.lead_id);
+      return;
+    }
+    let cancelled = false;
+    void fetch(`/api/chat/conversaciones/${encodeURIComponent(conversacion.id)}/lead`, {
+      cache: 'no-store',
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && typeof data.leadId === 'string') {
+          setResolvedLeadId(data.leadId);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [conversacion.id, conversacion.lead_id]);
   
   const displayName = conversationDisplayName(conversacion);
   const displayPhone = conversacion.display_phone || conversationRealPhone(conversacion);
@@ -169,7 +191,19 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        {resolvedLeadId ? (
+          <Tooltip title="Ver en el Kanban">
+            <IconButton
+              size="small"
+              onClick={() => router.push(`/crm?lead=${resolvedLeadId}`)}
+              aria-label="Ver en el Kanban"
+              sx={{ color: WA.icon }}
+            >
+              <ViewKanbanIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
         <Tooltip title="Más opciones">
           <IconButton
             size="small"
@@ -190,18 +224,18 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
           sx: { bgcolor: WA.menu, color: WA.text, borderRadius: 2, minWidth: 220 },
         }}
       >
-        {conversacion.lead_id && (
+        {resolvedLeadId && (
           <MenuItem
             onClick={() => {
               setMenuAnchor(null);
-              router.push(`/crm?lead=${conversacion.lead_id}`);
+              router.push(`/crm?lead=${resolvedLeadId}`);
             }}
           >
             <ListItemIcon sx={{ color: WA.icon }}><ViewKanbanIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Ver en el Kanban</ListItemText>
           </MenuItem>
         )}
-        {conversacion.lead_id && (
+        {resolvedLeadId && (
           <MenuItem
             onClick={() => {
               setMenuAnchor(null);
@@ -283,11 +317,11 @@ export default function ConversationHeader({ conversacion, onDelete, onManageRep
       </Dialog>
 
       {/* Modal del perfil del lead */}
-      {conversacion.lead_id && (
+      {resolvedLeadId && (
         <LeadProfileModal
           open={leadModalOpen}
           onClose={() => setLeadModalOpen(false)}
-          leadId={conversacion.lead_id}
+          leadId={resolvedLeadId}
         />
       )}
     </Box>

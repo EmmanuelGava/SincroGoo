@@ -1,9 +1,9 @@
-export const PACING_GAP_MIN_MS = 800;
+export const PACING_GAP_MIN_MS = 2000;
 export const PACING_IDLE_MS = 120_000;
 export const PACING_WINDOW_MS = 60_000;
 export const PACING_MAX_PER_WINDOW = 20;
 export const PACING_DEFER_MIN_MS = 20_000;
-export const PACING_GAP_SPAN_MS = 1700;
+export const PACING_GAP_SPAN_MS = 2000;
 export const PACING_DEFER_SPAN_MS = 20_000;
 
 export type SendPacingDecision =

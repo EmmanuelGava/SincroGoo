@@ -8,11 +8,11 @@ describe('nextSendDelayMs', () => {
     expect(nextSendDelayMs(now - 120_001, now)).toBe(0);
   });
 
-  it('espera entre 800 y 2499 ms si el último envío fue reciente', () => {
+  it('espera entre 2000 y 3999 ms si el último envío fue reciente', () => {
     const now = 1_000_000;
     const lastSentAt = now - 5_000;
-    expect(nextSendDelayMs(lastSentAt, now, () => 0)).toBe(800);
-    expect(nextSendDelayMs(lastSentAt, now, () => 0.999)).toBe(800 + Math.floor(0.999 * 1700));
+    expect(nextSendDelayMs(lastSentAt, now, () => 0)).toBe(2000);
+    expect(nextSendDelayMs(lastSentAt, now, () => 0.999)).toBe(2000 + Math.floor(0.999 * 2000));
   });
 });
 
@@ -27,7 +27,7 @@ describe('SendPacer', () => {
     const pacer = new SendPacer(() => now, () => 0);
     pacer.recordSent('user-1');
     now += 1_000;
-    expect(pacer.decide('user-1')).toEqual({ action: 'send', delayMs: 800 });
+    expect(pacer.decide('user-1')).toEqual({ action: 'send', delayMs: 2000 });
   });
 
   it('no mezcla el pacing de dos vendedores', () => {

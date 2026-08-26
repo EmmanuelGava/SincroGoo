@@ -61,14 +61,48 @@ export async function upsertContactoPorTelefono(
     wa_jid: input.waJid ?? null,
   };
 
+  const updateNombre = async (id: string) => {
+    const patch: Record<string, unknown> = { nombre: input.nombre };
+    if (input.telefonoDisplay) patch.telefono = input.telefonoDisplay;
+    if (input.waJid) patch.wa_jid = input.waJid;
+    await supabase.from('contactos').update(patch).eq('id', id);
+  };
+
   if (!digits) {
-    const { data } = await supabase
+    if (input.waJid) {
+      const { data: byJid } = await supabase
+        .from('contactos')
+        .select('id')
+        .eq('usuario_id', input.usuarioId)
+        .eq('wa_jid', input.waJid)
+        .maybeSingle();
+      if (byJid?.id) {
+        await updateNombre(byJid.id);
+        return byJid.id;
+      }
+    }
+
+    const { data, error } = await supabase
       .from('contactos')
       .insert(payload)
       .select('id')
       .single();
+
+    if (error && input.waJid && isUniquePhoneViolation(error)) {
+      const { data: raced } = await supabase
+        .from('contactos')
+        .select('id')
+        .eq('usuario_id', input.usuarioId)
+        .eq('wa_jid', input.waJid)
+        .maybeSingle();
+      if (raced?.id) {
+        await updateNombre(raced.id);
+        return raced.id;
+      }
+    }
+
     return data?.id ?? null;
-  }
+  };
 
   const selectExisting = async () => {
     const { data } = await supabase
@@ -78,13 +112,6 @@ export async function upsertContactoPorTelefono(
       .eq('telefono_digits', digits)
       .maybeSingle();
     return data?.id ?? null;
-  };
-
-  const updateNombre = async (id: string) => {
-    const patch: Record<string, unknown> = { nombre: input.nombre };
-    if (input.telefonoDisplay) patch.telefono = input.telefonoDisplay;
-    if (input.waJid) patch.wa_jid = input.waJid;
-    await supabase.from('contactos').update(patch).eq('id', id);
   };
 
   const existingId = await selectExisting();

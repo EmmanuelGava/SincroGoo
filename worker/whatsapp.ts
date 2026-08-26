@@ -11,6 +11,8 @@ import { getSupabaseAdmin } from '../src/lib/supabase/client';
 import { processOutboxBatch, type WhatsAppOutboxRow } from '../src/lib/chat/outbox';
 import { SendPacer } from '../src/app/servicios/messaging/whatsapp/modules/sendPacing';
 
+const whatsappSendPacer = new SendPacer();
+
 const PORT = Number(process.env.PORT || 3001);
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
 const APP_URL = (process.env.APP_URL || process.env.NEXTAUTH_URL || '').replace(/\/$/, '');
@@ -214,12 +216,27 @@ const server = createServer(async (req, res) => {
         json(res, 503, { success: false, error: 'WhatsApp Lite no está conectado' });
         return;
       }
+      const pacingUserId = userId || 'default';
+      const decision = whatsappSendPacer.decide(pacingUserId);
+      if (decision.action === 'defer') {
+        json(res, 429, {
+          success: false,
+          error: `Demasiados envíos seguidos. Reintentá en ${Math.ceil(decision.delayMs / 1000)}s`,
+        });
+        return;
+      }
+      if (decision.delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, decision.delayMs));
+      }
       const sent = await whatsappLiteService.sendMessage(to, message, {
         type,
         filePath,
         mimetype,
         fileName,
       });
+      if (sent.success) {
+        whatsappSendPacer.recordSent(pacingUserId);
+      }
       json(res, sent.success ? 200 : 503, {
         success: sent.success,
         waMessageId: sent.waMessageId,
@@ -342,13 +359,12 @@ async function sendOutboxRow(row: WhatsAppOutboxRow) {
 }
 
 function startOutboxLoop() {
-  const pacer = new SendPacer();
   let running = false;
   const tick = async () => {
     if (running) return;
     running = true;
     try {
-      const result = await processOutboxBatch(getSupabaseAdmin(), sendOutboxRow, 10, pacer);
+      const result = await processOutboxBatch(getSupabaseAdmin(), sendOutboxRow, 10, whatsappSendPacer);
       if (result.processed > 0) {
         console.log(`📬 Outbox: procesados ${result.processed}, enviados ${result.sent}`);
       }

@@ -79,7 +79,7 @@ const iconList = Object.keys(iconMap);
 
 // Remove hardcoded colors - will use theme colors instead
 
-function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; index: number, onEdit: (lead: Lead) => void, onDelete: (lead:Lead) => void, colors: any }) {
+function TarjetaLead({ lead, index, onEdit, onDelete, colors, highlighted }: { lead: Lead; index: number, onEdit: (lead: Lead) => void, onDelete: (lead:Lead) => void, colors: any, highlighted?: boolean }) {
   const theme = useTheme();
   const router = useRouter();
   
@@ -87,23 +87,26 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
     <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
       {(provided, snapshot) => (
         <Paper
+          id={`kanban-lead-${lead.id}`}
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           elevation={0}
           sx={{
             p: 1.5,
-            bgcolor: colors.card,
-            border: `1px solid ${colors.border}`,
-            boxShadow: 'none',
+            bgcolor: highlighted ? theme.palette.action.selected : colors.card,
+            border: highlighted
+              ? `2px solid ${theme.palette.primary.main}`
+              : `1px solid ${colors.border}`,
+            boxShadow: highlighted ? `0 0 0 2px ${theme.palette.primary.main}33` : 'none',
             borderRadius: 2,
             cursor: 'grab',
             position: 'relative',
+            transition: 'background-color 0.2s, border-color 0.2s, box-shadow 0.2s',
             '&:hover': {
               bgcolor: theme.palette.action.hover,
               '& .actions': { opacity: 1 }
             },
-            transition: 'background-color 0.2s'
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pr: 8 }}>
@@ -227,6 +230,7 @@ function TarjetaLead({ lead, index, onEdit, onDelete, colors }: { lead: Lead; in
 
 export default function KanbanLeads() {
   const theme = useTheme();
+  const router = useRouter();
   
   // Theme-aware colors
   const colors = {
@@ -268,14 +272,37 @@ export default function KanbanLeads() {
   const [editEstado, setEditEstado] = useState<null | { id?: string; nombre: string; color?: string; orden: number, icono?: string }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { id: string; nombre: string }>(null);
   const [editLead, setEditLead] = useState<null | Lead>(null);
+  const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null);
   const searchParams = useSearchParams();
+  const handledLeadParamRef = useRef<string | null>(null);
 
   useEffect(() => {
     const leadId = searchParams.get('lead');
-    if (!leadId || leads.length === 0) return;
+    if (!leadId) {
+      handledLeadParamRef.current = null;
+      return;
+    }
+    if (leads.length === 0) return;
+    if (handledLeadParamRef.current === leadId) return;
+
     const match = leads.find((item) => item.id === leadId);
-    if (match) setEditLead(match);
-  }, [searchParams, leads]);
+    if (!match) return;
+
+    handledLeadParamRef.current = leadId;
+    setHighlightLeadId(leadId);
+
+    window.requestAnimationFrame(() => {
+      document.getElementById(`kanban-lead-${leadId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+
+    router.replace('/crm', { scroll: false });
+
+    const timer = window.setTimeout(() => setHighlightLeadId(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [searchParams, leads, router]);
   const [confirmDeleteLead, setConfirmDeleteLead] = useState<null | Lead>(null);
   const [pendingIncomingChoice, setPendingIncomingChoice] = useState<null | {
     conversationId: string;
@@ -829,7 +856,15 @@ export default function KanbanLeads() {
                                     {(provided) => (
                                       <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minHeight: 160 }}>
                                         {leadsPorEstado[estado.id]?.map((lead, idx) => (
-                                          <TarjetaLead key={lead.id} lead={lead} index={idx} onEdit={handleOpenEditLead} onDelete={setConfirmDeleteLead} colors={colors} />
+                                          <TarjetaLead
+                                            key={lead.id}
+                                            lead={lead}
+                                            index={idx}
+                                            onEdit={handleOpenEditLead}
+                                            onDelete={setConfirmDeleteLead}
+                                            colors={colors}
+                                            highlighted={highlightLeadId === lead.id}
+                                          />
                                         ))}
                                         {provided.placeholder}
                                       </Box>

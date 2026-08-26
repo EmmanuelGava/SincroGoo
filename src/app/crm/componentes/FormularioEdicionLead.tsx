@@ -3,7 +3,7 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Box, TextField, Button, Typography, Drawer, IconButton, Select, MenuItem, InputLabel, FormControl, FormHelperText } from '@mui/material';
+import { Box, TextField, Button, Typography, Drawer, IconButton, Select, MenuItem, InputLabel, FormControl, FormHelperText, useTheme } from '@mui/material';
 import { Lead } from '@/app/tipos/lead';
 import { Estado, useLeadsKanbanContext } from '../contexts/LeadsKanbanContext';
 import { useEffect } from 'react';
@@ -40,6 +40,7 @@ interface FormularioEdicionLeadProps {
 }
 
 export function FormularioEdicionLead({ lead, estados, open, onClose }: FormularioEdicionLeadProps) {
+  const theme = useTheme();
   const { actualizarLead } = useLeadsKanbanContext();
   const router = useRouter();
   const { control, handleSubmit, formState: { errors }, reset } = useForm<FormData>({
@@ -86,11 +87,19 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
       anchor="right"
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { width: '100%', maxWidth: 500, bgcolor: '#191919', p: 3, color: '#E0E0E0' } }}
+      PaperProps={{
+        sx: {
+          width: '100%',
+          maxWidth: 500,
+          bgcolor: theme.palette.background.paper,
+          color: theme.palette.text.primary,
+          p: 3,
+        },
+      }}
     >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">Editar Lead</Typography>
-            <IconButton onClick={onClose}>
+            <IconButton onClick={onClose} sx={{ color: theme.palette.text.secondary }}>
                 <CloseIcon />
             </IconButton>
         </Box>

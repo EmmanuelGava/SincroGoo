@@ -6,6 +6,7 @@ interface TypingIndicatorProps {
   remitente: string;
   servicioColor: string;
   show: boolean;
+  isOwn?: boolean;
 }
 
 // Animación de puntos parpadeantes
@@ -20,7 +21,7 @@ const bounce = keyframes`
   }
 `;
 
-export default function TypingIndicator({ remitente, servicioColor, show }: TypingIndicatorProps) {
+export default function TypingIndicator({ remitente, servicioColor, show, isOwn = false }: TypingIndicatorProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -38,28 +39,30 @@ export default function TypingIndicator({ remitente, servicioColor, show }: Typi
   return (
     <Box sx={{ 
       display: 'flex', 
-      justifyContent: 'flex-start',
+      justifyContent: isOwn ? 'flex-end' : 'flex-start',
       mb: 1,
       alignItems: 'flex-end',
       gap: 1,
+      px: 1,
       opacity: show ? 1 : 0,
       transition: 'opacity 0.3s ease-in-out'
     }}>
-      {/* Avatar del remitente */}
-      <Avatar sx={{ 
-        bgcolor: servicioColor,
-        width: 32,
-        height: 32,
-        fontSize: '0.875rem'
-      }}>
-        {remitente.charAt(0).toUpperCase()}
-      </Avatar>
+      {!isOwn ? (
+        <Avatar sx={{ 
+          bgcolor: servicioColor,
+          width: 32,
+          height: 32,
+          fontSize: '0.875rem'
+        }}>
+          {remitente.charAt(0).toUpperCase()}
+        </Avatar>
+      ) : null}
 
-      {/* Burbuja de "escribiendo..." */}
       <Box sx={{
         bgcolor: 'background.paper',
         borderRadius: 2,
-        borderTopLeftRadius: 0.5,
+        borderTopLeftRadius: isOwn ? '7.5px' : '0.5px',
+        borderTopRightRadius: isOwn ? '0.5px' : '7.5px',
         p: 1.5,
         minWidth: 60,
         display: 'flex',
@@ -70,7 +73,7 @@ export default function TypingIndicator({ remitente, servicioColor, show }: Typi
           color: 'text.secondary',
           fontSize: '0.8rem'
         }}>
-          escribiendo
+          {isOwn ? 'escribiendo…' : 'escribiendo'}
         </Typography>
         
         {/* Puntos animados */}

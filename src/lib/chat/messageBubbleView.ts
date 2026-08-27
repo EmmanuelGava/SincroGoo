@@ -13,6 +13,7 @@ export type MessageBubbleView = {
   urlOnly: boolean;
   /** Etiqueta amigable si el media no está disponible (sin file_url). */
   unavailableLabel: string | null;
+  isInternalNote: boolean;
 };
 
 const MEDIA_PLACEHOLDER_RE = /^\[(Imagen|Audio|Video|Archivo)\]$/i;
@@ -42,6 +43,10 @@ export function messageBubbleView(mensaje: {
   tipo?: string | null;
 }): MessageBubbleView {
   const meta = (mensaje.metadata && typeof mensaje.metadata === 'object') ? mensaje.metadata : {};
+  const isInternalNote =
+    meta.internal_note === true
+    || meta.direction === 'internal'
+    || String(mensaje.tipo || '').toLowerCase() === 'nota_interna';
   const fileUrl = typeof meta.file_url === 'string' && meta.file_url ? meta.file_url : '';
   const fileType = String(meta.file_type || mensaje.tipo || '').toLowerCase();
   const fileName = String(meta.file_name || '');
@@ -67,6 +72,21 @@ export function messageBubbleView(mensaje: {
 
   // Nunca mostrar "[Imagen]" / "[Audio]" / etc. como texto de la burbuja.
   const showRawText = Boolean(caption) && !redundantCaption && !urlOnly && !placeholder;
+
+  if (isInternalNote) {
+    return {
+      showRawText: Boolean(caption),
+      previewUrl: null,
+      filePresentation: null,
+      showImage: false,
+      showAudio: false,
+      showVideo: false,
+      redundantCaption: false,
+      urlOnly: false,
+      unavailableLabel: null,
+      isInternalNote: true,
+    };
+  }
 
   let filePresentation: FilePresentation = null;
   let unavailableLabel: string | null = null;
@@ -98,5 +118,6 @@ export function messageBubbleView(mensaje: {
     redundantCaption,
     urlOnly,
     unavailableLabel,
+    isInternalNote,
   };
 }

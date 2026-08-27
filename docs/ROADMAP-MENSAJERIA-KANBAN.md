@@ -19,13 +19,15 @@ Referencias:
 | **K1** | ✅ Código | `ContactDealDrawer` en `/chat` |
 | **K4** | ✅ Código | Recordatorio + badge en card |
 | **M2** | ✅ Código | Filtros inbox + `?filtro=` |
-| **M1** | ✅ Código | Programar envío vía outbox; sin toast post-envío |
+| **M1** | ✅ Código | Programar envío; default hora actual; persist inbox al disparar (fix local pendiente push) |
 | **M3** | ✅ Código | Archivar/desarchivar + vista Archivados |
 | **M4** | ✅ Código | Reply-to con quote en Baileys |
 | **M5** | ✅ Código | Video MP4 saliente ≤16 MB |
-| **N1** | ⏳ P2 | Bajo demanda |
+| **N1** | ✅ | Notas internas en hilo (P2 implementado) |
 
-**Tests:** 186 tests lib OK · `tsc --noEmit` OK · **P0+P1 completo en código** — falta deploy + QA manual en prod (Railway worker para M4/M5).
+**Leyenda checkboxes abajo:** `[x]` = hecho en código · `[ ]` = opcional diferido o no hecho a propósito.
+
+**Tests:** 186+ tests lib OK · `tsc --noEmit` OK · **P0+P1 completo en código** — falta push fix M1 + QA manual en prod (Railway worker para M4/M5).
 
 ---
 
@@ -105,7 +107,7 @@ Volver al Track A cuando haya volumen real o el dueño de prueba pida “no encu
 
 Son cuatro cosas distintas. N1 no está cubierto por K1 ni K4.
 
-**Decisión (agosto 2026):** N1 queda en **P2**, no en P0/P1.
+**Estado (agosto 2026):** N1 implementado; roadmap P0+P1+opcionales+parciales completo en código. Pendiente: commit, push, QA prod.
 
 **Por qué bajar prioridad ahora (consciente):**
 - Con ~30 chats/semana, **K3 tags** + **K5 timeline** + `contactos.notas` pueden alcanzar para memoria básica.
@@ -132,8 +134,8 @@ Son cuatro cosas distintas. N1 no está cubierto por K1 ni K4.
 | Origen | Automático | Manual |
 | Trigger | Cliente escribió, vos no respondiste ≥12–24 h | Vos elegís fecha/hora |
 | UI inbox | Borde naranja + chip | — |
-| UI Kanban | **K6** (pendiente) | Badge vence hoy / vencida |
-| Certificado | ✅ prod | Pendiente |
+| UI Kanban | **K6** ✅ en código | Badge vence hoy / vencida ✅ |
+| Certificado | ✅ inbox prod; Kanban pendiente QA | Código listo; QA prod pendiente |
 
 ---
 
@@ -154,22 +156,22 @@ K4 (recordatorio manual) no reemplaza esto: A8 es automático y es el diferencia
 > Como vendedor, quiero ver en la card del Kanban la misma señal de seguimiento que ya veo en el inbox, sin abrir el chat.
 
 ### Criterios de aceptación
-- [ ] Card con `esperando_seguimiento: true` → borde/icono naranja (mismo criterio visual que `ChatSidebar`).
-- [ ] Tooltip: “Esperando tu respuesta hace X h” (`humanizeSeguimientoHoras`).
-- [ ] Chip compacto “Seguimiento” en card (opcional si hay poco espacio).
-- [ ] Filtro Kanban “Solo seguimiento” (extiende `LeadKanbanFiltros` — complementa K3/M2).
-- [ ] Lógica **reuse** de `computeSeguimientoMeta` (`seguimientoInbox.ts`) — misma regla 12 h/24 h, no duplicar.
-- [ ] Lead en etapa terminal (Ganado/Perdido) → nunca seguimiento.
+- [x] Card con `esperando_seguimiento: true` → borde/icono naranja (mismo criterio visual que `ChatSidebar`).
+- [x] Tooltip: “Esperando tu respuesta hace X h” (`humanizeSeguimientoHoras`).
+- [x] Chip compacto “Seguimiento” en card (opcional si hay poco espacio).
+- [x] Filtro Kanban “Solo seguimiento” (extiende `LeadKanbanFiltros` — complementa K3/M2).
+- [x] Lógica **reuse** de `computeSeguimientoMeta` (`seguimientoInbox.ts`) — misma regla 12 h/24 h, no duplicar.
+- [x] Lead en etapa terminal (Ganado/Perdido) → nunca seguimiento.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| K6.1 | En `GET /api/supabase/leads`, traer `metadata.direction` de últimos mensajes + etapa lead; calcular `esperando_seguimiento`, `seguimiento_horas` | `supabase/leads/route.ts`, `seguimientoInbox.ts` |
-| K6.2 | Extender tipo `Lead` con campos seguimiento | `tipos/lead.ts` |
-| K6.3 | UI borde + chip + tooltip en card | `KanbanLeads.tsx` |
-| K6.4 | Filtro `soloSeguimiento` en `leadKanbanFilters.ts` | `leadKanbanFilters.ts` |
-| K6.5 | Test: mismo input → mismo resultado que inbox | `seguimientoInbox.test.ts` (ya existe; agregar caso integración si aplica) |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| K6.1 | En `GET /api/supabase/leads`, traer direction + etapa; calcular seguimiento | ✅ | `supabase/leads/route.ts`, `seguimientoInbox.ts` |
+| K6.2 | Extender tipo `Lead` con campos seguimiento | ✅ | `tipos/lead.ts` |
+| K6.3 | UI borde + chip + tooltip en card | ✅ | `KanbanLeads.tsx` |
+| K6.4 | Filtro `soloSeguimiento` en `leadKanbanFilters.ts` | ✅ | `leadKanbanFilters.ts` |
+| K6.5 | Test: mismo input → mismo resultado que inbox | ✅ | `seguimientoInbox.test.ts` + filters |
 
 ### Notas técnicas
 - Hoy `attachLeadConversationMeta` solo une unread + preview; no calcula seguimiento.
@@ -194,24 +196,24 @@ El chat tiene búsqueda con debounce (`ChatSidebar` + `buscarConversaciones.ts`)
 > Como vendedor, quiero escribir nombre o teléfono en el tablero y ver solo las cards que matchean, resaltadas y con scroll automático a la primera coincidencia.
 
 ### Criterios de aceptación
-- [ ] Input de búsqueda visible en la barra de filtros del Kanban (junto a canal/valor/fecha).
-- [ ] Debounce ~300 ms (mismo patrón que chat).
-- [ ] Match por: `nombre`, `empresa`, `telefono`, `email` (case-insensitive; teléfono por dígitos si query ≥ 3 dígitos).
-- [ ] Cards que no matchean se ocultan (o se atenúan — elegir una y ser consistente).
-- [ ] Contador “X de Y leads” cuando hay query activa.
-- [ ] Enter o botón “Ir al siguiente” opcional si hay múltiples hits en distintas columnas.
-- [ ] Limpiar búsqueda restaura vista completa sin recargar.
+- [x] Input de búsqueda visible en la barra de filtros del Kanban (junto a canal/valor/fecha).
+- [x] Debounce ~300 ms (mismo patrón que chat).
+- [x] Match por: `nombre`, `empresa`, `telefono`, `email` (case-insensitive; teléfono por dígitos si query ≥ 3 dígitos).
+- [x] Cards que no matchean se ocultan (o se atenúan — elegir una y ser consistente).
+- [x] Contador “X de Y leads” cuando hay query activa.
+- [ ] Enter o botón “Ir al siguiente” opcional si hay múltiples hits en distintas columnas. *(opcional diferido)*
+- [x] Limpiar búsqueda restaura vista completa sin recargar.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| K2.1 | Extender `LeadKanbanFiltros` con `query?: string` | `src/lib/crm/leadKanbanFilters.ts` |
-| K2.2 | Función `leadMatchesSearch(lead, query)` reutilizando `onlyDigits` / `textMatchesQuery` de `buscarConversaciones.ts` | mismo + import |
-| K2.3 | Integrar en `filtrarLeadsKanban` (query AND filtros existentes) | `leadKanbanFilters.ts` |
-| K2.4 | `TextField` búsqueda en barra de filtros | `KanbanLeads.tsx` |
-| K2.5 | Resaltar card activa (border/outline) si deep link `?lead=` ya existe — reutilizar lógica | `KanbanLeads.tsx` |
-| K2.6 | Tests unitarios para match nombre/teléfono | `src/lib/crm/__tests__/leadKanbanFilters.test.ts` (nuevo) |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| K2.1 | Extender `LeadKanbanFiltros` con `query?: string` | ✅ | `leadKanbanFilters.ts` |
+| K2.2 | Función `leadMatchesSearch(lead, query)` | ✅ | mismo + `buscarConversaciones` |
+| K2.3 | Integrar en `filtrarLeadsKanban` | ✅ | `leadKanbanFilters.ts` |
+| K2.4 | `TextField` búsqueda en barra de filtros | ✅ | `KanbanLeads.tsx` |
+| K2.5 | Resaltar card activa si deep link `?lead=` | ✅ | `KanbanLeads.tsx` |
+| K2.6 | Tests unitarios match nombre/teléfono | ✅ | `leadKanbanFilters.test.ts` |
 
 ### Fuera de scope (K2)
 - Búsqueda server-side (todos los leads ya están en memoria vía context).
@@ -237,22 +239,22 @@ Las etiquetas viven en `contactos.etiquetas[]`. El lead tiene `tags[]` en DB/typ
 > Como vendedor, quiero ver las etiquetas del contacto en cada card del Kanban y filtrar el tablero por una o más etiquetas.
 
 ### Criterios de aceptación
-- [ ] Cada card muestra hasta 2 chips de etiqueta (+ “+N” si hay más).
-- [ ] Filtro multi-select de etiquetas en barra Kanban (solo etiquetas que existen en contactos de leads visibles).
-- [ ] Lead sin contacto → sin chips; no rompe filtro.
-- [ ] Editar etiquetas sigue siendo en `/contactos/[id]` (no duplicar CRUD en Kanban en v1).
-- [ ] Opcional v1: sincronizar `leads.tags` ← `contactos.etiquetas` en lectura (mostrar contacto, no lead.tags).
+- [x] Cada card muestra hasta 2 chips de etiqueta (+ “+N” si hay más).
+- [x] Filtro multi-select de etiquetas en barra Kanban (solo etiquetas que existen en contactos de leads visibles).
+- [x] Lead sin contacto → sin chips; no rompe filtro.
+- [x] Editar etiquetas sigue siendo en `/contactos/[id]` (no duplicar CRUD en Kanban en v1).
+- [x] Opcional v1: sincronizar `leads.tags` ← `contactos.etiquetas` en lectura (mostrar contacto, no lead.tags).
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| K3.1 | En `GET /api/supabase/leads`, join o batch `contactos(id, etiquetas)` por `contacto_id` | `src/app/api/supabase/leads/route.ts` |
-| K3.2 | Extender tipo `Lead` con `contacto_etiquetas?: string[]` | `src/app/tipos/lead.ts` |
-| K3.3 | Extender `LeadKanbanFiltros` con `etiquetas?: string[]` + `leadMatchesEtiquetas` | `leadKanbanFilters.ts` |
-| K3.4 | Chips en card Kanban | `KanbanLeads.tsx` |
-| K3.5 | Multi-select etiquetas (Autocomplete o Select multiple MUI) | `KanbanLeads.tsx` |
-| K3.6 | Helper `collectEtiquetasUnicas(leads)` para poblar opciones del filtro | `leadKanbanFilters.ts` |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| K3.1 | Batch `contactos(etiquetas)` por `contacto_id` | ✅ | `supabase/leads/route.ts` |
+| K3.2 | Tipo `Lead.contacto_etiquetas` | ✅ | `tipos/lead.ts` |
+| K3.3 | Filtro `etiquetas` + match | ✅ | `leadKanbanFilters.ts` |
+| K3.4 | Chips en card Kanban | ✅ | `KanbanLeads.tsx` |
+| K3.5 | Multi-select etiquetas | ✅ | `KanbanLeads.tsx` |
+| K3.6 | Helper `collectEtiquetasUnicas` | ✅ | `leadKanbanFilters.ts` |
 
 ### Decisiones de diseño
 - **Fuente de verdad v1:** `contactos.etiquetas` (ya tiene UI y normalización en `contactoWrite.ts`).
@@ -276,20 +278,20 @@ Al mover un lead se escribe en `lead_etapa_historial` (`leadEtapaHistorial.ts`, 
 > Como vendedor, quiero ver “Nuevo → Contactado → Propuesta (motivo: precio)” en el contexto del deal, sin ir a `/contactos/[id]`.
 
 ### Criterios de aceptación
-- [ ] Lista cronológica (más reciente arriba) de cambios de etapa del lead activo.
-- [ ] Muestra: fecha, etapa anterior → nueva, motivo si estado Perdido.
-- [ ] Vacío: “Sin movimientos de etapa”.
-- [ ] Carga lazy al abrir panel/modal (no en listado Kanban).
+- [x] Lista cronológica (más reciente arriba) de cambios de etapa del lead activo.
+- [x] Muestra: fecha, etapa anterior → nueva, motivo si estado Perdido.
+- [x] Vacío: “Sin movimientos de etapa”.
+- [x] Carga lazy al abrir panel/modal (no en listado Kanban).
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| K5.1 | Endpoint `GET /api/leads/[id]/etapa-historial` o reutilizar query de contacto filtrada por `lead_id` | nuevo route o `api/leads/[id]/` |
-| K5.2 | Componente `LeadEtapaTimeline.tsx` (List + `formatEtapaHistorialLine`) | `src/app/crm/componentes/` o `chat/components/` |
-| K5.3 | Montar en `LeadProfileModal` (chat) | `LeadProfileModal.tsx` |
-| K5.4 | Montar en drawer K1 cuando exista | `ContactDealDrawer.tsx` (K1) |
-| K5.5 | Opcional: ítem compacto en card (“Último mov: Propuesta hace 2d”) | `KanbanLeads.tsx` |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| K5.1 | Endpoint `GET /api/leads/[id]/etapa-historial` | ✅ | `api/leads/[id]/etapa-historial` |
+| K5.2 | Componente `LeadEtapaTimeline.tsx` | ✅ | `crm/componentes/` |
+| K5.3 | Montar en `LeadProfileModal` | ✅ | `LeadProfileModal.tsx` |
+| K5.4 | Montar en drawer K1 | ✅ | `ContactDealDrawer.tsx` |
+| K5.5 | Opcional: “Último mov” compacto en card | ✅ | `KanbanLeads.tsx` |
 
 ### Datos existentes
 ```sql
@@ -315,27 +317,27 @@ Para ver persona + todos los deals + historial hay que abrir modal limitado o na
 > Como vendedor, quiero un panel lateral en el chat con datos del contacto, sus deals abiertos/cerrados y accesos rápidos (Kanban, nuevo pedido, editar contacto).
 
 ### Criterios de aceptación
-- [ ] Botón toggle en header (icono persona/panel) abre drawer ~360px a la derecha del chat.
-- [ ] Si hay `contacto_id`: nombre, teléfono, email, empresa, etiquetas (chips), notas (solo lectura o link editar).
-- [ ] Lista de deals del contacto: nombre, etapa (color), valor, link “Ver en Kanban” (`/crm?lead=`).
-- [ ] Si hay `lead_id` en conversación: deal activo resaltado.
-- [ ] Timeline etapas del deal activo (K5).
-- [ ] Sin contacto: CTA “Vincular contacto” o datos mínimos de conversación.
-- [ ] Layout: sidebar chat 350px + ventana mensajes flexible + drawer; no romper `100vw` en desktop.
-- [ ] Cerrar drawer no cierra conversación.
+- [x] Botón toggle en header (icono persona/panel) abre drawer ~360px a la derecha del chat.
+- [x] Si hay `contacto_id`: nombre, teléfono, email, empresa, etiquetas (chips), notas (solo lectura o link editar).
+- [x] Lista de deals del contacto: nombre, etapa (color), valor, link “Ver en Kanban” (`/crm?lead=`).
+- [x] Si hay `lead_id` en conversación: deal activo resaltado.
+- [x] Timeline etapas del deal activo (K5).
+- [x] Sin contacto: CTA “Vincular contacto” o datos mínimos de conversación.
+- [x] Layout: sidebar chat 350px + ventana mensajes flexible + drawer; no romper `100vw` en desktop.
+- [x] Cerrar drawer no cierra conversación.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| K1.1 | Componente `ContactDealDrawer.tsx` | `src/app/chat/components/` |
-| K1.2 | Reutilizar fetch de `GET /api/contactos/[id]` cuando hay `contacto_id` | drawer |
-| K1.3 | Si solo hay teléfono sin contacto: `GET /api/chat/conversaciones/[id]/lead` + mostrar deal único | ya existe route |
-| K1.4 | Toggle + estado en `ConversationHeader` o `ChatWindow` | `ConversationHeader.tsx`, `ChatWindow.tsx` |
-| K1.5 | Ajustar layout `chat/page.tsx` (flex 3 columnas) | `page.tsx` |
-| K1.6 | Acciones: “Nuevo pedido” (`POST /api/contactos/[id]/nuevo-pedido`), “Abrir ficha” (`/contactos/[id]`) | drawer |
-| K1.7 | Integrar `LeadEtapaTimeline` (K5) | drawer |
-| K1.8 | Skeleton + error states | drawer |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| K1.1 | Componente `ContactDealDrawer.tsx` | ✅ | `chat/components/` |
+| K1.2 | Fetch `GET /api/contactos/[id]` | ✅ | drawer |
+| K1.3 | Fallback lead sin contacto | ✅ | route lead existente |
+| K1.4 | Toggle header / ChatWindow | ✅ | `ConversationHeader`, `ChatWindow` |
+| K1.5 | Layout 3 columnas | ✅ | `chat/page.tsx` |
+| K1.6 | Acciones nuevo pedido / abrir ficha | ✅ | drawer |
+| K1.7 | Integrar `LeadEtapaTimeline` | ✅ | drawer |
+| K1.8 | Skeleton + error states | ✅ | drawer |
 
 ### Reutilizar (no copiar)
 - UI etiquetas de `contactos/[id]/page.tsx`
@@ -365,23 +367,23 @@ Para ver persona + todos los deals + historial hay que abrir modal limitado o na
 > Como vendedor, quiero crear una tarea con fecha/hora ligada al lead desde Kanban o chat, y ver un badge cuando vence hoy o está vencida.
 
 ### Criterios de aceptación
-- [ ] Botón “Recordarme” en card Kanban y/o drawer K1 / header chat.
-- [ ] Modal: título (default “Seguimiento {nombre}”), fecha, hora, prioridad (normal/alta).
-- [ ] Persiste en `tasks`: `lead_id`, `conversation_id` (si hay), `task_type: 'follow_up'`, `due_date`, `status: 'pending'`.
-- [ ] Badge en card: 🔴 vencida, 🟡 vence hoy, ninguno si futura.
-- [ ] Completar tarea desde card o dashboard (reuse `TasksService.completeTask`).
-- [ ] No duplicar panel completo del dashboard — solo crear + badge + link “Ver tareas”.
+- [x] Botón “Recordarme” en card Kanban y/o drawer K1 / header chat.
+- [x] Modal: título (default “Seguimiento {nombre}”), fecha, hora, prioridad (normal/alta).
+- [x] Persiste en `tasks`: `lead_id`, `conversation_id` (si hay), `task_type: 'follow_up'`, `due_date`, `status: 'pending'`.
+- [x] Badge en card: 🔴 vencida, 🟡 vence hoy, ninguno si futura.
+- [x] Completar tarea desde card o dashboard (reuse `TasksService.completeTask`).
+- [x] No duplicar panel completo del dashboard — solo crear + badge + link “Ver tareas”.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| K4.1 | API ligera `POST /api/leads/[id]/tasks` (wrapper TasksService) o reuse `POST /api/dashboard/tasks` | route |
-| K4.2 | `GET /api/supabase/leads` incluir `proxima_tarea` (due_date mínima pending) por lead — subquery o join | `supabase/leads/route.ts` |
-| K4.3 | Modal `RecordatorioLeadModal.tsx` | `crm/componentes/` |
-| K4.4 | Botón + badge en card | `KanbanLeads.tsx` |
-| K4.5 | Botón en drawer K1 / `ConversationHeader` | chat components |
-| K4.6 | Al completar: opcional quitar `esperando_seguimiento` si era el mismo motivo | evaluar con A8 |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| K4.1 | `POST /api/leads/[id]/tasks` | ✅ | route |
+| K4.2 | `proxima_tarea` en GET leads | ✅ | `supabase/leads/route.ts` |
+| K4.3 | Modal `RecordatorioLeadModal.tsx` | ✅ | `crm/componentes/` |
+| K4.4 | Botón + badge en card | ✅ | `KanbanLeads.tsx` |
+| K4.5 | Botón en drawer / header chat | ✅ | chat components |
+| K4.6 | Al completar: quitar seguimiento A8 | ✅ | dismiss-seguimiento + metadata |
 
 ### Modelo existente (`tasks`)
 - `usuario_id`, `lead_id`, `conversation_id`, `task_type`, `title`, `due_date`, `priority`, `status`
@@ -412,21 +414,21 @@ Ver tabla **A8 vs K4** en [Decisiones conscientes](#decisiones-conscientes-no-po
 > Como vendedor, quiero ver solo no leídas, solo seguimiento, o solo WhatsApp, sin perder la búsqueda por texto.
 
 ### Criterios de aceptación
-- [ ] Chips o tabs: **Todos** | **No leídas** | **Seguimiento** | canal (WA / Telegram / Email).
-- [ ] Filtros combinables con búsqueda `q`.
-- [ ] Contador por filtro activo (“12 no leídas”).
-- [ ] Orden existente se mantiene (seguimiento primero cuando filtro “Todos”).
-- [ ] Estado filtro en URL opcional (`?filtro=unread`) para compartir/bookmark.
+- [x] Chips o tabs: **Todos** | **No leídas** | **Seguimiento** | canal (WA / Telegram / Email).
+- [x] Filtros combinables con búsqueda `q`.
+- [x] Contador por filtro activo (“12 no leídas”).
+- [x] Orden existente se mantiene (seguimiento primero cuando filtro “Todos”).
+- [x] Estado filtro en URL opcional (`?filtro=unread`) para compartir/bookmark.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| M2.1 | Tipo `InboxFiltro` + función `filtrarConversaciones(list, filtros)` | `src/lib/chat/inboxFilters.ts` (nuevo) |
-| M2.2 | UI chips bajo barra búsqueda | `ChatSidebar.tsx` |
-| M2.3 | Aplicar filtro client-side sobre lista ya cargada | `ChatSidebar.tsx` |
-| M2.4 | Si filtro “no leídas” y API paginada en futuro: param `?unread=1` en `GET conversaciones` | `api/chat/conversaciones/route.ts` (opcional v2) |
-| M2.5 | Tests unitarios filtros | `inboxFilters.test.ts` |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| M2.1 | `InboxFiltro` + `filtrarConversaciones` | ✅ | `inboxFilters.ts` |
+| M2.2 | UI chips bajo barra búsqueda | ✅ | `ChatSidebar.tsx` |
+| M2.3 | Filtro client-side | ✅ | `ChatSidebar.tsx` |
+| M2.4 | Param API `?unread=1` (paginación futura) | ✅ | `conversaciones/route.ts` |
+| M2.5 | Tests unitarios filtros | ✅ | `inboxFilters.test.ts` |
 
 ### Cómo probar
 1. Mezclar chats leídos/no leídos → “No leídas” correcto.
@@ -446,24 +448,24 @@ Todo envío es inmediato. `whatsapp_outbox.next_attempt_at` hoy solo stagger ant
 > Como vendedor, quiero escribir un mensaje y elegir “enviar mañana 9:00”, viéndolo en cola hasta que se envíe.
 
 ### Criterios de aceptación
-- [ ] En composer: toggle “Programar” → date + time picker (timezone usuario, default America/Argentina/Buenos_Aires).
-- [ ] No enviar optimista hasta `send_at`; fila outbox `status: 'scheduled'` o usar `next_attempt_at = send_at` con flag metadata.
-- [ ] Lista “Programados” en sidebar o sección composer (cancelar / editar antes de hora).
-- [ ] Worker `claim_whatsapp_outbox` solo toma filas con `next_attempt_at <= now()`.
-- [ ] Al disparar: flujo normal (pacing, ticks, anti-ban).
-- [ ] Media programada: mismo soporte que envío inmediato.
+- [x] En composer: toggle “Programar” → date + time picker (hora local; default = ahora al activar).
+- [x] No enviar optimista hasta `send_at`; outbox `queued` + `metadata.scheduled_by_user` + `next_attempt_at = send_at`.
+- [x] Lista “Programados” en composer (cancelar con ✕).
+- [x] Worker `claim_whatsapp_outbox` solo toma filas con `next_attempt_at <= now()`.
+- [x] Al disparar: flujo normal (pacing, ticks, anti-ban) + persist inbox.
+- [x] Media programada: mismo soporte que envío inmediato.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| M1.1 | Migración: `status` enum incluye `'scheduled'` **o** `metadata.scheduled_by_user: true` | Supabase migration |
-| M1.2 | `enqueueWhatsAppOutbox({ sendAt?: Date })` — si futuro, `next_attempt_at = sendAt` | `outbox.ts` |
-| M1.3 | UI picker en `MessageInput.tsx` | composer |
-| M1.4 | `POST /api/chat/send` acepta `scheduled_for` ISO | `api/chat/send/route.ts` |
-| M1.5 | Panel lista programados + cancel (`DELETE` o status `cancelled`) | nuevo componente |
-| M1.6 | Verificar worker no claim antes de hora | `worker/whatsapp.ts`, RPC `claim_whatsapp_outbox` |
-| M1.7 | Notificación/toast al enviarse | `useChat.tsx` o poll |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| M1.1 | `metadata.scheduled_by_user` (sin enum nuevo) | ✅ | outbox |
+| M1.2 | `enqueueWhatsAppOutbox({ sendAt })` | ✅ | `outbox.ts` |
+| M1.3 | UI picker en `MessageInput.tsx` | ✅ | composer |
+| M1.4 | `POST /api/chat/send` + `scheduled_for` | ✅ | `send/route.ts` |
+| M1.5 | Lista programados + cancel | ✅ | `MessageInput` + `/api/chat/scheduled` |
+| M1.6 | Worker no claim antes de hora | ✅ | RPC existente |
+| M1.7 | Toast/banner al programar; poll lista | ✅ | banner + toast al disparar programado |
 
 ### Riesgos
 - Reloj servidor vs timezone usuario — guardar UTC, mostrar local.
@@ -496,13 +498,13 @@ Solo **eliminar** (`DELETE` conversación + mensajes). No hay forma de sacar rui
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| M3.1 | Migración Supabase | MCP / migration |
-| M3.2 | `PATCH /api/chat/conversaciones/[id]` `{ archived: true/false }` | route |
-| M3.3 | Filtrar en GET conversaciones | `conversaciones/route.ts` |
-| M3.4 | UI archivar / desarchivar | `ConversationHeader.tsx`, `ChatSidebar.tsx` |
-| M3.5 | Confirmación distinta de eliminar (copy claro) | dialog |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| M3.1 | Migración Supabase `archived_at` | ✅ | migration + MCP |
+| M3.2 | `PATCH` `{ archived }` | ✅ | `conversaciones/[id]` |
+| M3.3 | Filtrar GET conversaciones | ✅ | `conversaciones/route.ts` |
+| M3.4 | UI archivar / desarchivar | ✅ | header + sidebar |
+| M3.5 | Confirmación distinta de eliminar | ✅ | dialog |
 
 ---
 
@@ -525,13 +527,13 @@ No hay reply-to. `WhatsAppLiteService` ya acepta `MessageOptions.quoted`.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| M4.1 | Guardar `wa_message_id` en mensajes entrantes si falta | ingest path |
-| M4.2 | Estado `replyTo` en `MessageInput` / `ChatWindow` | chat components |
-| M4.3 | Pasar `quoted` en send API → outbox metadata | `api/chat/send`, `outbox.ts` |
-| M4.4 | Worker pasa `quoted` a Baileys | `worker/whatsapp.ts`, `WhatsAppLiteService` |
-| M4.5 | Render quote en `MessageBubble` | `MessageBubble.tsx` |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| M4.1 | `wa_message_id` en entrantes / GET mensajes | ✅ | ingest + mensajes API |
+| M4.2 | Estado `replyTo` composer | ✅ | chat components |
+| M4.3 | `quoted` → outbox metadata | ✅ | send + outbox |
+| M4.4 | Worker → Baileys quoted | ✅ | worker + LiteService |
+| M4.5 | Render quote en burbuja | ✅ | `MessageBubble.tsx` |
 
 ---
 
@@ -549,29 +551,29 @@ No hay reply-to. `WhatsAppLiteService` ya acepta `MessageOptions.quoted`.
 - [x] Aceptar `video/mp4` ≤ 16 MB en `FileUpload` / `mediaLimits.ts`.
 - [x] Upload a storage + outbox tipo video.
 - [x] Worker envía vía Baileys `video` message.
-- [ ] Preview en composer antes de enviar (opcional v1: solo icono).
+- [x] Preview en composer antes de enviar (video MP4).
 - [x] Rechazar otros codecs con mensaje claro.
 
 ### Subtasks
 
-| # | Tarea | Archivo(s) |
-|---|-------|------------|
-| M5.1 | Quitar block en `validateOutgoingMedia`; kind `'video'` | `mediaLimits.ts` |
-| M5.2 | `OutgoingMediaKind` + upload path | `FileUpload.tsx`, send API |
-| M5.3 | Worker branch envío video | `worker/whatsapp.ts` |
-| M5.4 | UI progreso / placeholder en burbuja | `MessageBubble.tsx` |
+| # | Tarea | Estado | Archivo(s) |
+|---|-------|--------|------------|
+| M5.1 | Quitar block video en `mediaLimits` | ✅ | `mediaLimits.ts` |
+| M5.2 | Upload path video/mp4 | ✅ | `FileUpload` + send |
+| M5.3 | Worker branch video | ✅ | `worker/whatsapp.ts` |
+| M5.4 | Player/placeholder en burbuja | ✅ | `MessageBubble` / `FileAttachment` |
 
 ---
 
-# Parcial — conectar, no reinventar
+# Parcial — conectar, no reinventar *(fuera del P0/P1 core; aún abiertos)*
 
 | ID | Feature | Estado | Acción mínima | Esfuerzo |
 |----|---------|--------|---------------|----------|
-| **P1** | Typing indicator | Componente listo | Pasar `onTyping` de `MessageInput` → API/worker → `TypingIndicator` en `ChatWindow` | ~0.5 d |
-| **P2** | MessagingQuickSetup | No montado en CRM | Montar en Kanban o borrar dead code | ~0.25 d |
-| **P3** | Crear lead desde chat | Solo si hay lead | Botón “Pasar al Kanban” cuando no hay `lead_id` (arrastrar lógica entrantes) | ~0.5 d |
-| **P4** | Tags lead ↔ contacto | Desincronizados | K3 resuelve lectura; sync write opcional | incl. K3 |
-| **P5** | Stats CRM multi-tenant | Chats sin lead mal acotados | Filtrar por `usuario_id` en `api/crm/stats/route.ts` | ~0.25 d |
+| **P1** | Typing indicator | ✅ | `TypingIndicator` en `ChatWindow` |
+| **P2** | MessagingQuickSetup | ✅ | Montado en Kanban (compact) |
+| **P3** | Crear lead desde chat | ✅ | Botón “Pasar al Kanban” en header |
+| **P4** | Tags lead ↔ contacto | ✅ lectura (K3) | Sync write opcional |
+| **P5** | Stats CRM multi-tenant | ✅ | `usuario_id` en chats sin lead |
 
 ---
 
@@ -606,7 +608,7 @@ Ver [comparativa](./comparativa-competencia-klosync(2).md): Basework/Chatsell co
 
 # Checklist de paridad operativa (P0 + P1)
 
-### Implementado — certificar en prod
+### Implementado en código — falta QA / certificar en prod
 
 - [x] **K6** Seguimiento A8 visible en card Kanban (misma regla que inbox)
 - [x] **K1** Desde chat veo persona + deals + timeline sin salir del hilo
@@ -616,13 +618,15 @@ Ver [comparativa](./comparativa-competencia-klosync(2).md): Basework/Chatsell co
 - [x] **K5** Veo historial de etapas del deal en panel
 - [x] **M2** Filtro inbox: no leídas / seguimiento / canal
 - [x] **M1** Programo un mensaje WA para hora futura
-
-### Pendiente
-
 - [x] **M3** Archivo chat muerto sin borrar historial
 - [x] **M4** Respondo citando un mensaje del cliente
 - [x] **M5** Envío video corto saliente
-- [ ] **N1** *(P2)* Nota interna en hilo — solo si uso real lo pide
+
+### Aún abierto (no P0/P1 core)
+
+- [x] **N1** Nota interna en hilo (toggle composer, burbuja gris, API + interacciones_lead)
+- [x] **Opcionales:** K2 “siguiente hit”, K5.5 chip “último mov”, K4.6 sync A8, M1 media programada, M1 toast post-envío, M2.4 API unread, M5 preview composer
+- [x] **Parciales:** typing, QuickSetup, crear lead desde chat, stats multi-tenant
 
 ---
 

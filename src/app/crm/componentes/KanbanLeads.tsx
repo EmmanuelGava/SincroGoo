@@ -25,6 +25,8 @@ import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import { IconButton, Tooltip } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import SearchIcon from '@mui/icons-material/Search';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
@@ -36,6 +38,7 @@ import { FormularioLead } from './FormularioLead';
 import { FormularioEdicionLead } from './FormularioEdicionLead';
 import SidebarMensajesEntrantes from './SidebarMensajesEntrantes';
 import InboxStatsPanel from './InboxStatsPanel';
+import MessagingQuickSetup from '@/app/crm/components/MessagingQuickSetup';
 import { isEstadoPerdido, MOTIVOS_PERDIDO, MOTIVO_PERDIDO_LABEL, type MotivoPerdido } from '@/lib/contactos/estadoLead';
 import {
   filtrarLeadsKanban,
@@ -211,6 +214,20 @@ function TarjetaLead({
               ) : null}
             </Box>
           )}
+
+          {lead.ultimo_mov_etapa?.texto ? (
+            <Tooltip
+              title={`Último movimiento · ${new Date(lead.ultimo_mov_etapa.fecha).toLocaleString('es-AR')}`}
+            >
+              <Chip
+                icon={<SwapHorizIcon sx={{ fontSize: '0.75rem !important' }} />}
+                label={lead.ultimo_mov_etapa.texto}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: '0.65rem', mb: 0.75, maxWidth: '100%' }}
+              />
+            </Tooltip>
+          ) : null}
 
           {lead.empresa && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -428,11 +445,13 @@ export default function KanbanLeads() {
     etiquetas: [],
   });
   const [busquedaInput, setBusquedaInput] = useState('');
+  const [searchHitIndex, setSearchHitIndex] = useState(-1);
   const [recordatorioLead, setRecordatorioLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setFiltros((prev) => ({ ...prev, query: busquedaInput.trim() }));
+      setSearchHitIndex(-1);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [busquedaInput]);
@@ -446,6 +465,22 @@ export default function KanbanLeads() {
   const hayFiltrosActivos = hayFiltrosKanbanActivos(filtros);
   const etiquetaOpciones = collectEtiquetasUnicas(leads);
   const leadsFiltrados = filtrarLeadsKanban(leads, filtros);
+  const searchHitIds = filtros.query ? leadsFiltrados.map((lead) => lead.id) : [];
+
+  const goToNextSearchHit = () => {
+    if (searchHitIds.length === 0) return;
+    const nextIndex = (searchHitIndex + 1) % searchHitIds.length;
+    const leadId = searchHitIds[nextIndex];
+    setSearchHitIndex(nextIndex);
+    setHighlightLeadId(leadId);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`kanban-lead-${leadId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+    window.setTimeout(() => setHighlightLeadId(null), 3500);
+  };
 
   // Función para alternar el colapso de una columna
   const toggleColumnCollapse = (estadoId: string) => {
@@ -647,6 +682,11 @@ export default function KanbanLeads() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId: lead.proxima_tarea.id, status: 'completed' }),
       });
+      if (lead.conversacion_id) {
+        await fetch(`/api/chat/conversaciones/${encodeURIComponent(lead.conversacion_id)}/dismiss-seguimiento`, {
+          method: 'POST',
+        });
+      }
       refrescarLeads();
     } catch (error) {
       console.error('Error completando tarea:', error);
@@ -682,6 +722,7 @@ export default function KanbanLeads() {
       {/* Kanban principal */}
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ px: 2, pt: 1, pb: 1 }}>
+          <MessagingQuickSetup compact />
           <Box
             sx={{
               display: 'flex',
@@ -701,11 +742,29 @@ export default function KanbanLeads() {
                 placeholder="Buscar nombre, teléfono…"
                 value={busquedaInput}
                 onChange={(e) => setBusquedaInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && filtros.query) {
+                    e.preventDefault();
+                    goToNextSearchHit();
+                  }
+                }}
                 InputProps={{
                   startAdornment: <SearchIcon sx={{ fontSize: 18, color: colors.textSecondary, mr: 0.5 }} />,
                 }}
                 sx={{ minWidth: 180, maxWidth: 220 }}
               />
+              {filtros.query ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={searchHitIds.length === 0}
+                  onClick={goToNextSearchHit}
+                  startIcon={<NavigateNextIcon />}
+                  sx={{ textTransform: 'none', minWidth: 0, px: 1 }}
+                >
+                  Siguiente{searchHitIds.length > 0 ? ` (${Math.max(searchHitIndex + 1, 1)}/${searchHitIds.length})` : ''}
+                </Button>
+              ) : null}
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel id="filtro-canal-label">Canal</InputLabel>
                 <Select

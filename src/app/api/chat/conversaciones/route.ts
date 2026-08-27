@@ -103,8 +103,8 @@ function mapConversacionRow(conv: ConversacionRow): ConversacionListaItem {
   });
   const namedMeta =
     named?.metadata && typeof named.metadata === 'object' ? named.metadata : {};
-  const metadata = {
-    ...(conv.metadata && typeof conv.metadata === 'object' ? conv.metadata : {}),
+  const metadata: Record<string, unknown> = {
+    ...(conv.metadata && typeof conv.metadata === 'object' ? conv.metadata as Record<string, unknown> : {}),
     ...(namedMeta.contact_name && !(conv.metadata as Record<string, unknown> | null)?.contact_name
       ? { contact_name: namedMeta.contact_name }
       : {}),
@@ -114,6 +114,9 @@ function mapConversacionRow(conv: ConversacionRow): ConversacionListaItem {
   const seguimiento = computeSeguimientoMeta({
     mensajes: mensajesParaSeguimiento(conv),
     leadEtapaNombre: leadEtapaNombreFromRow(conv),
+    seguimientoDismissedAt: typeof metadata.seguimiento_dismissed_at === 'string'
+      ? metadata.seguimiento_dismissed_at
+      : null,
   });
 
   return {
@@ -215,6 +218,11 @@ const CONVERSACION_SELECT = `
 `;
 
 function parseArchivedParam(value: string | null): boolean {
+  const v = String(value || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
+function parseUnreadParam(value: string | null): boolean {
   const v = String(value || '').trim().toLowerCase();
   return v === '1' || v === 'true' || v === 'yes';
 }
@@ -408,11 +416,15 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     const q = normalizeSearchQuery(req.nextUrl.searchParams.get('q'));
     const archivedOnly = parseArchivedParam(req.nextUrl.searchParams.get('archived'));
+    const unreadOnly = parseUnreadParam(req.nextUrl.searchParams.get('unread'));
 
     if (q) {
-      const conversaciones = await searchConversaciones(supabase, q, archivedOnly);
+      let conversaciones = await searchConversaciones(supabase, q, archivedOnly);
+      if (unreadOnly) {
+        conversaciones = conversaciones.filter((c) => (c.unread_count || 0) > 0);
+      }
       return NextResponse.json(
-        { conversaciones, q, archived: archivedOnly },
+        { conversaciones, q, archived: archivedOnly, unread: unreadOnly },
         {
           status: 200,
           headers: { 'Cache-Control': 'no-store' },
@@ -424,6 +436,9 @@ export async function GET(req: NextRequest) {
     listQuery = archivedOnly
       ? listQuery.not('archived_at', 'is', null)
       : listQuery.is('archived_at', null);
+    if (unreadOnly) {
+      listQuery = listQuery.gt('unread_count', 0);
+    }
     const { data: conversaciones, error } = await listQuery.order('fecha_mensaje', { ascending: false });
 
     if (error) throw error;
@@ -434,7 +449,7 @@ export async function GET(req: NextRequest) {
     const conversacionesUnicas = mergeByIdentity(conversacionesConUltimoMensaje);
 
     return NextResponse.json(
-      { conversaciones: conversacionesUnicas, archived: archivedOnly },
+      { conversaciones: conversacionesUnicas, archived: archivedOnly, unread: unreadOnly },
       {
         status: 200,
         headers: { 'Cache-Control': 'no-store' },

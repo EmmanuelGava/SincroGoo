@@ -104,6 +104,22 @@ describe('isEsperandoSeguimiento', () => {
     expect(meta.seguimiento_desde).toBeTruthy();
     expect(meta.seguimiento_horas).toBeGreaterThanOrEqual(13);
   });
+
+  it('no marca si seguimiento fue dismissado después del último entrante', () => {
+    const incomingAt = hoursAgo(20);
+    const dismissedAt = hoursAgo(1);
+    expect(
+      isEsperandoSeguimiento(
+        {
+          leadEtapaNombre: 'Nuevo',
+          mensajes: [{ fecha_mensaje: incomingAt, metadata: { direction: 'incoming' } }],
+          seguimientoDismissedAt: dismissedAt,
+          nowMs: NOW,
+        },
+        DEFAULT_SEGUIMIENTO_CONFIG
+      )
+    ).toBe(false);
+  });
 });
 
 describe('countEsperandoSeguimiento', () => {

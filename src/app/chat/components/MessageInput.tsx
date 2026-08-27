@@ -20,6 +20,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import HeadsetIcon from '@mui/icons-material/Headset';
 import SendIcon from '@mui/icons-material/Send';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
@@ -42,11 +43,26 @@ import { type CatalogoItem } from '@/lib/chat/catalogoVentas';
 import { armarPresupuesto, primeraImagenCarrito } from '@/lib/chat/armarPresupuesto';
 import { armarListaCategoria } from '@/lib/chat/armarListaCategoria';
 import { quotedPreviewLabel, type ReplyToMessage } from '@/lib/chat/quotedMessage';
+import {
+  currentScheduleFields,
+  formatScheduleLocal,
+  isFutureSchedule,
+  parseLocalScheduleDatetime,
+} from '@/lib/chat/scheduleSend';
 
 interface MessageInputProps {
   onSendMessage: (contenido: string, options?: { scheduledFor?: string }) => void;
-  onSendFile?: (url: string, fileName: string, fileType: string, mimeType?: string, caption?: string) => void;
+  onSendInternalNote?: (contenido: string) => void;
+  onSendFile?: (
+    url: string,
+    fileName: string,
+    fileType: string,
+    mimeType?: string,
+    caption?: string,
+    options?: { scheduledFor?: string },
+  ) => void;
   onSendAudio?: (audioBlob: Blob, duration: number) => void;
+  onScheduledDelivered?: (preview: string) => void;
   conversationId?: string;
   disabled?: boolean;
   placeholder?: string;
@@ -88,8 +104,10 @@ function AttachCircle({
 
 export default function MessageInput({
   onSendMessage,
+  onSendInternalNote,
   onSendFile,
   onSendAudio,
+  onScheduledDelivered,
   conversationId,
   disabled = false,
   placeholder = 'Escribe un mensaje o / para respuestas',
@@ -114,17 +132,44 @@ export default function MessageInput({
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const [carrito, setCarrito] = useState<CatalogoItem[]>([]);
   const [programar, setProgramar] = useState(false);
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const [fechaProgramada, setFechaProgramada] = useState(tomorrow.toISOString().slice(0, 10));
-  const [horaProgramada, setHoraProgramada] = useState('09:00');
+  const [notaInterna, setNotaInterna] = useState(false);
+  const [fechaProgramada, setFechaProgramada] = useState(() => currentScheduleFields().fecha);
+  const [horaProgramada, setHoraProgramada] = useState(() => currentScheduleFields().hora);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [programados, setProgramados] = useState<Array<{ id: string; contenido?: string; next_attempt_at?: string }>>([]);
   const manage = manageOpen ?? localManageOpen;
   const setManage = onManageOpenChange ?? setLocalManageOpen;
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<FileUploadHandle>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevProgramadosRef = useRef<Map<string, string>>(new Map());
+  const cancelledProgramadosRef = useRef<Set<string>>(new Set());
   const audioStartRef = useRef<(() => void) | null>(null);
+
+  const resolveScheduledFor = (): string | undefined => {
+    if (!programar) return undefined;
+    const when = parseLocalScheduleDatetime(fechaProgramada, horaProgramada);
+    if (!when) {
+      setScheduleError('Fecha u hora inválida');
+      return undefined;
+    }
+    if (!isFutureSchedule(when)) {
+      setScheduleError('Elegí una fecha y hora futura');
+      return undefined;
+    }
+    setScheduleError(null);
+    return when.toISOString();
+  };
+
+  const trackProgramados = (items: Array<{ id: string; contenido?: string; next_attempt_at?: string }>) => {
+    const nextMap = new Map(items.map((item) => [item.id, item.contenido || '']));
+    for (const [id, preview] of prevProgramadosRef.current) {
+      if (!nextMap.has(id) && !cancelledProgramadosRef.current.has(id)) {
+        onScheduledDelivered?.(preview);
+      }
+    }
+    prevProgramadosRef.current = nextMap;
+  };
 
   useEffect(() => {
     if (!conversationId) {
@@ -132,29 +177,41 @@ export default function MessageInput({
       return;
     }
     let cancelled = false;
-    void fetch(`/api/chat/scheduled?conversacion_id=${encodeURIComponent(conversationId)}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setProgramados(Array.isArray(data.scheduled) ? data.scheduled : []);
-      })
-      .catch(() => {});
+    const load = () => {
+      void fetch(`/api/chat/scheduled?conversacion_id=${encodeURIComponent(conversationId)}`, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!cancelled) {
+            const items = Array.isArray(data.scheduled) ? data.scheduled : [];
+            trackProgramados(items);
+            setProgramados(items);
+          }
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = setInterval(load, 15_000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
-  }, [conversationId, mensaje]);
+  }, [conversationId]);
 
   const reloadProgramados = async () => {
     if (!conversationId) return;
     try {
       const res = await fetch(`/api/chat/scheduled?conversacion_id=${encodeURIComponent(conversationId)}`, { cache: 'no-store' });
       const data = await res.json();
-      setProgramados(Array.isArray(data.scheduled) ? data.scheduled : []);
+      const items = Array.isArray(data.scheduled) ? data.scheduled : [];
+      trackProgramados(items);
+      setProgramados(items);
     } catch {
       /* noop */
     }
   };
 
   const cancelProgramado = async (id: string) => {
+    cancelledProgramadosRef.current.add(id);
     await fetch(`/api/chat/scheduled?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     await reloadProgramados();
   };
@@ -257,19 +314,27 @@ export default function MessageInput({
     }
     const texto = mensaje.trim();
     if (!texto) return;
+    if (notaInterna) {
+      onSendInternalNote?.(texto);
+      setMensaje('');
+      setNotaInterna(false);
+      onTyping?.(false);
+      return;
+    }
     const imagenUrl = carrito.length > 0 ? primeraImagenCarrito(carrito) : null;
     const attach = imagenUrl
       ? { url: imagenUrl, fileName: carrito[0]?.nombre || 'producto', fileType: 'image' as const }
       : null;
     if (attach && onSendFile) {
-      onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto);
+      const scheduledFor = resolveScheduledFor();
+      if (programar && !scheduledFor) return;
+      onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto, scheduledFor ? { scheduledFor } : undefined);
+      if (scheduledFor) void reloadProgramados();
     } else {
       let scheduledFor: string | undefined;
       if (programar) {
-        const when = new Date(`${fechaProgramada}T${horaProgramada}:00`);
-        if (Number.isFinite(when.getTime()) && when.getTime() > Date.now()) {
-          scheduledFor = when.toISOString();
-        }
+        scheduledFor = resolveScheduledFor();
+        if (!scheduledFor) return;
       }
       onSendMessage(texto, scheduledFor ? { scheduledFor } : undefined);
       if (scheduledFor) {
@@ -397,9 +462,24 @@ export default function MessageInput({
       {conversationId && onSendFile ? (
         <FileUpload
           ref={fileRef}
-          onFileUploaded={onSendFile}
+          onFileUploaded={(url, fileName, fileType, mimeType) => {
+            if (notaInterna) return;
+            const scheduledFor = resolveScheduledFor();
+            if (programar && !scheduledFor) return;
+            onSendFile(
+              url,
+              fileName,
+              fileType,
+              mimeType,
+              mensaje.trim() || undefined,
+              scheduledFor ? { scheduledFor } : undefined,
+            );
+            if (scheduledFor) void reloadProgramados();
+            setMensaje('');
+            setProgramar(false);
+          }}
           conversationId={conversationId}
-          disabled={disabled}
+          disabled={disabled || notaInterna}
         />
       ) : null}
 
@@ -488,7 +568,7 @@ export default function MessageInput({
               <Chip
                 key={item.id}
                 size="small"
-                label={`${(item.contenido || '').slice(0, 24)}${(item.contenido || '').length > 24 ? '…' : ''} · ${item.next_attempt_at ? new Date(item.next_attempt_at).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}`}
+                label={`${(item.contenido || '').slice(0, 24)}${(item.contenido || '').length > 24 ? '…' : ''} · ${item.next_attempt_at ? formatScheduleLocal(item.next_attempt_at) : ''}`}
                 onDelete={() => void cancelProgramado(item.id)}
                 sx={{ maxWidth: '100%' }}
               />
@@ -497,13 +577,16 @@ export default function MessageInput({
         </Box>
       ) : null}
 
-      {programar ? (
-        <Stack direction="row" spacing={1} sx={{ px: 0.5, pb: 0.75, flexWrap: 'wrap' }}>
+      {programar && !notaInterna ? (
+        <Stack direction="row" spacing={1} sx={{ px: 0.5, pb: 0.75, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             type="date"
             size="small"
             value={fechaProgramada}
-            onChange={(e) => setFechaProgramada(e.target.value)}
+            onChange={(e) => {
+              setFechaProgramada(e.target.value);
+              setScheduleError(null);
+            }}
             InputLabelProps={{ shrink: true }}
             sx={{ width: 150 }}
           />
@@ -511,16 +594,68 @@ export default function MessageInput({
             type="time"
             size="small"
             value={horaProgramada}
-            onChange={(e) => setHoraProgramada(e.target.value)}
+            onChange={(e) => {
+              setHoraProgramada(e.target.value);
+              setScheduleError(null);
+            }}
             InputLabelProps={{ shrink: true }}
             sx={{ width: 120 }}
           />
+          {scheduleError ? (
+            <Typography variant="caption" sx={{ color: 'error.main', width: '100%' }}>
+              {scheduleError}
+            </Typography>
+          ) : (
+            <Typography variant="caption" sx={{ color: WA.muted, width: '100%' }}>
+              Se enviará en hora local (Argentina)
+            </Typography>
+          )}
         </Stack>
       ) : null}
 
-      <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, pb: 0.25 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5, pb: 0.25, gap: 1, flexWrap: 'wrap' }}>
         <FormControlLabel
-          control={<Switch size="small" checked={programar} onChange={(e) => setProgramar(e.target.checked)} />}
+          control={
+            <Switch
+              size="small"
+              checked={notaInterna}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setNotaInterna(on);
+                if (on) {
+                  setProgramar(false);
+                  onCancelReply?.();
+                }
+              }}
+              disabled={disabled}
+            />
+          }
+          label={(
+            <Typography variant="caption" sx={{ color: WA.muted, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <LockOutlinedIcon sx={{ fontSize: 14 }} /> Nota interna
+            </Typography>
+          )}
+          sx={{ m: 0 }}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={programar}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setProgramar(on);
+                if (on) {
+                  setNotaInterna(false);
+                  const now = currentScheduleFields();
+                  setFechaProgramada(now.fecha);
+                  setHoraProgramada(now.hora);
+                  setScheduleError(null);
+                }
+              }}
+              disabled={disabled || notaInterna}
+            />
+          }
           label={<Typography variant="caption" sx={{ color: WA.muted }}>Programar envío</Typography>}
           sx={{ m: 0 }}
         />

@@ -8,9 +8,11 @@ import {
 } from '@/lib/crm/leadConversationUnread';
 import { shouldRecordEtapaChange } from '@/lib/crm/leadEtapaHistorial';
 import { isEstadoPerdido, isMotivoPerdido } from '@/lib/contactos/estadoLead';
+import { attachUltimoMovEtapa } from '@/lib/crm/leadUltimoMov';
 import type { ProximaTareaLead } from '@/lib/crm/leadTaskBadge';
 
 type ConvRow = LeadConversationLink & {
+  metadata?: Record<string, unknown> | null;
   mensajes_conversacion?: Array<{
     contenido?: string | null;
     fecha_mensaje?: string | null;
@@ -36,6 +38,9 @@ function toLeadConversationLinks(rows: ConvRow[] | null | undefined): LeadConver
       fecha_mensaje: preview.fecha_mensaje || conv.fecha_mensaje || null,
       ultimo_mensaje: preview.contenido,
       servicio_origen: conv.servicio_origen || null,
+      seguimiento_dismissed_at: typeof conv.metadata?.seguimiento_dismissed_at === 'string'
+        ? conv.metadata.seguimiento_dismissed_at
+        : null,
       mensajes: (conv.mensajes_conversacion || []).map((m) => ({
         fecha_mensaje: m.fecha_mensaje,
         usuario_id: m.usuario_id,
@@ -127,6 +132,7 @@ export async function GET(request: NextRequest) {
       unread_count,
       fecha_mensaje,
       servicio_origen,
+      metadata,
       mensajes_conversacion (
         contenido,
         fecha_mensaje,
@@ -176,7 +182,25 @@ export async function GET(request: NextRequest) {
 
     const withConv = attachLeadConversationMeta(leads, toLeadConversationLinks(convRows));
     const withTags = attachContactoEtiquetas(withConv, contactosRows);
-    const result = attachProximaTarea(withTags, tasksRows);
+    const withTasks = attachProximaTarea(withTags, tasksRows);
+
+    let historialRows: Array<{
+      lead_id: string;
+      fecha: string;
+      estado_anterior_nombre: string | null;
+      estado_nuevo_nombre: string;
+      motivo?: string | null;
+    }> = [];
+    if (ids.length > 0) {
+      const { data: historialData } = await supabase
+        .from('lead_etapa_historial')
+        .select('lead_id, fecha, estado_anterior_nombre, estado_nuevo_nombre, motivo')
+        .in('lead_id', ids)
+        .order('fecha', { ascending: false });
+      historialRows = (historialData || []) as typeof historialRows;
+    }
+
+    const result = attachUltimoMovEtapa(withTasks, historialRows);
 
     return NextResponse.json(result);
   } catch (error) {

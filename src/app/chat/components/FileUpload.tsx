@@ -187,6 +187,22 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
                   : FileUploadService.getFileType(uploadingFile.file) === 'audio' ? <AudioFileIcon />
                     : <AttachFileIcon />}
               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                {FileUploadService.getFileType(uploadingFile.file) === 'video' && !uploadingFile.error ? (
+                  <Box
+                    component="video"
+                    src={URL.createObjectURL(uploadingFile.file)}
+                    muted
+                    playsInline
+                    sx={{
+                      width: '100%',
+                      maxHeight: 120,
+                      borderRadius: 1,
+                      mb: 0.5,
+                      bgcolor: '#000',
+                      objectFit: 'cover',
+                    }}
+                  />
+                ) : null}
                 <Typography variant="body2" noWrap>{uploadingFile.file.name}</Typography>
                 {uploadingFile.error ? (
                   <Typography variant="caption" color="error">{uploadingFile.error}</Typography>

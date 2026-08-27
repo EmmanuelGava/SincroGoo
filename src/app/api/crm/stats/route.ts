@@ -15,8 +15,7 @@ import {
  * Scope:
  * - Leads: asignado_a = usuario
  * - Estados: usuario_id = usuario
- * - Conversaciones: sin lead (como el sidebar entrantes) + leads del usuario
- *   + contactos del usuario. Gap: chats sin lead no están multi-tenant.
+ * - Conversaciones: sin lead del mismo Google ID + leads/contactos del usuario
  */
 async function requireCrm() {
   const session = await getServerSession(authOptions);
@@ -43,12 +42,18 @@ type ConvRow = {
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const client = await requireCrm();
     if (!client) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     const { supabase, usuarioId } = client;
+    const googleUserId = session.user.id;
 
     const [{ data: estados, error: estadosError }, { data: leads, error: leadsError }, { data: contactos }] =
       await Promise.all([
@@ -88,11 +93,12 @@ export async function GET() {
 
     const convMap = new Map<string, ConvRow>();
 
-    // Mismo criterio que /api/crm/conversaciones/entrantes: todos los sin lead.
+    // Chats sin lead: solo los del usuario conectado (Google ID en conversaciones.usuario_id).
     const { data: sinLead, error: sinLeadErr } = await supabase
       .from('conversaciones')
       .select(convSelect)
-      .is('lead_id', null);
+      .is('lead_id', null)
+      .eq('usuario_id', googleUserId);
     if (sinLeadErr) throw sinLeadErr;
     for (const row of (sinLead || []) as ConvRow[]) {
       convMap.set(row.id, row);

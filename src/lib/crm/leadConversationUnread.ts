@@ -10,6 +10,7 @@ export type LeadConversationLink = {
   ultimo_mensaje?: string | null;
   servicio_origen?: string | null;
   mensajes?: MessageDirectionInput[] | null;
+  seguimiento_dismissed_at?: string | null;
 };
 
 export type LeadWithContacto = {
@@ -118,6 +119,7 @@ export function attachLeadConversationMeta<T extends LeadWithEtapa>(
     const seguimiento = computeSeguimientoMeta({
       mensajes: conv?.mensajes,
       leadEtapaNombre: leadEtapaNombre(lead),
+      seguimientoDismissedAt: conv?.seguimiento_dismissed_at || null,
     });
     return {
       ...lead,

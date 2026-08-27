@@ -25,6 +25,8 @@ export const DEFAULT_SEGUIMIENTO_CONFIG: SeguimientoConfig = {
 export type SeguimientoConversationInput = {
   mensajes?: MessageDirectionInput[] | null;
   leadEtapaNombre?: string | null;
+  /** Si el vendedor marcó seguimiento atendido (p. ej. al completar tarea K4). */
+  seguimientoDismissedAt?: string | null;
 };
 
 export type SeguimientoMeta = {
@@ -108,6 +110,15 @@ export function computeSeguimientoMeta(
 
   const desde = last.fecha_mensaje;
   if (!desde) return empty;
+
+  const dismissedAt = input.seguimientoDismissedAt;
+  if (dismissedAt) {
+    const dismissedMs = new Date(dismissedAt).getTime();
+    const desdeMsCheck = new Date(desde).getTime();
+    if (Number.isFinite(dismissedMs) && Number.isFinite(desdeMsCheck) && dismissedMs >= desdeMsCheck) {
+      return empty;
+    }
+  }
 
   const desdeMs = new Date(desde).getTime();
   if (!Number.isFinite(desdeMs)) return empty;

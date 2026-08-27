@@ -10,9 +10,11 @@ import ConversationHeader from './ConversationHeader';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
+import TypingIndicator from './TypingIndicator';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import { conversationGreetingName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 import { buildQuotedMeta, type ReplyToMessage } from '@/lib/chat/quotedMessage';
+import { formatScheduleLocal } from '@/lib/chat/scheduleSend';
 import { useWaChatBgSx, useWaTheme } from '@/app/chat/chatTheme';
 
 interface Conversacion {
@@ -71,9 +73,11 @@ export default function ChatWindow({
   const [loading, setLoading] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
+  const [infoEnvio, setInfoEnvio] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<Mensaje[]>([]);
   const [manageReplies, setManageReplies] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
+  const [isComposing, setIsComposing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -179,7 +183,10 @@ export default function ChatWindow({
       console.log('📤 Respuesta del servidor:', { status: res.status, data });
 
       if (res.ok && data.success) {
-        if (!isScheduled) {
+        if (isScheduled && options?.scheduledFor) {
+          setInfoEnvio(`Mensaje programado para ${formatScheduleLocal(options.scheduledFor)}`);
+          setTimeout(() => setInfoEnvio(null), 6000);
+        } else if (!isScheduled) {
           fetchMensajes();
         }
         onRefreshConversaciones();
@@ -205,18 +212,67 @@ export default function ChatWindow({
     }
   };
 
+  const handleSendInternalNote = async (contenido: string) => {
+    if (!conversacion || !contenido.trim()) return;
+
+    const texto = contenido.trim();
+    const tempId = `note-${Date.now()}`;
+    const now = new Date().toISOString();
+    const pending: Mensaje = {
+      id: tempId,
+      contenido: texto,
+      tipo: 'nota_interna',
+      remitente: 'yo',
+      fecha_mensaje: now,
+      canal: conversacion.servicio_origen,
+      usuario_id: 'local',
+      metadata: { internal_note: true, direction: 'internal', estado_envio: 'nota' },
+    };
+    setOptimistic((prev) => [...prev, pending]);
+    setErrorEnvio(null);
+
+    try {
+      const res = await fetch(`/api/chat/conversaciones/${encodeURIComponent(conversacion.id)}/nota-interna`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contenido: texto,
+          lead_id: conversacion.lead_id || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchMensajes();
+        onRefreshConversaciones();
+        setTimeout(() => {
+          setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+        }, 800);
+      } else {
+        setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+        setErrorEnvio(data.error || 'No se pudo guardar la nota');
+      }
+    } catch (error) {
+      setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
+      setErrorEnvio(error instanceof Error ? error.message : 'Error de conexión');
+    }
+  };
+
   const handleSendFile = async (
     url: string,
     fileName: string,
     fileType: string,
     mimeType?: string,
     caption?: string,
+    options?: { scheduledFor?: string },
   ) => {
     if (!conversacion || enviando) return;
 
-    console.log('🔧 Enviando archivo:', { url, fileName, fileType, conversacion: conversacion.id });
+    const isScheduled = Boolean(options?.scheduledFor);
+    console.log('🔧 Enviando archivo:', { url, fileName, fileType, conversacion: conversacion.id, isScheduled });
 
-    setEnviando(true);
+    if (!isScheduled) {
+      setEnviando(true);
+    }
     setErrorEnvio(null);
 
     try {
@@ -237,6 +293,7 @@ export default function ChatWindow({
                 ? 'video'
                 : 'file',
           filePath: url,
+          scheduled_for: options?.scheduledFor || undefined,
           metadata: {
             conversacion_id: conversacion.id,
             original_canal: conversacion.servicio_origen,
@@ -251,10 +308,13 @@ export default function ChatWindow({
       const data = await res.json();
 
       if (res.ok && data.success) {
-        console.log('✅ Archivo enviado via nueva arquitectura:', data);
-        
-        // Refrescar mensajes y conversaciones
-        fetchMensajes();
+        if (isScheduled && options?.scheduledFor) {
+          setInfoEnvio(`Archivo programado para ${formatScheduleLocal(options.scheduledFor)}`);
+          setTimeout(() => setInfoEnvio(null), 6000);
+        } else {
+          console.log('✅ Archivo enviado via nueva arquitectura:', data);
+          fetchMensajes();
+        }
         onRefreshConversaciones();
       } else {
         setErrorEnvio(data.error || 'Error enviando archivo');
@@ -263,7 +323,9 @@ export default function ChatWindow({
       console.error('Error enviando archivo:', error);
       setErrorEnvio(error instanceof Error ? error.message : 'Error de conexión');
     } finally {
-      setEnviando(false);
+      if (!isScheduled) {
+        setEnviando(false);
+      }
     }
   };
 
@@ -397,6 +459,13 @@ export default function ChatWindow({
             retrying={enviando}
           />
         )}
+        {infoEnvio ? (
+          <Box sx={{ px: 2, py: 1, bgcolor: 'rgba(76, 175, 80, 0.12)', borderBottom: `1px solid ${WA.border}` }}>
+            <Typography variant="body2" sx={{ color: WA.text }}>
+              {infoEnvio}
+            </Typography>
+          </Box>
+        ) : null}
 
         {loading ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -417,13 +486,18 @@ export default function ChatWindow({
                 key={mensaje.id} 
                 mensaje={mensaje}
                 isOwn={
-                  !!mensaje.usuario_id
+                  mensaje.tipo === 'nota_interna'
+                  || mensaje.metadata?.internal_note === true
+                    ? false
+                    : !!mensaje.usuario_id
                   || mensaje.metadata?.direction === 'outgoing'
                   || String(mensaje.id).startsWith('temp-')
                 }
                 onReply={
                   !mensaje.usuario_id
                   && mensaje.metadata?.direction !== 'outgoing'
+                  && mensaje.tipo !== 'nota_interna'
+                  && !mensaje.metadata?.internal_note
                   && (mensaje.wa_message_id || mensaje.metadata?.wa_message_id)
                     ? () => setReplyTo({
                         id: mensaje.id,
@@ -436,6 +510,13 @@ export default function ChatWindow({
                 }
               />
             ))}
+
+            <TypingIndicator
+              remitente={conversationGreetingName(conversacion)}
+              servicioColor={WA.accent}
+              show={isComposing}
+              isOwn
+            />
             
             <div ref={messagesEndRef} />
           </Box>
@@ -444,12 +525,20 @@ export default function ChatWindow({
 
       <MessageInput 
         onSendMessage={handleSendMessage}
+        onSendInternalNote={handleSendInternalNote}
         onSendFile={handleSendFile}
         onSendAudio={handleSendAudio}
+        onScheduledDelivered={(preview) => {
+          setInfoEnvio(`Mensaje programado enviado: ${preview.slice(0, 60)}${preview.length > 60 ? '…' : ''}`);
+          setTimeout(() => setInfoEnvio(null), 6000);
+          fetchMensajes();
+          onRefreshConversaciones();
+        }}
         conversationId={conversacion.id}
         disabled={loading}
         placeholder="Escribe un mensaje o / para respuestas"
         enviando={enviando}
+        onTyping={setIsComposing}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         respuestaVars={{

@@ -13,6 +13,7 @@ import TelegramIcon from '@mui/icons-material/Telegram';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import ReplyIcon from '@mui/icons-material/Reply';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import MessageStatus from './MessageStatus';
 import FileAttachment from './FileAttachment';
 import LinkPreview from './LinkPreview';
@@ -130,10 +131,48 @@ export default function MessageBubble({ mensaje, isOwn, onReply }: MessageBubble
   const duration = Number(mensaje.metadata?.duration || 0);
   const caption = String(mensaje.contenido || '').trim();
   const quotedMessage = mensaje.metadata?.quoted_message as QuotedMessageMeta | undefined;
-  const showFile = view.showImage || view.showAudio || view.showVideo || Boolean(view.filePresentation);
+  const showFile = !view.isInternalNote && (view.showImage || view.showAudio || view.showVideo || Boolean(view.filePresentation));
   const attachmentType = view.filePresentation === 'unavailable' && !view.showImage && !view.showAudio && !view.showVideo
     ? 'file'
     : (fileType || 'unknown');
+
+  if (view.isInternalNote) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 0.75, px: 1 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            px: 1.25,
+            py: 0.75,
+            maxWidth: '80%',
+            bgcolor: 'rgba(120, 120, 120, 0.22)',
+            color: WA.muted,
+            borderRadius: '7.5px',
+            border: `1px dashed ${WA.border}`,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+            <LockOutlinedIcon sx={{ fontSize: 16, mt: 0.15, color: WA.muted }} />
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography variant="caption" sx={{ color: WA.muted, fontWeight: 600, display: 'block', mb: 0.25 }}>
+                Nota interna
+              </Typography>
+              {view.showRawText ? (
+                <LinkedCaption text={caption} isOwn={false} />
+              ) : caption ? (
+                <Typography variant="body2" sx={{ color: WA.text, whiteSpace: 'pre-wrap' }}>
+                  {caption}
+                </Typography>
+              ) : null}
+              <Typography variant="caption" sx={{ color: WA.muted, fontSize: '0.68rem', display: 'block', mt: 0.4, textAlign: 'right' }}>
+                {formatTime(mensaje.fecha_mensaje)}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box

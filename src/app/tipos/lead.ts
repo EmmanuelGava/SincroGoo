@@ -37,4 +37,5 @@ export interface Lead {
   seguimiento_desde?: string | null;
   seguimiento_horas?: number | null;
   proxima_tarea?: ProximaTareaLead | null;
+  ultimo_mov_etapa?: { texto: string; fecha: string } | null;
 } 

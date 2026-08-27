@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 import {
   PACING_GAP_MIN_MS,
   PACING_GAP_SPAN_MS,
@@ -136,6 +137,58 @@ export async function claimWhatsAppOutbox(
   return (rows[0] as WhatsAppOutboxRow) || null;
 }
 
+/** Mensajes programados no crean fila en inbox al encolar; se persiste al enviarse. */
+export async function persistScheduledOutboxToInbox(
+  supabase: SupabaseClient,
+  row: WhatsAppOutboxRow,
+  waMessageId?: string
+): Promise<void> {
+  const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  if (meta.scheduled_by_user !== true) return;
+  if (typeof meta.inbox_message_id === 'string') return;
+  if (!row.conversacion_id) return;
+
+  const messageId = uuidv4();
+  const now = new Date().toISOString();
+  const { error: insertError } = await supabase.from('mensajes_conversacion').insert({
+    id: messageId,
+    conversacion_id: row.conversacion_id,
+    tipo: row.message_type || 'texto',
+    contenido: row.contenido,
+    remitente: row.to_jid,
+    fecha_mensaje: now,
+    canal: 'whatsapp',
+    metadata: {
+      ...meta,
+      direction: 'outgoing',
+      estado_envio: 'enviado',
+      outbox_id: row.id,
+    },
+    usuario_id: row.usuario_id || null,
+    estado_envio: 'enviado',
+    ...(waMessageId ? { wa_message_id: waMessageId } : {}),
+  });
+  if (insertError) {
+    console.warn('⚠️ No se pudo guardar mensaje programado en inbox:', insertError.message);
+    return;
+  }
+
+  await supabase
+    .from('conversaciones')
+    .update({ fecha_mensaje: now })
+    .eq('id', row.conversacion_id);
+
+  if (row.usuario_id) {
+    const { notifyInboxRealtime } = await import('@/lib/chat/notifyInbox');
+    await notifyInboxRealtime(row.usuario_id, {
+      conversacionId: row.conversacion_id,
+      platform: 'whatsapp',
+      preview: String(row.contenido || '').slice(0, 120),
+      direction: 'outgoing',
+    });
+  }
+}
+
 async function patchInboxFromOutbox(
   supabase: SupabaseClient,
   row: WhatsAppOutboxRow,
@@ -186,6 +239,7 @@ export async function completeOutboxSend(
       } as never)
       .eq('id', row.id);
     await patchInboxFromOutbox(supabase, row, 'enviado', { waMessageId: result.waMessageId });
+    await persistScheduledOutboxToInbox(supabase, row, result.waMessageId);
     return 'sent';
   }
 

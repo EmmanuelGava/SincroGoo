@@ -25,6 +25,7 @@ import SmsIcon from '@mui/icons-material/Sms';
 import PersonIcon from '@mui/icons-material/Person';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
+import PostAddIcon from '@mui/icons-material/PostAdd';
 import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
@@ -60,6 +61,7 @@ interface ConversationHeaderProps {
   onManageReplies?: () => void;
   drawerOpen?: boolean;
   onToggleDrawer?: () => void;
+  onLeadCreated?: (leadId: string) => void;
 }
 
 const servicioIcons: Record<string, React.ElementType> = {
@@ -91,6 +93,7 @@ export default function ConversationHeader({
   onManageReplies,
   drawerOpen,
   onToggleDrawer,
+  onLeadCreated,
 }: ConversationHeaderProps) {
   const WA = useWaTheme();
   const [leadModalOpen, setLeadModalOpen] = useState(false);
@@ -100,6 +103,7 @@ export default function ConversationHeader({
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [creatingPedido, setCreatingPedido] = useState(false);
+  const [creatingLead, setCreatingLead] = useState(false);
   const [resolvedLeadId, setResolvedLeadId] = useState<string | null>(conversacion.lead_id || null);
   const [recordatorioOpen, setRecordatorioOpen] = useState(false);
   const router = useRouter();
@@ -248,7 +252,34 @@ export default function ConversationHeader({
               <ViewKanbanIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-        ) : null}
+        ) : (
+          <Tooltip title="Pasar al Kanban">
+            <IconButton
+              size="small"
+              disabled={creatingLead}
+              onClick={async () => {
+                setCreatingLead(true);
+                try {
+                  const res = await fetch(`/api/chat/conversaciones/${encodeURIComponent(conversacion.id)}/crear-lead`, {
+                    method: 'POST',
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok && data.lead?.id) {
+                    setResolvedLeadId(data.lead.id);
+                    onLeadCreated?.(data.lead.id);
+                    router.push(`/crm?lead=${encodeURIComponent(data.lead.id)}`);
+                  }
+                } finally {
+                  setCreatingLead(false);
+                }
+              }}
+              aria-label="Pasar al Kanban"
+              sx={{ color: WA.icon }}
+            >
+              <PostAddIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title="Más opciones">
           <IconButton
             size="small"
@@ -280,6 +311,31 @@ export default function ConversationHeader({
             <ListItemText>Ver en el Kanban</ListItemText>
           </MenuItem>
         )}
+        {!resolvedLeadId ? (
+          <MenuItem
+            disabled={creatingLead}
+            onClick={async () => {
+              setMenuAnchor(null);
+              setCreatingLead(true);
+              try {
+                const res = await fetch(`/api/chat/conversaciones/${encodeURIComponent(conversacion.id)}/crear-lead`, {
+                  method: 'POST',
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.lead?.id) {
+                  setResolvedLeadId(data.lead.id);
+                  onLeadCreated?.(data.lead.id);
+                  router.push(`/crm?lead=${encodeURIComponent(data.lead.id)}`);
+                }
+              } finally {
+                setCreatingLead(false);
+              }
+            }}
+          >
+            <ListItemIcon sx={{ color: WA.icon }}><PostAddIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{creatingLead ? 'Creando lead…' : 'Pasar al Kanban'}</ListItemText>
+          </MenuItem>
+        ) : null}
         {resolvedLeadId && (
           <MenuItem
             onClick={() => {

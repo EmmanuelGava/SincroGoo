@@ -26,7 +26,6 @@ import { IconButton, Tooltip } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import SearchIcon from '@mui/icons-material/Search';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
@@ -98,6 +97,7 @@ function TarjetaLead({
   onDelete,
   onRecordatorio,
   onCompleteTask,
+  onDismissSeguimiento,
   colors,
   highlighted,
 }: {
@@ -107,6 +107,7 @@ function TarjetaLead({
   onDelete: (lead: Lead) => void;
   onRecordatorio: (lead: Lead) => void;
   onCompleteTask: (lead: Lead) => void;
+  onDismissSeguimiento: (lead: Lead) => void;
   colors: any;
   highlighted?: boolean;
 }) {
@@ -159,16 +160,21 @@ function TarjetaLead({
               {lead.nombre}
             </Typography>
             {seguimiento && (
-              <Tooltip title={seguimientoHint}>
+              <Tooltip title={`${seguimientoHint}. Clic para marcar como atendido.`}>
                 <Chip
                   label="Seguimiento"
                   size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDismissSeguimiento(lead);
+                  }}
                   sx={{
                     height: 20,
                     fontSize: '0.65rem',
                     bgcolor: 'rgba(237, 108, 2, 0.15)',
                     color: '#ffb74d',
                     border: '1px solid rgba(237, 108, 2, 0.4)',
+                    cursor: lead.conversacion_id ? 'pointer' : 'default',
                   }}
                 />
               </Tooltip>
@@ -213,20 +219,6 @@ function TarjetaLead({
               ) : null}
             </Box>
           )}
-
-          {lead.ultimo_mov_etapa?.texto ? (
-            <Tooltip
-              title={`Último movimiento · ${new Date(lead.ultimo_mov_etapa.fecha).toLocaleString('es-AR')}`}
-            >
-              <Chip
-                icon={<SwapHorizIcon sx={{ fontSize: '0.75rem !important' }} />}
-                label={lead.ultimo_mov_etapa.texto}
-                size="small"
-                variant="outlined"
-                sx={{ height: 20, fontSize: '0.65rem', mb: 0.75, maxWidth: '100%' }}
-              />
-            </Tooltip>
-          ) : null}
 
           {lead.empresa && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -296,10 +288,23 @@ function TarjetaLead({
               position: 'absolute',
               top: 4, right: 4,
               display: 'flex',
-              opacity: 0,
+              opacity: seguimiento ? 1 : 0,
               transition: 'opacity 0.2s',
             }}
           >
+            {seguimiento && lead.conversacion_id ? (
+              <Tooltip title="Marcar como atendido (quitar seguimiento)">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDismissSeguimiento(lead);
+                  }}
+                >
+                  <CheckCircleOutlineIcon sx={{ fontSize: '1rem', color: '#ed6c02' }} />
+                </IconButton>
+              </Tooltip>
+            ) : null}
             <Tooltip title="Recordarme">
               <IconButton size="small" onClick={() => onRecordatorio(lead)}>
                 <AlarmIcon sx={{ fontSize: '1rem', color: colors.textSecondary }} />
@@ -670,6 +675,24 @@ export default function KanbanLeads() {
       });
     } catch (error) {
       console.error('Error creando un deal nuevo:', error);
+    }
+  };
+
+  const handleDismissSeguimiento = async (lead: Lead) => {
+    if (!lead.conversacion_id) return;
+    try {
+      const res = await fetch(
+        `/api/chat/conversaciones/${encodeURIComponent(lead.conversacion_id)}/dismiss-seguimiento`,
+        { method: 'POST' },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error(data.error || 'No se pudo quitar el seguimiento');
+        return;
+      }
+      refrescarLeads();
+    } catch (error) {
+      console.error('Error al quitar seguimiento:', error);
     }
   };
 
@@ -1072,6 +1095,7 @@ export default function KanbanLeads() {
                                             onDelete={setConfirmDeleteLead}
                                             onRecordatorio={setRecordatorioLead}
                                             onCompleteTask={handleCompleteTask}
+                                            onDismissSeguimiento={handleDismissSeguimiento}
                                             colors={colors}
                                             highlighted={highlightLeadId === lead.id}
                                           />

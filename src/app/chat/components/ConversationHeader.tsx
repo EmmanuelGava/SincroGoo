@@ -37,6 +37,7 @@ import RecordatorioLeadModal from '@/app/crm/componentes/RecordatorioLeadModal';
 import { useRouter } from 'next/navigation';
 import LeadProfileModal from './LeadProfileModal';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
+import ChatHeaderNotes from './ChatHeaderNotes';
 import { useWaTheme } from '@/app/chat/chatTheme';
 
 interface Conversacion {
@@ -62,6 +63,7 @@ interface ConversationHeaderProps {
   drawerOpen?: boolean;
   onToggleDrawer?: () => void;
   onLeadCreated?: (leadId: string) => void;
+  notesRefreshKey?: number;
 }
 
 const servicioIcons: Record<string, React.ElementType> = {
@@ -94,6 +96,7 @@ export default function ConversationHeader({
   drawerOpen,
   onToggleDrawer,
   onLeadCreated,
+  notesRefreshKey = 0,
 }: ConversationHeaderProps) {
   const WA = useWaTheme();
   const [leadModalOpen, setLeadModalOpen] = useState(false);
@@ -152,14 +155,14 @@ export default function ConversationHeader({
   };
 
   return (
-    <Box sx={{ 
-      p: 1.25, 
-      px: 2,
-      bgcolor: WA.header,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 2,
-    }}>
+    <Box sx={{ bgcolor: WA.header, borderBottom: `1px solid ${WA.border}` }}>
+      <Box sx={{
+        p: 1.25,
+        px: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+      }}>
       {/* Avatar con indicador de servicio */}
       <Box sx={{ position: 'relative' }}>
         <Avatar sx={{ 
@@ -291,6 +294,9 @@ export default function ConversationHeader({
           </IconButton>
         </Tooltip>
       </Box>
+      </Box>
+
+      <ChatHeaderNotes conversacionId={conversacion.id} refreshKey={notesRefreshKey} />
 
       <Menu
         anchorEl={menuAnchor}

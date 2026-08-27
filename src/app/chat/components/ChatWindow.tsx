@@ -11,6 +11,7 @@ import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import ErrorMessage from './ErrorMessage';
 import TypingIndicator from './TypingIndicator';
+import { isInternalNoteMessage } from '@/lib/chat/isInternalNoteMessage';
 import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import { conversationGreetingName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 import { buildQuotedMeta, type ReplyToMessage } from '@/lib/chat/quotedMessage';
@@ -78,6 +79,7 @@ export default function ChatWindow({
   const [manageReplies, setManageReplies] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
   const [isComposing, setIsComposing] = useState(false);
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -107,10 +109,12 @@ export default function ChatWindow({
   };
 
   const mensajesBase = mensajesLive ?? mensajesLocal;
+  const mensajesSinNotas = mensajesBase.filter((m) => !isInternalNoteMessage(m));
   const mensajes = [
-    ...mensajesBase,
+    ...mensajesSinNotas,
     ...optimistic.filter(
-      (pending) => !mensajesBase.some((m) => m.contenido === pending.contenido && m.usuario_id)
+      (pending) => !isInternalNoteMessage(pending)
+        && !mensajesSinNotas.some((m) => m.contenido === pending.contenido && m.usuario_id)
     ),
   ];
 
@@ -216,19 +220,6 @@ export default function ChatWindow({
     if (!conversacion || !contenido.trim()) return;
 
     const texto = contenido.trim();
-    const tempId = `note-${Date.now()}`;
-    const now = new Date().toISOString();
-    const pending: Mensaje = {
-      id: tempId,
-      contenido: texto,
-      tipo: 'nota_interna',
-      remitente: 'yo',
-      fecha_mensaje: now,
-      canal: conversacion.servicio_origen,
-      usuario_id: 'local',
-      metadata: { internal_note: true, direction: 'internal', estado_envio: 'nota' },
-    };
-    setOptimistic((prev) => [...prev, pending]);
     setErrorEnvio(null);
 
     try {
@@ -242,17 +233,13 @@ export default function ChatWindow({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        fetchMensajes();
-        onRefreshConversaciones();
-        setTimeout(() => {
-          setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
-        }, 800);
+        setNotesRefreshKey((k) => k + 1);
+        setInfoEnvio('Nota guardada en el header del chat');
+        setTimeout(() => setInfoEnvio(null), 3000);
       } else {
-        setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
         setErrorEnvio(data.error || 'No se pudo guardar la nota');
       }
     } catch (error) {
-      setOptimistic((prev) => prev.filter((m) => m.id !== tempId));
       setErrorEnvio(error instanceof Error ? error.message : 'Error de conexión');
     }
   };
@@ -440,6 +427,7 @@ export default function ChatWindow({
         onManageReplies={() => setManageReplies(true)}
         drawerOpen={drawerOpen}
         onToggleDrawer={onToggleDrawer}
+        notesRefreshKey={notesRefreshKey}
       />
 
       {/* Área de mensajes */}

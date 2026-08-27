@@ -309,7 +309,10 @@ export async function processOutboxBatch(
     if (!row) break;
     processed += 1;
 
-    if (pacer) {
+    const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+    const isUserScheduled = meta.scheduled_by_user === true;
+
+    if (pacer && !isUserScheduled) {
       const decision = pacer.decide(row.usuario_id);
       if (decision.action === 'defer') {
         console.log(`⏳ pacing defer ${(decision.delayMs / 1000).toFixed(1)}s user=${row.usuario_id}`);

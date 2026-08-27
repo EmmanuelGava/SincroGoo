@@ -3,7 +3,9 @@ export function parseLocalScheduleDatetime(fecha: string, hora: string): Date | 
   const f = String(fecha || '').trim();
   const h = String(hora || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{2}:\d{2}$/.test(h)) return null;
-  const when = new Date(`${f}T${h}:00`);
+  const [year, month, day] = f.split('-').map(Number);
+  const [hours, minutes] = h.split(':').map(Number);
+  const when = new Date(year, month - 1, day, hours, minutes, 0, 0);
   return Number.isFinite(when.getTime()) ? when : null;
 }
 
@@ -35,7 +37,8 @@ export function defaultScheduleFields(minMinutes = 5, now = new Date()): { fecha
 }
 
 export function formatScheduleLocal(iso: string): string {
-  const date = new Date(iso);
+  const normalized = String(iso || '').trim().replace(' ', 'T');
+  const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString('es-AR', {
     day: '2-digit',

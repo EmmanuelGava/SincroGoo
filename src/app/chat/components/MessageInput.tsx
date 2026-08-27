@@ -161,11 +161,16 @@ export default function MessageInput({
     return when.toISOString();
   };
 
-  const trackProgramados = (items: Array<{ id: string; contenido?: string; next_attempt_at?: string }>) => {
+  const trackProgramados = (
+    items: Array<{ id: string; contenido?: string; next_attempt_at?: string }>,
+    isInitialLoad = false,
+  ) => {
     const nextMap = new Map(items.map((item) => [item.id, item.contenido || '']));
-    for (const [id, preview] of prevProgramadosRef.current) {
-      if (!nextMap.has(id) && !cancelledProgramadosRef.current.has(id)) {
-        onScheduledDelivered?.(preview);
+    if (!isInitialLoad) {
+      for (const [id, preview] of prevProgramadosRef.current) {
+        if (!nextMap.has(id) && !cancelledProgramadosRef.current.has(id)) {
+          onScheduledDelivered?.(preview);
+        }
       }
     }
     prevProgramadosRef.current = nextMap;
@@ -183,7 +188,7 @@ export default function MessageInput({
         .then((data) => {
           if (!cancelled) {
             const items = Array.isArray(data.scheduled) ? data.scheduled : [];
-            trackProgramados(items);
+            trackProgramados(items, prevProgramadosRef.current.size === 0);
             setProgramados(items);
           }
         })
@@ -203,7 +208,7 @@ export default function MessageInput({
       const res = await fetch(`/api/chat/scheduled?conversacion_id=${encodeURIComponent(conversationId)}`, { cache: 'no-store' });
       const data = await res.json();
       const items = Array.isArray(data.scheduled) ? data.scheduled : [];
-      trackProgramados(items);
+      trackProgramados(items, false);
       setProgramados(items);
     } catch {
       /* noop */
@@ -212,8 +217,22 @@ export default function MessageInput({
 
   const cancelProgramado = async (id: string) => {
     cancelledProgramadosRef.current.add(id);
-    await fetch(`/api/chat/scheduled?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-    await reloadProgramados();
+    setProgramados((prev) => prev.filter((item) => item.id !== id));
+    try {
+      const res = await fetch(`/api/chat/scheduled?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        cancelledProgramadosRef.current.delete(id);
+        setScheduleError(String(data.error || 'No se pudo cancelar el programado'));
+        await reloadProgramados();
+        return;
+      }
+      prevProgramadosRef.current.delete(id);
+    } catch {
+      cancelledProgramadosRef.current.delete(id);
+      setScheduleError('Error de conexión al cancelar');
+      await reloadProgramados();
+    }
   };
 
   const loadRespuestas = async () => {
@@ -383,7 +402,17 @@ export default function MessageInput({
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (programar && !mensaje.trim()) {
+        return;
+      }
       handleSend();
+    }
+  };
+
+  const stopScheduleFieldEnter = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
     }
   };
 
@@ -569,7 +598,16 @@ export default function MessageInput({
                 key={item.id}
                 size="small"
                 label={`${(item.contenido || '').slice(0, 24)}${(item.contenido || '').length > 24 ? '…' : ''} · ${item.next_attempt_at ? formatScheduleLocal(item.next_attempt_at) : ''}`}
-                onDelete={() => void cancelProgramado(item.id)}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  void cancelProgramado(item.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                }}
                 sx={{ maxWidth: '100%' }}
               />
             ))}
@@ -587,6 +625,7 @@ export default function MessageInput({
               setFechaProgramada(e.target.value);
               setScheduleError(null);
             }}
+            onKeyDown={stopScheduleFieldEnter}
             InputLabelProps={{ shrink: true }}
             sx={{ width: 150 }}
           />
@@ -598,6 +637,7 @@ export default function MessageInput({
               setHoraProgramada(e.target.value);
               setScheduleError(null);
             }}
+            onKeyDown={stopScheduleFieldEnter}
             InputLabelProps={{ shrink: true }}
             sx={{ width: 120 }}
           />

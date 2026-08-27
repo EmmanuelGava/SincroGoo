@@ -68,12 +68,15 @@ export async function sendMessage(data: SendMessageData) {
         throw new Error(`Plataforma no soportada: ${data.platform}`);
     }
 
-    if (success && !alreadySaved) {
-      // Guardar mensaje saliente en la base de datos
+    if (success && !alreadySaved && !scheduled) {
       await saveOutgoingMessage(data, platformDetails);
       console.log(`✅ Mensaje enviado exitosamente via ${data.platform}`);
     } else if (success) {
-      console.log(`✅ Mensaje enviado exitosamente via ${data.platform}`);
+      console.log(
+        scheduled
+          ? `✅ Mensaje programado via ${data.platform}`
+          : `✅ Mensaje enviado exitosamente via ${data.platform}`
+      );
     }
 
     return { success, platformDetails, error, outboxId, scheduled };

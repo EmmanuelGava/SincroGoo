@@ -82,13 +82,22 @@ export async function DELETE(request: NextRequest) {
     if (outboxRow.status === 'sending') {
       return NextResponse.json({ error: 'El mensaje ya se está enviando' }, { status: 409 });
     }
-    const { error } = await supabase
+    const meta = outboxRow.metadata && typeof outboxRow.metadata === 'object' ? outboxRow.metadata : {};
+    if (meta.scheduled_by_user !== true) {
+      return NextResponse.json({ error: 'Solo se pueden cancelar envíos programados' }, { status: 400 });
+    }
+
+    const { error, count } = await supabase
       .from('whatsapp_outbox' as never)
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() } as never)
+      .delete({ count: 'exact' })
       .eq('id', id)
-      .eq('usuario_id', session.user.id);
+      .eq('usuario_id', session.user.id)
+      .eq('status', 'queued');
 
     if (error) throw error;
+    if (!count) {
+      return NextResponse.json({ error: 'No se pudo cancelar (ya enviado o en curso)' }, { status: 409 });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     const { error: errorMessage, status } = formatErrorResponse(error);

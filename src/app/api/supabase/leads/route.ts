@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { getCrmApiClient } from '@/lib/crm/crmApiClient';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
 import {
   attachLeadConversationMeta,
@@ -88,16 +89,9 @@ function attachProximaTarea<T extends { id: string }>(
   }));
 }
 
-// Helper: supabaseToken si existe; si no, fallback a admin + usuario_id (cuando signInWithIdToken falló)
+// Helper: CRM con service role + usuario_id de la sesión.
 async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
-  try {
-    const { supabase } = await getSupabaseClient(true);
-    return { supabase, userId: usuarioId };
-  } catch {
-    return { supabase: getSupabaseAdmin(), userId: usuarioId };
-  }
+  return getCrmApiClient();
 }
 
 // GET /api/supabase/leads - Listar leads (opcional: filtrar por estado_id)

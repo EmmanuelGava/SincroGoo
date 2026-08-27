@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '../../../../lib/supabase/client';
+import { getSupabaseAdmin } from '../../../../lib/supabase/client';
+import { getCrmApiClient } from '@/lib/crm/crmApiClient';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
 
 async function getUserIdAndSupabase(): Promise<{ userId: string; supabase: ReturnType<typeof getSupabaseAdmin> } | null> {
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
-  // Usar supabaseToken si existe; si no, admin (fallback cuando signInWithIdToken falló)
-  try {
-    const { supabase } = await getSupabaseClient(true);
-    return { userId: usuarioId, supabase };
-  } catch {
-    return { userId: usuarioId, supabase: getSupabaseAdmin() };
-  }
+  return getCrmApiClient();
 }
 
 // GET /api/supabase/estados_lead - Listar estados (ordenados)

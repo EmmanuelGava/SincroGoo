@@ -155,26 +155,39 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const [estadosRes, leadsRes] = await Promise.all([
-        fetch("/api/supabase/estados_lead", { cache: 'no-store' }).then(r => r.json()),
-        fetch("/api/supabase/leads", { cache: 'no-store' }).then(r => r.json()),
+        fetch('/api/supabase/estados_lead', { cache: 'no-store' }).then(async (res) => {
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Error al cargar etapas');
+          return json;
+        }),
+        fetch('/api/supabase/leads', { cache: 'no-store' }).then(async (res) => {
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Error al cargar leads');
+          return json;
+        }),
       ]);
-      if (estadosRes.error) throw new Error(estadosRes.error);
-      if (leadsRes.error) throw new Error(leadsRes.error);
+      if (!Array.isArray(estadosRes)) {
+        throw new Error('Respuesta de etapas inválida');
+      }
+      if (!Array.isArray(leadsRes)) {
+        throw new Error('Respuesta de leads inválida');
+      }
       setEstados(estadosRes);
       // No pisar cards optimistas / drag en curso.
       if (!dragLockRef.current) {
         setLeads(leadsRes);
       }
     } catch (e: any) {
-      setError(e.message || "Error al cargar datos");
+      setError(e.message || 'Error al cargar datos');
     } finally {
       if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (status !== 'authenticated') return;
     fetchAll();
-  }, [fetchAll]);
+  }, [status, fetchAll]);
 
   const refrescarLeads = useCallback(() => {
     fetchAll();

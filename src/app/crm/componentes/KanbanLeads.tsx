@@ -38,7 +38,6 @@ import { FormularioLead } from './FormularioLead';
 import { FormularioEdicionLead } from './FormularioEdicionLead';
 import SidebarMensajesEntrantes from './SidebarMensajesEntrantes';
 import InboxStatsPanel from './InboxStatsPanel';
-import MessagingQuickSetup from '@/app/crm/components/MessagingQuickSetup';
 import { isEstadoPerdido, MOTIVOS_PERDIDO, MOTIVO_PERDIDO_LABEL, type MotivoPerdido } from '@/lib/contactos/estadoLead';
 import {
   filtrarLeadsKanban,
@@ -722,7 +721,6 @@ export default function KanbanLeads() {
       {/* Kanban principal */}
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ px: 2, pt: 1, pb: 1 }}>
-          <MessagingQuickSetup compact />
           <Box
             sx={{
               display: 'flex',

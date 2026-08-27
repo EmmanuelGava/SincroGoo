@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isEstadoTerminal } from '../estadoLead';
+import { isEstadoGanado, isEstadoTerminal } from '../estadoLead';
 import {
   decideIncomingContactLink,
   decideKanbanIncomingAction,
@@ -105,6 +105,12 @@ describe('isEstadoTerminal', () => {
     expect(isEstadoTerminal('Ganado')).toBe(true);
     expect(isEstadoTerminal('perdido')).toBe(true);
     expect(isEstadoTerminal('Nuevo')).toBe(false);
+  });
+
+  it('isEstadoGanado solo matchea Ganado', () => {
+    expect(isEstadoGanado('Ganado')).toBe(true);
+    expect(isEstadoGanado('ganado')).toBe(true);
+    expect(isEstadoGanado('Perdido')).toBe(false);
   });
 });
 

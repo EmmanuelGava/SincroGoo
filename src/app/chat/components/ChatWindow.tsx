@@ -136,7 +136,10 @@ export default function ChatWindow({
     scrollToBottom();
   }, [mensajes]);
 
-  const handleSendMessage = async (contenido: string, options?: { scheduledFor?: string }) => {
+  const handleSendMessage = async (
+    contenido: string,
+    options?: { scheduledFor?: string; presupuestoCatalogoIds?: string[] },
+  ) => {
     if (!conversacion || !contenido.trim()) return;
 
     const texto = contenido.trim();
@@ -179,6 +182,9 @@ export default function ChatWindow({
             conversacion_id: conversacion.id,
             original_canal: conversacion.servicio_origen,
             ...(quotedMessage ? { quoted_message: quotedMessage } : {}),
+            ...(options?.presupuestoCatalogoIds?.length
+              ? { presupuesto_catalogo_ids: options.presupuestoCatalogoIds }
+              : {}),
           }
         })
       });
@@ -250,7 +256,7 @@ export default function ChatWindow({
     fileType: string,
     mimeType?: string,
     caption?: string,
-    options?: { scheduledFor?: string },
+    options?: { scheduledFor?: string; presupuestoCatalogoIds?: string[] },
   ) => {
     if (!conversacion || enviando) return;
 
@@ -288,6 +294,9 @@ export default function ChatWindow({
             file_type: fileType === 'image' || fileType === 'audio' || fileType === 'video' ? fileType : 'file',
             file_url: url,
             mime_type: mimeType || undefined,
+            ...(options?.presupuestoCatalogoIds?.length
+              ? { presupuesto_catalogo_ids: options.presupuestoCatalogoIds }
+              : {}),
           }
         })
       });

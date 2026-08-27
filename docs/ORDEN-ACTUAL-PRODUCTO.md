@@ -243,8 +243,8 @@ order by m.fecha_mensaje desc limit 5;
 
 ## Backlog catálogo (Fase 3+, no bloquea MVP)
 
-- [ ] Descontar stock al marcar lead **Ganado** (o al confirmar pedido).
-- [ ] Alertas de bajo stock (umbral por usuario / por ítem).
+- [x] Descontar stock al marcar lead **Ganado** (o al confirmar pedido).
+- [x] Alertas de bajo stock (umbral por ítem; default 5 en `/catalogo`).
 - [ ] Variantes anidadas (talle / color / sabor como sub-SKU).
 - [ ] Al enviar una lista, adjuntar varias fotos.
 - [ ] Atajo `/vapers` que inserte la lista si la categoría coincide.

@@ -36,6 +36,7 @@ import {
   type CatalogoItem,
   type CatalogoTipo,
 } from '@/lib/chat/catalogoVentas';
+import { DEFAULT_STOCK_ALERT_UMBRAL, isLowStock } from '@/lib/catalogo/stockAlerts';
 import { CATALOGO_CSV_TEMPLATE } from '@/lib/chat/importCatalogo';
 import { formatCatalogPrecio } from '@/lib/chat/respuestasRapidas';
 import { FileUploadService } from '@/app/servicios/storage/FileUploadService';
@@ -75,6 +76,7 @@ export function CatalogoList() {
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
   const [stock, setStock] = useState('0');
+  const [stockMinimo, setStockMinimo] = useState('');
   const [imagenUrl, setImagenUrl] = useState<string | null>(null);
   const [archivoUrl, setArchivoUrl] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -226,6 +228,7 @@ export function CatalogoList() {
     setDescripcion('');
     setCategoria(categoriaFilter !== 'todas' ? categoriaFilter : '');
     setStock('0');
+    setStockMinimo('');
     setImagenUrl(null);
     setArchivoUrl(null);
     setFormError(null);
@@ -240,6 +243,7 @@ export function CatalogoList() {
       setDescripcion(item.descripcion || '');
       setCategoria(item.categoria || '');
       setStock(String(item.stock ?? 0));
+      setStockMinimo(item.stock_minimo != null ? String(item.stock_minimo) : '');
       setImagenUrl(item.imagen_url);
       setArchivoUrl(item.archivo_url);
       setFormError(null);
@@ -273,6 +277,7 @@ export function CatalogoList() {
           descripcion,
           categoria,
           stock,
+          stock_minimo: stockMinimo,
           imagen_url: imagenUrl,
           archivo_url: archivoUrl,
         }),
@@ -474,6 +479,8 @@ export function CatalogoList() {
                         <Typography fontWeight={600}>{item.nombre}</Typography>
                         {(item.stock ?? 0) === 0 ? (
                           <Chip label="sin stock" size="small" variant="outlined" color="warning" />
+                        ) : isLowStock(item.stock ?? 0, item.stock_minimo) ? (
+                          <Chip label="bajo stock" size="small" variant="outlined" color="error" />
                         ) : null}
                       </Stack>
                     </Stack>
@@ -519,6 +526,15 @@ export function CatalogoList() {
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField label="Precio" size="small" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="26000" fullWidth />
               <TextField label="Stock" size="small" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" fullWidth />
+              <TextField
+                label="Alerta si stock ≤"
+                size="small"
+                value={stockMinimo}
+                onChange={(e) => setStockMinimo(e.target.value)}
+                placeholder={String(DEFAULT_STOCK_ALERT_UMBRAL)}
+                helperText="Vacío = umbral por defecto"
+                fullWidth
+              />
             </Stack>
             <TextField
               label="Categoría"

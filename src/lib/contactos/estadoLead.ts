@@ -3,6 +3,10 @@ export function isEstadoTerminal(nombre: string): boolean {
   return normalized === 'ganado' || normalized === 'perdido';
 }
 
+export function isEstadoGanado(nombre: string): boolean {
+  return nombre.trim().toLowerCase() === 'ganado';
+}
+
 export function isEstadoPerdido(nombre: string): boolean {
   return nombre.trim().toLowerCase() === 'perdido';
 }

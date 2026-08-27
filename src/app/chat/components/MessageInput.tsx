@@ -51,7 +51,10 @@ import {
 } from '@/lib/chat/scheduleSend';
 
 interface MessageInputProps {
-  onSendMessage: (contenido: string, options?: { scheduledFor?: string }) => void;
+  onSendMessage: (
+    contenido: string,
+    options?: { scheduledFor?: string; presupuestoCatalogoIds?: string[] },
+  ) => void;
   onSendInternalNote?: (contenido: string) => void;
   onSendFile?: (
     url: string,
@@ -59,7 +62,7 @@ interface MessageInputProps {
     fileType: string,
     mimeType?: string,
     caption?: string,
-    options?: { scheduledFor?: string },
+    options?: { scheduledFor?: string; presupuestoCatalogoIds?: string[] },
   ) => void;
   onSendAudio?: (audioBlob: Blob, duration: number) => void;
   onScheduledDelivered?: (preview: string) => void;
@@ -341,21 +344,24 @@ export default function MessageInput({
       return;
     }
     const imagenUrl = carrito.length > 0 ? primeraImagenCarrito(carrito) : null;
+    let scheduledFor: string | undefined;
+    if (programar) {
+      scheduledFor = resolveScheduledFor();
+      if (!scheduledFor) return;
+    }
+    const presupuestoCatalogoIds = carrito.length > 0 ? carrito.map((item) => item.id) : undefined;
+    const sendOptions = {
+      ...(scheduledFor ? { scheduledFor } : {}),
+      ...(presupuestoCatalogoIds ? { presupuestoCatalogoIds } : {}),
+    };
     const attach = imagenUrl
       ? { url: imagenUrl, fileName: carrito[0]?.nombre || 'producto', fileType: 'image' as const }
       : null;
     if (attach && onSendFile) {
-      const scheduledFor = resolveScheduledFor();
-      if (programar && !scheduledFor) return;
-      onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto, scheduledFor ? { scheduledFor } : undefined);
+      onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto, sendOptions);
       if (scheduledFor) void reloadProgramados();
     } else {
-      let scheduledFor: string | undefined;
-      if (programar) {
-        scheduledFor = resolveScheduledFor();
-        if (!scheduledFor) return;
-      }
-      onSendMessage(texto, scheduledFor ? { scheduledFor } : undefined);
+      onSendMessage(texto, Object.keys(sendOptions).length > 0 ? sendOptions : undefined);
       if (scheduledFor) {
         void reloadProgramados();
       }

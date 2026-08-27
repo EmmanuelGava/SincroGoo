@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       .update({ ...parsed.fields, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('usuario_id', client.usuarioId)
-      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, created_at')
+      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, stock_minimo, created_at')
       .maybeSingle();
 
     if (error) throw error;

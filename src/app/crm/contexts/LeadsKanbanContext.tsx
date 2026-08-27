@@ -11,6 +11,11 @@ import {
   buildLeadsPorEstado,
   computeKanbanReorderUpdates,
 } from '@/lib/crm/kanbanOrder';
+import {
+  extractStockDeduction,
+  stripStockDeduction,
+  toastStockDeduction,
+} from '@/lib/catalogo/stockDeductionToast';
 
 // Tipos
 export interface Estado {
@@ -348,7 +353,10 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al actualizar lead");
-      setLeads(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
+      const stockDeduction = extractStockDeduction(data);
+      toastStockDeduction(stockDeduction);
+      const leadPatch = stripStockDeduction(data);
+      setLeads(prev => prev.map(l => l.id === id ? { ...l, ...leadPatch } : l));
     } catch (e: any) {
       setError(e.message);
       throw e;
@@ -393,6 +401,12 @@ export function LeadsKanbanProvider({ children }: { children: ReactNode }) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al mover lead");
+        const stockDeduction = extractStockDeduction(data);
+        toastStockDeduction(stockDeduction);
+        const leadPatch = stripStockDeduction(data);
+        if (leadPatch.id) {
+          setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, ...leadPatch } : l)));
+        }
       }
 
       const res = await fetch("/api/supabase/leads/reorder", {

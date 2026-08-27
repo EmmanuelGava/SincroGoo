@@ -1,3 +1,5 @@
+import { parseStockMinimo } from '@/lib/catalogo/stockAlerts';
+
 export const CATALOGO_TIPOS = ['producto', 'presupuesto', 'propuesta'] as const;
 export type CatalogoTipo = (typeof CATALOGO_TIPOS)[number];
 
@@ -17,6 +19,7 @@ export type CatalogoItem = {
   archivo_url: string | null;
   categoria: string | null;
   stock: number;
+  stock_minimo: number | null;
 };
 
 export function isCatalogoTipo(value: unknown): value is CatalogoTipo {
@@ -48,6 +51,7 @@ export function validateCatalogoItem(body: {
   archivo_url?: unknown;
   categoria?: unknown;
   stock?: unknown;
+  stock_minimo?: unknown;
 }): { ok: false; error: string } | { ok: true; fields: Omit<CatalogoItem, 'id'> } {
   const tipo = isCatalogoTipo(body.tipo) ? body.tipo : 'producto';
   const nombre = String(body.nombre ?? '').trim();
@@ -72,6 +76,11 @@ export function validateCatalogoItem(body: {
     return { ok: false, error: 'El stock no es válido' };
   }
 
+  const stockMinimo = parseStockMinimo(body.stock_minimo);
+  if (!Number.isFinite(stockMinimo) && body.stock_minimo !== undefined) {
+    return { ok: false, error: 'El umbral de alerta no es válido' };
+  }
+
   const optionalUrl = (value: unknown) => {
     const text = String(value ?? '').trim();
     return text || null;
@@ -88,6 +97,7 @@ export function validateCatalogoItem(body: {
       archivo_url: optionalUrl(body.archivo_url),
       categoria: normalizeCatalogoCategoria(body.categoria),
       stock,
+      stock_minimo: stockMinimo,
     },
   };
 }

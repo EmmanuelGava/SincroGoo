@@ -7,7 +7,12 @@ import {
   type LeadConversationLink,
 } from '@/lib/crm/leadConversationUnread';
 import { shouldRecordEtapaChange } from '@/lib/crm/leadEtapaHistorial';
-import { isEstadoPerdido, isMotivoPerdido } from '@/lib/contactos/estadoLead';
+import { isEstadoPerdido, isMotivoPerdido, isEstadoGanado } from '@/lib/contactos/estadoLead';
+import {
+  descontarStockAlGanado,
+  leadTagsStockAlreadyDeducted,
+  mergeLeadTagsWithStockDeduction,
+} from '@/lib/catalogo/descontarStockAlGanado';
 import { attachUltimoMovEtapa } from '@/lib/crm/leadUltimoMov';
 import type { ProximaTareaLead } from '@/lib/crm/leadTaskBadge';
 
@@ -293,10 +298,12 @@ export async function PATCH(request: NextRequest) {
       if (fields.valor_potencial === '') fields.valor_potencial = null;
     }
 
+    let stockDeduction: Awaited<ReturnType<typeof descontarStockAlGanado>> | null = null;
+
     if (fields.estado_id) {
       const { data: current } = await supabase
         .from('leads')
-        .select('id, estado_id, contacto_id')
+        .select('id, estado_id, contacto_id, tags')
         .eq('id', id)
         .eq('asignado_a', userId)
         .maybeSingle();
@@ -318,6 +325,21 @@ export async function PATCH(request: NextRequest) {
           { status: 400 }
         );
       }
+      const prevNombre = nameOf(current.estado_id);
+      const movingToGanado =
+        isEstadoGanado(nuevoNombre) && !isEstadoGanado(prevNombre) && !leadTagsStockAlreadyDeducted(current.tags);
+
+      if (movingToGanado) {
+        stockDeduction = await descontarStockAlGanado(supabase, {
+          usuarioId: userId,
+          leadId: id,
+          nuevoEstadoNombre: nuevoNombre,
+          leadTags: current.tags,
+        });
+        if (stockDeduction.applied && stockDeduction.deductions) {
+          fields.tags = mergeLeadTagsWithStockDeduction(current.tags, stockDeduction.deductions);
+        }
+      }
 
       if (current && shouldRecordEtapaChange(current.estado_id, fields.estado_id)) {
         const { error: historialError } = await supabase.from('lead_etapa_historial').insert({
@@ -338,7 +360,18 @@ export async function PATCH(request: NextRequest) {
     
     const { data, error } = await supabase.from('leads').update(fields).eq('id', id).select('*').single();
     if (error) throw error;
-    return NextResponse.json(data);
+    return NextResponse.json({
+      ...data,
+      stock_deduction: stockDeduction?.applied
+        ? {
+            applied: true,
+            deductions: stockDeduction.deductions,
+            skippedReason: stockDeduction.skippedReason,
+          }
+        : stockDeduction
+          ? { applied: false, skippedReason: stockDeduction.skippedReason }
+          : undefined,
+    });
   } catch (error) {
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });

@@ -283,12 +283,13 @@ order by m.fecha_mensaje desc limit 5;
 
 - [x] Descontar stock al marcar lead **Ganado** (presupuesto del chat → RPC `decrement_catalogo_stock`; toast en Kanban).
 - [x] Alertas de bajo stock (umbral por ítem `stock_minimo`; default 5 en `/catalogo`).
-- [ ] Variantes anidadas (talle / color / sabor como sub-SKU).
-- [ ] Al enviar una lista, adjuntar varias fotos.
-- [ ] Atajo `/vapers` que inserte la lista si la categoría coincide.
-- [ ] Tabla `catalogo_categorias` + rename masivo.
-- [ ] Opción de mostrar “sin stock” en el mensaje (hoy se ocultan).
-- [ ] Reserva / hold de stock mientras el lead está en Propuesta.
+- [x] Variantes anidadas (talle / color — `parent_id` + `variante_label`; UI en `/catalogo`).
+- [x] Al enviar una lista, adjuntar varias fotos (`imagen_urls` + envío secuencial en chat).
+- [x] Atajo `/categoría` (slash + picker; slug de `catalogo_categorias`).
+- [x] Tabla `catalogo_categorias` + API GET/POST (rename masivo pendiente).
+- [x] Opción de mostrar “sin stock” en el mensaje (`incluir_sin_stock_en_lista` por categoría).
+- [x] Reserva / hold de stock mientras el lead está en Propuesta (RPC + hook en PATCH lead).
+- [x] Plantillas editables para presupuesto y propuesta (`plantilla` + variables `{{cliente}}`, `{{items}}`, etc.).
 
 ---
 

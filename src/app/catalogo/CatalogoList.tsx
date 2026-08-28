@@ -39,6 +39,12 @@ import {
 import { DEFAULT_STOCK_ALERT_UMBRAL, isLowStock } from '@/lib/catalogo/stockAlerts';
 import { CATALOGO_CSV_TEMPLATE } from '@/lib/chat/importCatalogo';
 import { formatCatalogPrecio } from '@/lib/chat/respuestasRapidas';
+import { defaultPlantillaParaTipo } from '@/lib/catalogo/catalogoPlantillas';
+import {
+  nombreDisplayCatalogo,
+  stockDisponible,
+  type CategoriaCatalogo,
+} from '@/lib/catalogo/catalogoCategorias';
 import { FileUploadService } from '@/app/servicios/storage/FileUploadService';
 
 type FilterTipo = CatalogoTipo | 'todos';
@@ -56,6 +62,7 @@ function fileKindLabel(url: string | null) {
 
 export function CatalogoList() {
   const [items, setItems] = useState<CatalogoItem[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -75,9 +82,14 @@ export function CatalogoList() {
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [categoriaId, setCategoriaId] = useState('');
+  const [parentId, setParentId] = useState('');
+  const [varianteLabel, setVarianteLabel] = useState('');
+  const [plantilla, setPlantilla] = useState('');
   const [stock, setStock] = useState('0');
   const [stockMinimo, setStockMinimo] = useState('');
   const [imagenUrl, setImagenUrl] = useState<string | null>(null);
+  const [imagenUrls, setImagenUrls] = useState<string[]>([]);
   const [archivoUrl, setArchivoUrl] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -88,14 +100,21 @@ export function CatalogoList() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/chat/catalogo', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      const [catRes, itemsRes] = await Promise.all([
+        fetch('/api/chat/catalogo/categorias', { cache: 'no-store' }),
+        fetch('/api/chat/catalogo', { cache: 'no-store' }),
+      ]);
+      const catData = await catRes.json().catch(() => ({}));
+      const data = await itemsRes.json().catch(() => ({}));
+      if (!itemsRes.ok) {
         setItems([]);
         setError(typeof data.error === 'string' ? data.error : 'No se pudo cargar el catálogo');
-        return;
+      } else {
+        setItems(Array.isArray(data.items) ? data.items : []);
       }
-      setItems(Array.isArray(data.items) ? data.items : []);
+      if (catRes.ok) {
+        setCategorias(Array.isArray(catData.categorias) ? catData.categorias : []);
+      }
     } catch {
       setItems([]);
       setError('No se pudo cargar el catálogo');
@@ -108,13 +127,19 @@ export function CatalogoList() {
     void cargar();
   }, [cargar]);
 
-  const categorias = Array.from(
-    new Set(
-      items
-        .map((item) => (item.categoria || '').trim().toLowerCase())
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b, 'es'));
+  const categoriasFiltro = categorias.length > 0
+    ? categorias.map((c) => c.slug)
+    : Array.from(
+        new Set(
+          items
+            .map((item) => (item.categoria || '').trim().toLowerCase())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b, 'es'));
+
+  const productosPadre = items.filter(
+    (item) => item.tipo === 'producto' && !item.parent_id && item.id !== editingId,
+  );
 
   const visibles = items.filter((item) => {
     if (tipoFilter !== 'todos' && item.tipo !== tipoFilter) return false;
@@ -227,11 +252,23 @@ export function CatalogoList() {
     setPrecio('');
     setDescripcion('');
     setCategoria(categoriaFilter !== 'todas' ? categoriaFilter : '');
+    setCategoriaId('');
+    setParentId('');
+    setVarianteLabel('');
+    setPlantilla('');
     setStock('0');
     setStockMinimo('');
     setImagenUrl(null);
+    setImagenUrls([]);
     setArchivoUrl(null);
     setFormError(null);
+  };
+
+  const onTipoChange = (next: CatalogoTipo) => {
+    setTipo(next);
+    if (next === 'presupuesto' || next === 'propuesta') {
+      setPlantilla((prev) => prev.trim() ? prev : defaultPlantillaParaTipo(next));
+    }
   };
 
   const openEdit = (item?: CatalogoItem) => {
@@ -242,9 +279,14 @@ export function CatalogoList() {
       setPrecio(item.precio != null ? String(item.precio) : '');
       setDescripcion(item.descripcion || '');
       setCategoria(item.categoria || '');
+      setCategoriaId(item.categoria_id || '');
+      setParentId(item.parent_id || '');
+      setVarianteLabel(item.variante_label || '');
+      setPlantilla(item.plantilla || defaultPlantillaParaTipo(item.tipo));
       setStock(String(item.stock ?? 0));
       setStockMinimo(item.stock_minimo != null ? String(item.stock_minimo) : '');
       setImagenUrl(item.imagen_url);
+      setImagenUrls(item.imagen_urls?.length ? item.imagen_urls : item.imagen_url ? [item.imagen_url] : []);
       setArchivoUrl(item.archivo_url);
       setFormError(null);
     } else {
@@ -253,14 +295,21 @@ export function CatalogoList() {
     setDialogOpen(true);
   };
 
-  const uploadOne = async (file: File, kind: 'imagen' | 'archivo') => {
+  const uploadOne = async (file: File, kind: 'imagen' | 'archivo' | 'imagen_extra') => {
     const result = await FileUploadService.uploadFile(file, 'catalogo');
     if (!result.success || !result.url) {
       setFormError(result.error || 'No se pudo subir el archivo');
       return;
     }
-    if (kind === 'imagen') setImagenUrl(result.url);
-    else setArchivoUrl(result.url);
+    if (kind === 'imagen') {
+      setImagenUrl(result.url);
+      setImagenUrls((prev) => (prev.includes(result.url!) ? prev : [result.url!, ...prev]));
+    } else if (kind === 'imagen_extra') {
+      setImagenUrls((prev) => (prev.includes(result.url!) ? prev : [...prev, result.url!]));
+      if (!imagenUrl) setImagenUrl(result.url);
+    } else {
+      setArchivoUrl(result.url);
+    }
   };
 
   const saveItem = async () => {
@@ -276,9 +325,14 @@ export function CatalogoList() {
           precio,
           descripcion,
           categoria,
+          categoria_id: categoriaId || null,
+          parent_id: parentId || null,
+          variante_label: varianteLabel,
+          plantilla: tipo === 'presupuesto' || tipo === 'propuesta' ? plantilla : null,
           stock,
           stock_minimo: stockMinimo,
           imagen_url: imagenUrl,
+          imagen_urls: imagenUrls,
           archivo_url: archivoUrl,
         }),
       });
@@ -374,7 +428,7 @@ export function CatalogoList() {
         ))}
       </Stack>
 
-      {categorias.length > 0 ? (
+      {categoriasFiltro.length > 0 ? (
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Chip
             label="Todas las categorías"
@@ -382,7 +436,7 @@ export function CatalogoList() {
             variant={categoriaFilter === 'todas' ? 'filled' : 'outlined'}
             onClick={() => setCategoriaFilter('todas')}
           />
-          {categorias.map((cat) => (
+          {categoriasFiltro.map((cat) => (
             <Chip
               key={cat}
               label={cat}
@@ -463,35 +517,53 @@ export function CatalogoList() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {visibles.map((item) => (
+              {visibles.map((item) => {
+                const parentNombre = item.parent_id
+                  ? items.find((p) => p.id === item.parent_id)?.nombre
+                  : null;
+                const displayNombre = nombreDisplayCatalogo(item, parentNombre);
+                const disponible = stockDisponible(item);
+                return (
                 <TableRow key={item.id} hover sx={{ cursor: 'pointer' }} onClick={() => openEdit(item)}>
                   <TableCell>
                     <Stack direction="row" spacing={1.5} alignItems="center">
-                      {item.imagen_url ? (
+                      {(item.imagen_urls?.[0] || item.imagen_url) ? (
                         <Box
                           component="img"
-                          src={item.imagen_url}
+                          src={item.imagen_urls?.[0] || item.imagen_url || ''}
                           alt=""
                           sx={{ width: 40, height: 40, borderRadius: 1, objectFit: 'cover' }}
                         />
                       ) : null}
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography fontWeight={600}>{item.nombre}</Typography>
-                        {(item.stock ?? 0) === 0 ? (
+                        <Typography fontWeight={600}>{displayNombre}</Typography>
+                        {item.tipo === 'producto' && disponible <= 0 ? (
                           <Chip label="sin stock" size="small" variant="outlined" color="warning" />
-                        ) : isLowStock(item.stock ?? 0, item.stock_minimo) ? (
+                        ) : item.tipo === 'producto' && isLowStock(disponible, item.stock_minimo) ? (
                           <Chip label="bajo stock" size="small" variant="outlined" color="error" />
+                        ) : null}
+                        {item.plantilla ? (
+                          <Chip label="plantilla" size="small" variant="outlined" />
                         ) : null}
                       </Stack>
                     </Stack>
                   </TableCell>
                   <TableCell>{CATALOGO_TIPO_LABEL[item.tipo]}</TableCell>
                   <TableCell>{item.categoria || '—'}</TableCell>
-                  <TableCell>{item.stock ?? 0}</TableCell>
+                  <TableCell>
+                    {item.tipo === 'producto'
+                      ? `${disponible}${item.stock_reservado ? ` (${item.stock_reservado} res.)` : ''}`
+                      : '—'}
+                  </TableCell>
                   <TableCell>{item.precio != null ? formatCatalogPrecio(item.precio) : '—'}</TableCell>
                   <TableCell sx={{ maxWidth: 280 }}>{item.descripcion || '—'}</TableCell>
                   <TableCell>
-                    {[fileKindLabel(item.imagen_url), fileKindLabel(item.archivo_url)].filter(Boolean).join(' · ') || '—'}
+                    {[
+                      item.imagen_urls?.length ? `${item.imagen_urls.length} fotos` : fileKindLabel(item.imagen_url),
+                      fileKindLabel(item.archivo_url),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '—'}
                   </TableCell>
                   <TableCell>
                     <IconButton
@@ -506,7 +578,8 @@ export function CatalogoList() {
                     </IconButton>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -517,12 +590,37 @@ export function CatalogoList() {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {formError ? <Alert severity="error">{formError}</Alert> : null}
-            <TextField select label="Tipo" size="small" value={tipo} onChange={(e) => setTipo(e.target.value as CatalogoTipo)}>
+            <TextField select label="Tipo" size="small" value={tipo} onChange={(e) => onTipoChange(e.target.value as CatalogoTipo)}>
               {CATALOGO_TIPOS.map((key) => (
                 <MenuItem key={key} value={key}>{CATALOGO_TIPO_LABEL[key]}</MenuItem>
               ))}
             </TextField>
             <TextField label="Nombre" size="small" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            {tipo === 'producto' ? (
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  select
+                  label="Producto padre (variante)"
+                  size="small"
+                  value={parentId}
+                  onChange={(e) => setParentId(e.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="">Sin padre</MenuItem>
+                  {productosPadre.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Variante (talle/color)"
+                  size="small"
+                  value={varianteLabel}
+                  onChange={(e) => setVarianteLabel(e.target.value)}
+                  placeholder="M / Rojo"
+                  fullWidth
+                />
+              </Stack>
+            ) : null}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField label="Precio" size="small" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="26000" fullWidth />
               <TextField label="Stock" size="small" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" fullWidth />
@@ -536,14 +634,48 @@ export function CatalogoList() {
                 fullWidth
               />
             </Stack>
-            <TextField
-              label="Categoría"
-              size="small"
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              placeholder="vapers"
-              helperText="Se guarda en minúsculas. Misma categoría = misma lista en el chat."
-            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                select
+                label="Categoría (tabla)"
+                size="small"
+                value={categoriaId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setCategoriaId(id);
+                  const cat = categorias.find((c) => c.id === id);
+                  if (cat) setCategoria(cat.slug);
+                }}
+                fullWidth
+              >
+                <MenuItem value="">Sin vincular</MenuItem>
+                {categorias.map((cat) => (
+                  <MenuItem key={cat.id} value={cat.id}>
+                    {cat.nombre} ({cat.slug})
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Slug categoría (lista /atajo)"
+                size="small"
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                placeholder="vapers"
+                helperText="Minúsculas. Misma slug = misma lista en chat."
+                fullWidth
+              />
+            </Stack>
+            {tipo === 'presupuesto' || tipo === 'propuesta' ? (
+              <TextField
+                label="Plantilla del mensaje"
+                size="small"
+                value={plantilla}
+                onChange={(e) => setPlantilla(e.target.value)}
+                multiline
+                minRows={4}
+                helperText="Variables: {{cliente}}, {{titulo}}, {{detalle}}, {{precio}}, {{items}}, {{total}}, {{fecha}}"
+              />
+            ) : null}
             <TextField
               label="Qué incluye / detalle"
               size="small"
@@ -554,7 +686,7 @@ export function CatalogoList() {
             />
             <Stack direction="row" spacing={1} flexWrap="wrap">
               <Button component="label" size="small" variant="outlined">
-                {imagenUrl ? 'Cambiar foto' : 'Foto'}
+                {imagenUrl ? 'Cambiar foto principal' : 'Foto principal'}
                 <input
                   hidden
                   type="file"
@@ -562,6 +694,19 @@ export function CatalogoList() {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) void uploadOne(file, 'imagen');
+                    e.target.value = '';
+                  }}
+                />
+              </Button>
+              <Button component="label" size="small" variant="outlined">
+                Agregar foto (lista)
+                <input
+                  hidden
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void uploadOne(file, 'imagen_extra');
                     e.target.value = '';
                   }}
                 />
@@ -580,6 +725,30 @@ export function CatalogoList() {
                 />
               </Button>
             </Stack>
+            {imagenUrls.length > 0 ? (
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {imagenUrls.map((url) => (
+                  <Box key={url} sx={{ position: 'relative' }}>
+                    <Box
+                      component="img"
+                      src={url}
+                      alt=""
+                      sx={{ width: 56, height: 56, borderRadius: 1, objectFit: 'cover' }}
+                    />
+                    <IconButton
+                      size="small"
+                      sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'background.paper' }}
+                      onClick={() => {
+                        setImagenUrls((prev) => prev.filter((u) => u !== url));
+                        if (imagenUrl === url) setImagenUrl(imagenUrls.find((u) => u !== url) ?? null);
+                      }}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Stack>
+            ) : null}
           </Stack>
         </DialogContent>
         <DialogActions>

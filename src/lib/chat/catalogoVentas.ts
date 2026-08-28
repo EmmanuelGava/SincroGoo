@@ -1,4 +1,5 @@
 import { parseStockMinimo } from '@/lib/catalogo/stockAlerts';
+import { parseCatalogoImagenUrls, imagenUrlsToJsonb } from '@/lib/catalogo/catalogoImagenes';
 
 export const CATALOGO_TIPOS = ['producto', 'presupuesto', 'propuesta'] as const;
 export type CatalogoTipo = (typeof CATALOGO_TIPOS)[number];
@@ -18,8 +19,14 @@ export type CatalogoItem = {
   imagen_url: string | null;
   archivo_url: string | null;
   categoria: string | null;
+  categoria_id: string | null;
   stock: number;
   stock_minimo: number | null;
+  stock_reservado?: number;
+  parent_id: string | null;
+  variante_label: string | null;
+  plantilla: string | null;
+  imagen_urls: string[];
 };
 
 export function isCatalogoTipo(value: unknown): value is CatalogoTipo {
@@ -52,6 +59,11 @@ export function validateCatalogoItem(body: {
   categoria?: unknown;
   stock?: unknown;
   stock_minimo?: unknown;
+  parent_id?: unknown;
+  variante_label?: unknown;
+  categoria_id?: unknown;
+  plantilla?: unknown;
+  imagen_urls?: unknown;
 }): { ok: false; error: string } | { ok: true; fields: Omit<CatalogoItem, 'id'> } {
   const tipo = isCatalogoTipo(body.tipo) ? body.tipo : 'producto';
   const nombre = String(body.nombre ?? '').trim();
@@ -86,18 +98,37 @@ export function validateCatalogoItem(body: {
     return text || null;
   };
 
+  const optionalText = (value: unknown, max = 8000) => {
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    return text.slice(0, max);
+  };
+
+  const parentId = optionalUrl(body.parent_id);
+  const categoriaId = optionalUrl(body.categoria_id);
+  const imagenUrls = imagenUrlsToJsonb(
+    parseCatalogoImagenUrls(body.imagen_urls, optionalUrl(body.imagen_url)),
+  );
+  const imagenUrl = imagenUrls[0] ?? null;
+
   return {
     ok: true,
     fields: {
       tipo,
       nombre,
       precio,
-      descripcion: optionalUrl(body.descripcion),
-      imagen_url: optionalUrl(body.imagen_url),
+      descripcion: optionalText(body.descripcion, 4000),
+      imagen_url: imagenUrl,
       archivo_url: optionalUrl(body.archivo_url),
       categoria: normalizeCatalogoCategoria(body.categoria),
+      categoria_id: categoriaId,
       stock,
       stock_minimo: stockMinimo,
+      stock_reservado: 0,
+      parent_id: parentId,
+      variante_label: optionalText(body.variante_label, 80),
+      plantilla: optionalText(body.plantilla, 8000),
+      imagen_urls: imagenUrls,
     },
   };
 }

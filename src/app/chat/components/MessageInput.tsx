@@ -28,7 +28,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import FileUpload, { type FileUploadHandle } from './FileUpload';
 import EmojiPickerComponent from './EmojiPicker';
 import AudioRecorder from './AudioRecorder';
-import { QuickReplyManager, QuickReplyPicker } from './QuickReplies';
+import { QuickReplyManager } from './QuickReplies';
 import { CatalogPicker } from './CatalogPicker';
 import { useWaTheme } from '@/app/chat/chatTheme';
 import {
@@ -40,8 +40,18 @@ import {
   type RespuestaVars,
 } from '@/lib/chat/respuestasRapidas';
 import { type CatalogoItem } from '@/lib/chat/catalogoVentas';
-import { armarPresupuesto, primeraImagenCarrito } from '@/lib/chat/armarPresupuesto';
+import { armarPresupuesto } from '@/lib/chat/armarPresupuesto';
 import { armarListaCategoria } from '@/lib/chat/armarListaCategoria';
+import {
+  armarTextoDesdeItemCatalogo,
+  armarTextoPresupuestoCarrito,
+  type PlantillaVars,
+} from '@/lib/catalogo/catalogoPlantillas';
+import {
+  filterCategoriasSlash,
+  stockDisponible,
+  type CategoriaCatalogo,
+} from '@/lib/catalogo/catalogoCategorias';
 import { quotedPreviewLabel, type ReplyToMessage } from '@/lib/chat/quotedMessage';
 import {
   currentScheduleFields,
@@ -76,6 +86,28 @@ interface MessageInputProps {
   respuestaVars?: RespuestaVars;
   manageOpen?: boolean;
   onManageOpenChange?: (open: boolean) => void;
+}
+
+type SlashEntry =
+  | {
+      kind: 'categoria';
+      id: string;
+      label: string;
+      slug: string;
+      incluirSinStock: boolean;
+    }
+  | { kind: 'respuesta'; item: RespuestaRapida };
+
+function imagenesCatalogo(items: CatalogoItem[]): string[] {
+  const out: string[] = [];
+  for (const item of items) {
+    for (const u of item.imagen_urls || []) {
+      if (u && !out.includes(u)) out.push(u);
+    }
+    const legacy = item.imagen_url?.trim();
+    if (legacy && !out.includes(legacy)) out.push(legacy);
+  }
+  return out;
 }
 
 function AttachCircle({
@@ -133,7 +165,9 @@ export default function MessageInput({
   const [localManageOpen, setLocalManageOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaCatalogo[]>([]);
   const [carrito, setCarrito] = useState<CatalogoItem[]>([]);
+  const [listaPendingImages, setListaPendingImages] = useState<string[]>([]);
   const [programar, setProgramar] = useState(false);
   const [notaInterna, setNotaInterna] = useState(false);
   const [fechaProgramada, setFechaProgramada] = useState(() => currentScheduleFields().fecha);
@@ -260,14 +294,51 @@ export default function MessageInput({
     }
   };
 
+  const loadCategorias = async () => {
+    try {
+      const res = await fetch('/api/chat/catalogo/categorias', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setCategorias(data.categorias || []);
+    } catch {
+      /* listas por categoría siguen con fallback */
+    }
+  };
+
   useEffect(() => {
     void loadRespuestas();
     void loadCatalogo();
+    void loadCategorias();
   }, []);
+
+  const plantillaVars = (): PlantillaVars => ({
+    cliente: respuestaVars?.nombre,
+    nombre: respuestaVars?.nombre,
+    telefono: respuestaVars?.telefono,
+  });
+
+  const presupuestoPlantilla = (): string | null | undefined => {
+    const tpl = catalogo.find((c) => c.tipo === 'presupuesto' && c.plantilla?.trim());
+    return tpl?.plantilla;
+  };
 
   const slash = parseSlashDraft(mensaje);
   const slashOpen = slash.active && !slashDismissed && !audioBusy;
-  const slashItems = slashOpen ? filterRespuestasRapidas(respuestas, slash.query) : [];
+  const slashEntries = slashOpen
+    ? [
+        ...filterCategoriasSlash(categorias, slash.query).map((c) => ({
+          kind: 'categoria' as const,
+          id: c.id,
+          label: c.nombre,
+          slug: c.slug,
+          incluirSinStock: c.incluir_sin_stock_en_lista,
+        })),
+        ...filterRespuestasRapidas(respuestas, slash.query).map((item) => ({
+          kind: 'respuesta' as const,
+          item,
+        })),
+      ]
+    : [];
 
   useEffect(() => {
     setSlashIndex(0);
@@ -275,7 +346,16 @@ export default function MessageInput({
 
   const syncPresupuestoDraft = (items: CatalogoItem[]) => {
     if (items.length === 0) return;
-    setMensaje(armarPresupuesto(items).texto);
+    setMensaje(armarTextoPresupuestoCarrito(items, plantillaVars(), presupuestoPlantilla()));
+  };
+
+  const applySlashEntry = (entry: SlashEntry) => {
+    if (entry.kind === 'categoria') {
+      applyListaCategoria(entry.slug, entry.incluirSinStock);
+      setSlashDismissed(true);
+      return;
+    }
+    applyRespuesta(entry.item);
   };
 
   const applyRespuesta = (item: RespuestaRapida) => {
@@ -288,9 +368,20 @@ export default function MessageInput({
   };
 
   const applyCatalogItem = (item: CatalogoItem) => {
-    if ((item.stock ?? 0) <= 0) return;
+    if (item.tipo === 'propuesta') {
+      const texto = armarTextoDesdeItemCatalogo(item, plantillaVars());
+      setMensaje(texto);
+      setCarrito([]);
+      setListaPendingImages([]);
+      setCatalogOpen(false);
+      onTyping?.(true);
+      return;
+    }
+
+    if (stockDisponible(item) <= 0) return;
     const nextCart = [...carrito, item];
     setCarrito(nextCart);
+    setListaPendingImages([]);
     syncPresupuestoDraft(nextCart);
     setCatalogOpen(false);
     onTyping?.(true);
@@ -298,16 +389,19 @@ export default function MessageInput({
       const input = inputRef.current?.querySelector('textarea') || inputRef.current?.querySelector('input');
       if (!input) return;
       input.focus();
-      const end = armarPresupuesto(nextCart).texto.length;
+      const end = armarTextoPresupuestoCarrito(nextCart, plantillaVars(), presupuestoPlantilla()).length;
       if (input.setSelectionRange) input.setSelectionRange(end, end);
     }, 0);
   };
 
-  const applyListaCategoria = (categoria: string) => {
-    const texto = armarListaCategoria(catalogo, categoria);
+  const applyListaCategoria = (categoria: string, incluirSinStock?: boolean) => {
+    const cat = categorias.find((c) => c.slug === categoria);
+    const incluir = incluirSinStock ?? cat?.incluir_sin_stock_en_lista ?? false;
+    const { texto, imagenes } = armarListaCategoria(catalogo, categoria, { incluirSinStock: incluir });
     if (!texto) return;
     setMensaje(texto);
     setCarrito([]);
+    setListaPendingImages(imagenes);
     setCatalogOpen(false);
     onTyping?.(true);
     setTimeout(() => {
@@ -330,8 +424,8 @@ export default function MessageInput({
 
   const handleSend = () => {
     if (disabled) return;
-    if (slashOpen && slashItems[slashIndex]) {
-      applyRespuesta(slashItems[slashIndex]);
+    if (slashOpen && slashEntries[slashIndex]) {
+      applySlashEntry(slashEntries[slashIndex]);
       return;
     }
     const texto = mensaje.trim();
@@ -343,7 +437,11 @@ export default function MessageInput({
       onTyping?.(false);
       return;
     }
-    const imagenUrl = carrito.length > 0 ? primeraImagenCarrito(carrito) : null;
+    const cartImages = carrito.length > 0 ? imagenesCatalogo(carrito) : [];
+    const pendingImages = listaPendingImages;
+    const allImages = cartImages.length > 0 ? cartImages : pendingImages;
+    const imagenUrl = allImages[0] ?? null;
+    const extraImages = allImages.slice(1);
     let scheduledFor: string | undefined;
     if (programar) {
       scheduledFor = resolveScheduledFor();
@@ -355,10 +453,17 @@ export default function MessageInput({
       ...(presupuestoCatalogoIds ? { presupuestoCatalogoIds } : {}),
     };
     const attach = imagenUrl
-      ? { url: imagenUrl, fileName: carrito[0]?.nombre || 'producto', fileType: 'image' as const }
+      ? {
+          url: imagenUrl,
+          fileName: carrito[0]?.nombre || 'producto',
+          fileType: 'image' as const,
+        }
       : null;
     if (attach && onSendFile) {
       onSendFile(attach.url, attach.fileName, attach.fileType, undefined, texto, sendOptions);
+      for (const url of extraImages) {
+        onSendFile(url, 'lista', 'image', undefined, undefined, scheduledFor ? { scheduledFor } : undefined);
+      }
       if (scheduledFor) void reloadProgramados();
     } else {
       onSendMessage(texto, Object.keys(sendOptions).length > 0 ? sendOptions : undefined);
@@ -368,6 +473,7 @@ export default function MessageInput({
     }
     setMensaje('');
     setCarrito([]);
+    setListaPendingImages([]);
     setCatalogOpen(false);
     setSlashDismissed(false);
     setProgramar(false);
@@ -383,7 +489,7 @@ export default function MessageInput({
     if (slashOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSlashIndex((i) => Math.min(i + 1, Math.max(slashItems.length - 1, 0)));
+        setSlashIndex((i) => Math.min(i + 1, Math.max(slashEntries.length - 1, 0)));
         return;
       }
       if (e.key === 'ArrowUp') {
@@ -400,9 +506,9 @@ export default function MessageInput({
         setSlashDismissed(true);
         return;
       }
-      if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && slashItems[slashIndex]) {
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && slashEntries[slashIndex]) {
         e.preventDefault();
-        applyRespuesta(slashItems[slashIndex]);
+        applySlashEntry(slashEntries[slashIndex]);
         return;
       }
     }
@@ -473,18 +579,79 @@ export default function MessageInput({
       }}
     >
       {slashOpen ? (
-        <QuickReplyPicker
-          items={slashItems}
-          selectedIndex={slashIndex}
-          onHover={setSlashIndex}
-          onSelect={applyRespuesta}
-          onManage={() => setManage(true)}
-        />
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: '100%',
+            left: 8,
+            right: 8,
+            mb: 0.5,
+            bgcolor: WA.menu,
+            color: WA.text,
+            borderRadius: 2,
+            overflow: 'hidden',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.45)',
+            zIndex: 20,
+            maxHeight: 280,
+            overflowY: 'auto',
+          }}
+        >
+          {slashEntries.length === 0 ? (
+            <Typography sx={{ px: 1.5, py: 1, fontSize: '0.85rem', color: WA.muted }}>
+              No hay coincidencias. Probá /categoría o Gestionar respuestas.
+            </Typography>
+          ) : (
+            slashEntries.map((entry, index) => (
+              <Box
+                key={entry.kind === 'categoria' ? `cat-${entry.id}` : entry.item.id}
+                onMouseEnter={() => setSlashIndex(index)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  applySlashEntry(entry);
+                }}
+                sx={{
+                  px: 1.5,
+                  py: 0.9,
+                  cursor: 'pointer',
+                  bgcolor: index === slashIndex ? WA.selected : 'transparent',
+                  '&:hover': { bgcolor: WA.selected },
+                }}
+              >
+                <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: WA.accent }}>
+                  {entry.kind === 'categoria' ? `/${entry.slug}` : `/${entry.item.atajo}`}
+                </Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: WA.muted }} noWrap>
+                  {entry.kind === 'categoria'
+                    ? `Lista: ${entry.label}`
+                    : entry.item.texto.slice(0, 80)}
+                </Typography>
+              </Box>
+            ))
+          )}
+          <Box
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setManage(true);
+            }}
+            sx={{
+              px: 1.5,
+              py: 0.75,
+              borderTop: `1px solid ${WA.border}`,
+              color: WA.muted,
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              '&:hover': { color: WA.text },
+            }}
+          >
+            Gestionar respuestas
+          </Box>
+        </Box>
       ) : null}
 
       {catalogOpen && !slashOpen ? (
         <CatalogPicker
           items={catalogo}
+          categorias={categorias}
           onSelect={applyCatalogItem}
           onSelectLista={applyListaCategoria}
           onManage={() => {

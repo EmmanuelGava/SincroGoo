@@ -11,6 +11,10 @@ export function isEstadoPerdido(nombre: string): boolean {
   return nombre.trim().toLowerCase() === 'perdido';
 }
 
+export function isEstadoPropuesta(nombre: string): boolean {
+  return nombre.trim().toLowerCase() === 'propuesta';
+}
+
 export const MOTIVOS_PERDIDO = [
   'competencia',
   'no_contesto',

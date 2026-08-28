@@ -10,36 +10,84 @@ import {
   type CatalogoTipo,
 } from '@/lib/chat/catalogoVentas';
 import { formatCatalogPrecio } from '@/lib/chat/respuestasRapidas';
+import {
+  type CategoriaCatalogo,
+  nombreDisplayCatalogo,
+  stockDisponible,
+} from '@/lib/catalogo/catalogoCategorias';
 
-type ListaCategoria = { categoria: string; count: number };
+type ListaCategoria = { categoria: string; count: number; incluirSinStock: boolean };
 
-function listasConStock(items: CatalogoItem[]): ListaCategoria[] {
+function listasDesdeCategorias(
+  categorias: CategoriaCatalogo[],
+  items: CatalogoItem[],
+): ListaCategoria[] {
+  const out: ListaCategoria[] = [];
+  for (const cat of categorias) {
+    const count = items.filter((item) => {
+      const slug = (item.categoria || '').trim().toLowerCase();
+      const match = slug === cat.slug || item.categoria_id === cat.id;
+      if (!match) return false;
+      if (cat.incluir_sin_stock_en_lista) return true;
+      return stockDisponible(item) > 0;
+    }).length;
+    if (count > 0) {
+      out.push({
+        categoria: cat.slug,
+        count,
+        incluirSinStock: cat.incluir_sin_stock_en_lista,
+      });
+    }
+  }
+  return out;
+}
+
+function listasLegacy(items: CatalogoItem[]): ListaCategoria[] {
   const counts = new Map<string, number>();
   for (const item of items) {
     const cat = (item.categoria || '').trim().toLowerCase();
-    if (!cat || (item.stock ?? 0) <= 0) continue;
+    if (!cat || stockDisponible(item) <= 0) continue;
     counts.set(cat, (counts.get(cat) || 0) + 1);
   }
   return Array.from(counts.entries())
-    .map(([categoria, count]) => ({ categoria, count }))
+    .map(([categoria, count]) => ({
+      categoria,
+      count,
+      incluirSinStock: false,
+    }))
     .sort((a, b) => a.categoria.localeCompare(b.categoria, 'es'));
+}
+
+function parentNombre(items: CatalogoItem[], parentId: string | null): string | null {
+  if (!parentId) return null;
+  const parent = items.find((i) => i.id === parentId);
+  return parent?.nombre ?? null;
 }
 
 export function CatalogPicker({
   items,
+  categorias = [],
   onSelect,
   onSelectLista,
   onManage,
 }: {
   items: CatalogoItem[];
+  categorias?: CategoriaCatalogo[];
   onSelect: (item: CatalogoItem) => void;
-  onSelectLista?: (categoria: string) => void;
+  onSelectLista?: (categoria: string, incluirSinStock?: boolean) => void;
   onManage: () => void;
 }) {
   const WA = useWaTheme();
   const [tipo, setTipo] = useState<CatalogoTipo | 'todos'>('todos');
-  const listas = useMemo(() => listasConStock(items), [items]);
-  const visibles = (tipo === 'todos' ? items : items.filter((item) => item.tipo === tipo));
+  const listas = useMemo(() => {
+    const fromApi = listasDesdeCategorias(categorias, items);
+    if (fromApi.length > 0) return fromApi;
+    return listasLegacy(items);
+  }, [categorias, items]);
+
+  const visibles = (tipo === 'todos' ? items : items.filter((item) => item.tipo === tipo)).filter(
+    (item) => item.tipo !== 'presupuesto',
+  );
 
   return (
     <Box
@@ -67,13 +115,13 @@ export function CatalogPicker({
       {listas.length > 0 && onSelectLista ? (
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5 }}>
           <Typography sx={{ fontSize: '0.7rem', color: WA.muted, mb: 0.5, textTransform: 'uppercase' }}>
-            Listas
+            Listas /categoría
           </Typography>
           {listas.map((lista) => (
             <Box
               key={lista.categoria}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => onSelectLista(lista.categoria)}
+              onClick={() => onSelectLista(lista.categoria, lista.incluirSinStock)}
               sx={{
                 px: 1,
                 py: 0.75,
@@ -85,7 +133,7 @@ export function CatalogPicker({
               }}
             >
               <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                Lista: {lista.categoria} ({lista.count})
+                /{lista.categoria} ({lista.count})
               </Typography>
             </Box>
           ))}
@@ -121,13 +169,16 @@ export function CatalogPicker({
           </Typography>
         ) : (
           visibles.map((item) => {
-            const sinStock = (item.stock ?? 0) <= 0;
+            const disponible = stockDisponible(item);
+            const sinStock = item.tipo === 'producto' && disponible <= 0;
+            const displayNombre = nombreDisplayCatalogo(item, parentNombre(items, item.parent_id));
+            const thumb = item.imagen_urls?.[0] || item.imagen_url;
             return (
               <Box
                 key={item.id}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  if ((item.stock ?? 0) <= 0) return;
+                  if (sinStock) return;
                   onSelect(item);
                 }}
                 sx={{
@@ -140,25 +191,35 @@ export function CatalogPicker({
                   '&:hover': sinStock ? undefined : { bgcolor: WA.selected },
                 }}
               >
-                {item.imagen_url ? (
+                {thumb ? (
                   <Box
                     component="img"
-                    src={item.imagen_url}
+                    src={thumb}
                     alt=""
                     sx={{ width: 44, height: 44, borderRadius: 1, objectFit: 'cover' }}
                   />
                 ) : (
-                  <Box sx={{
-                    width: 44, height: 44, borderRadius: 1, bgcolor: WA.selected,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.7rem', color: WA.muted, textAlign: 'center', px: 0.3,
-                  }}>
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 1,
+                      bgcolor: WA.selected,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.7rem',
+                      color: WA.muted,
+                      textAlign: 'center',
+                      px: 0.3,
+                    }}
+                  >
                     {CATALOGO_TIPO_LABEL[item.tipo].slice(0, 4)}
                   </Box>
                 )}
                 <Box sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontSize: '0.9rem', fontWeight: 600 }} noWrap>
-                    {item.nombre}
+                    {displayNombre}
                   </Typography>
                   <Typography sx={{ fontSize: '0.75rem', color: WA.muted }} noWrap>
                     {sinStock

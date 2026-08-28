@@ -16,6 +16,7 @@ import {
   leadTagsStockAlreadyDeducted,
   mergeLeadTagsWithStockDeduction,
 } from '@/lib/catalogo/descontarStockAlGanado';
+import { syncStockReservaOnEtapaChange } from '@/lib/catalogo/reservarStockPropuesta';
 import { attachUltimoMovEtapa } from '@/lib/crm/leadUltimoMov';
 import type { ProximaTareaLead } from '@/lib/crm/leadTaskBadge';
 
@@ -350,6 +351,23 @@ export async function PATCH(request: NextRequest) {
         if (stockDeduction.applied && stockDeduction.deductions) {
           fields.tags = mergeLeadTagsWithStockDeduction(current.tags, stockDeduction.deductions);
         }
+        await supabase.rpc('release_catalogo_stock_for_lead', { p_lead_id: id });
+      }
+
+      try {
+        await syncStockReservaOnEtapaChange(supabase, {
+          leadId: id,
+          organizacionId,
+          usuarioId: userId,
+          prevEstadoNombre: prevNombre,
+          nuevoEstadoNombre: nuevoNombre,
+        });
+      } catch (reservaErr) {
+        console.warn('Reserva de stock:', reservaErr);
+        return NextResponse.json(
+          { error: reservaErr instanceof Error ? reservaErr.message : 'No se pudo reservar stock' },
+          { status: 400 },
+        );
       }
 
       if (current && shouldRecordEtapaChange(current.estado_id, fields.estado_id)) {

@@ -5,7 +5,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { validateCatalogoItem } from '@/lib/chat/catalogoVentas';
-
+import { CATALOGO_DB_SELECT, mapCatalogoRow } from '@/lib/catalogo/catalogoImagenes';
 import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 
 async function requireUser() {
@@ -29,13 +29,13 @@ export async function GET() {
 
     const { data, error } = await client.supabase
       .from('chat_catalogo')
-      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, stock_minimo, created_at')
+      .select(CATALOGO_DB_SELECT)
       .eq('organizacion_id', client.organizacionId)
       .order('nombre', { ascending: true });
 
     if (error) throw error;
     return NextResponse.json(
-      { items: data || [] },
+      { items: (data || []).map((row) => mapCatalogoRow(row as Record<string, unknown>)) },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (error) {
@@ -60,11 +60,11 @@ export async function POST(req: NextRequest) {
     const { data, error } = await client.supabase
       .from('chat_catalogo')
       .insert({ usuario_id: client.usuarioId, organizacion_id: client.organizacionId, ...parsed.fields })
-      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, stock_minimo, created_at')
+      .select(CATALOGO_DB_SELECT)
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ item: data }, { status: 201 });
+    return NextResponse.json({ item: mapCatalogoRow(data as Record<string, unknown>) }, { status: 201 });
   } catch (error) {
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });

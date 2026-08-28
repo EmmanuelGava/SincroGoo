@@ -5,6 +5,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { validateCatalogoItem } from '@/lib/chat/catalogoVentas';
+import { CATALOGO_DB_SELECT, mapCatalogoRow } from '@/lib/catalogo/catalogoImagenes';
 
 import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 
@@ -42,12 +43,12 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       .update({ ...parsed.fields, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('organizacion_id', client.organizacionId)
-      .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, stock_minimo, created_at')
+      .select(CATALOGO_DB_SELECT)
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return NextResponse.json({ error: 'Ítem no encontrado' }, { status: 404 });
-    return NextResponse.json({ item: data });
+    return NextResponse.json({ item: mapCatalogoRow(data as Record<string, unknown>) });
   } catch (error) {
     const { error: errorMessage, status } = formatErrorResponse(error);
     return NextResponse.json({ error: errorMessage }, { status });

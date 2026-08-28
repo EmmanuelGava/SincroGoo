@@ -8,26 +8,27 @@ Referencias:
 
 ---
 
-## Estado de implementación (26 ago 2026)
+## Estado de implementación (27 ago 2026)
 
 | ID | Estado | Notas |
 |----|--------|-------|
-| **K6** | ✅ Código | Seguimiento A8 en cards + filtro; certificar en prod |
-| **K2** | ✅ Código | Búsqueda Kanban con debounce |
-| **K3** | ✅ Código | Etiquetas contacto en card + filtro |
-| **K5** | ✅ Código | Timeline en modal + drawer |
-| **K1** | ✅ Código | `ContactDealDrawer` en `/chat` |
-| **K4** | ✅ Código | Recordatorio + badge en card |
-| **M2** | ✅ Código | Filtros inbox + `?filtro=` |
-| **M1** | ✅ Código | Programar envío; default hora actual; persist inbox al disparar (fix local pendiente push) |
-| **M3** | ✅ Código | Archivar/desarchivar + vista Archivados |
-| **M4** | ✅ Código | Reply-to con quote en Baileys |
-| **M5** | ✅ Código | Video MP4 saliente ≤16 MB |
-| **N1** | ✅ | Notas internas en hilo (P2 implementado) |
+| **K6** | ✅ | Seguimiento en cards + filtro + **dismiss** (chip / ✓ atendido) |
+| **K2** | ✅ | Búsqueda Kanban con debounce + siguiente hit |
+| **K3** | ✅ | Etiquetas contacto en card + filtro |
+| **K5** | ✅ | Timeline en modal + drawer (sin chip en card) |
+| **K1** | ✅ | `ContactDealDrawer` en `/chat` |
+| **K4** | ✅ | Recordatorio + badge en card |
+| **M2** | ✅ | Filtros inbox + `?filtro=` |
+| **M1** | ✅ | Programar envío; fix cancelar / no envío inmediato; pacing skip programados |
+| **M3** | ✅ | Archivar/desarchivar + vista Archivados |
+| **M4** | ✅ | Reply-to con quote en Baileys |
+| **M5** | ✅ | Video MP4 saliente ≤16 MB |
+| **N1** | ✅ | Notas internas en **header** del chat (post-it; no en hilo WA) |
+| **Cat** | ✅ | Stock al Ganado + alertas bajo stock + toast Kanban |
 
 **Leyenda checkboxes abajo:** `[x]` = hecho en código · `[ ]` = opcional diferido o no hecho a propósito.
 
-**Tests:** 186+ tests lib OK · `tsc --noEmit` OK · **P0+P1 completo en código** — falta push fix M1 + QA manual en prod (Railway worker para M4/M5).
+**Tests:** lib OK · `tsc --noEmit` OK · **P0+P1 + N1 + catálogo stock en `main`** (commits 27 ago). Pendiente: QA prod tras cada deploy.
 
 ---
 
@@ -35,7 +36,7 @@ Referencias:
 
 - Inbox WA: búsqueda, unread, seguimiento, live, notificaciones, respuestas `/`, catálogo + carrito
 - Mensajería confiable: outbox, ticks, anti-ban 2–4 s, media in/out (video saliente MP4)
-- Kanban: drag entrantes → columna, orden manual, filtros canal/valor/fecha, score, stats, multi-deal
+- Kanban: drag entrantes → columna, orden manual, filtros canal/valor/fecha/etiquetas/seguimiento, score, stats, multi-deal, carga leads fiable
 - Puente chat ↔ CRM ↔ contactos (certificado A1–A8, B1–B7)
 
 ---
@@ -94,7 +95,7 @@ Volver al Track A cuando haya volumen real o el dueño de prueba pida “no encu
 
 ## Decisiones conscientes (no por default)
 
-### Notas internas en el hilo — **P2, no “No ahora” genérico**
+### Notas internas en el chat — **implementado (27 ago)**
 
 **Qué es (y qué NO es):**
 
@@ -105,27 +106,13 @@ Volver al Track A cuando haya volumen real o el dueño de prueba pida “no encu
 | `contactos.notas` | Nota única del contacto | Campo libre en ficha |
 | **Notas internas (N1)** | Memoria libre **por hilo/deal**, sin fecha | “Cliente de fiar, ya le mandé catálogo 2 veces” |
 
-Son cuatro cosas distintas. N1 no está cubierto por K1 ni K4.
+Son cuatro cosas distintas. N1 no estaba cubierto por K1 ni K4; **ahora sí** vía notas en header del chat.
 
-**Estado (agosto 2026):** N1 implementado; roadmap P0+P1+opcionales+parciales completo en código. Pendiente: commit, push, QA prod.
+**Implementación (27 ago 2026):** `ChatHeaderNotes` + toggle “Nota interna” en composer; API `nota-interna`. Roadmap P0+P1 cerrado en código; post-27 ago: fix Kanban leads, stock al Ganado, dismiss seguimiento en card.
 
-**Por qué bajar prioridad ahora (consciente):**
-- Con ~30 chats/semana, **K3 tags** + **K5 timeline** + `contactos.notas` pueden alcanzar para memoria básica.
-- El dueño solo hoy vive más en inbox (A8 ya visible ahí) que en notas CRM estilo Kommo.
-- Implementar N1 bien implica UI en hilo + visibilidad “solo equipo” + posible sync con lead — scope >0.5 d.
+**Decisión de diseño:** notas en **header** (post-it), no burbuja en hilo WA — menos ruido visual y sin mezclar con mensajes del cliente.
 
-**Señales para subir N1 a P0 (semana 2+):**
-- El dueño de prueba dice: *“no tengo dónde anotar esto sin que se lo mande al cliente”*
-- Usa `contactos.notas` como chanchuyo para cosas por-conversación
-- Pide diferenciar nota interna vs mensaje al cliente
-
-**Spec mínima cuando suba (N1):**
-- Composer: toggle “Nota interna” → no envía WA, guarda en `interacciones_lead` o tabla `notas_conversacion`
-- Burbuja distinta (fondo gris, icono candado)
-- Visible en K1/K5 timeline
-- **Esfuerzo estimado:** ~1–1.5 d
-
-> No agrupar N1 con multiagente/bot en “Fase 5–8”. Es producto solo-vendedor; solo llega después porque tags+timeline alcanzan en semana 1.
+> No agrupar N1 con multiagente/bot en “Fase 5–8”. Es producto solo-vendedor.
 
 ### A8 vs K4 — conviven (tabla de referencia)
 
@@ -134,8 +121,8 @@ Son cuatro cosas distintas. N1 no está cubierto por K1 ni K4.
 | Origen | Automático | Manual |
 | Trigger | Cliente escribió, vos no respondiste ≥12–24 h | Vos elegís fecha/hora |
 | UI inbox | Borde naranja + chip | — |
-| UI Kanban | **K6** ✅ en código | Badge vence hoy / vencida ✅ |
-| Certificado | ✅ inbox prod; Kanban pendiente QA | Código listo; QA prod pendiente |
+| UI Kanban | **K6** ✅ borde + chip + dismiss | Badge vence hoy / vencida ✅ |
+| Certificado | ✅ inbox prod (A8) | ✅ dismiss en card (27 ago) |
 
 ---
 
@@ -158,7 +145,8 @@ K4 (recordatorio manual) no reemplaza esto: A8 es automático y es el diferencia
 ### Criterios de aceptación
 - [x] Card con `esperando_seguimiento: true` → borde/icono naranja (mismo criterio visual que `ChatSidebar`).
 - [x] Tooltip: “Esperando tu respuesta hace X h” (`humanizeSeguimientoHoras`).
-- [x] Chip compacto “Seguimiento” en card (opcional si hay poco espacio).
+- [x] Chip compacto “Seguimiento” en card (clic → marcar atendido).
+- [x] Botón ✓ visible en card con seguimiento activo (`dismiss-seguimiento`).
 - [x] Filtro Kanban “Solo seguimiento” (extiende `LeadKanbanFiltros` — complementa K3/M2).
 - [x] Lógica **reuse** de `computeSeguimientoMeta` (`seguimientoInbox.ts`) — misma regla 12 h/24 h, no duplicar.
 - [x] Lead en etapa terminal (Ganado/Perdido) → nunca seguimiento.
@@ -172,6 +160,7 @@ K4 (recordatorio manual) no reemplaza esto: A8 es automático y es el diferencia
 | K6.3 | UI borde + chip + tooltip en card | ✅ | `KanbanLeads.tsx` |
 | K6.4 | Filtro `soloSeguimiento` en `leadKanbanFilters.ts` | ✅ | `leadKanbanFilters.ts` |
 | K6.5 | Test: mismo input → mismo resultado que inbox | ✅ | `seguimientoInbox.test.ts` + filters |
+| K6.6 | Dismiss seguimiento desde card (chip + ✓) | ✅ | `KanbanLeads.tsx` + `dismiss-seguimiento` |
 
 ### Notas técnicas
 - Hoy `attachLeadConversationMeta` solo une unread + preview; no calcula seguimiento.
@@ -201,7 +190,7 @@ El chat tiene búsqueda con debounce (`ChatSidebar` + `buscarConversaciones.ts`)
 - [x] Match por: `nombre`, `empresa`, `telefono`, `email` (case-insensitive; teléfono por dígitos si query ≥ 3 dígitos).
 - [x] Cards que no matchean se ocultan (o se atenúan — elegir una y ser consistente).
 - [x] Contador “X de Y leads” cuando hay query activa.
-- [ ] Enter o botón “Ir al siguiente” opcional si hay múltiples hits en distintas columnas. *(opcional diferido)*
+- [ ] Enter o botón “Ir al siguiente” opcional si hay múltiples hits en distintas columnas. *(opcional — **hecho** navegación siguiente hit)*
 - [x] Limpiar búsqueda restaura vista completa sin recargar.
 
 ### Subtasks
@@ -282,6 +271,7 @@ Al mover un lead se escribe en `lead_etapa_historial` (`leadEtapaHistorial.ts`, 
 - [x] Muestra: fecha, etapa anterior → nueva, motivo si estado Perdido.
 - [x] Vacío: “Sin movimientos de etapa”.
 - [x] Carga lazy al abrir panel/modal (no en listado Kanban).
+- [x] **No** mostrar “último mov” en la card del Kanban (solo en timeline K5/K1).
 
 ### Subtasks
 
@@ -291,7 +281,7 @@ Al mover un lead se escribe en `lead_etapa_historial` (`leadEtapaHistorial.ts`, 
 | K5.2 | Componente `LeadEtapaTimeline.tsx` | ✅ | `crm/componentes/` |
 | K5.3 | Montar en `LeadProfileModal` | ✅ | `LeadProfileModal.tsx` |
 | K5.4 | Montar en drawer K1 | ✅ | `ContactDealDrawer.tsx` |
-| K5.5 | Opcional: “Último mov” compacto en card | ✅ | `KanbanLeads.tsx` |
+| K5.5 | ~~“Último mov” en card~~ — **removido** (solo timeline K5/K1) | ✅ decisión UX | — |
 
 ### Datos existentes
 ```sql
@@ -570,7 +560,7 @@ No hay reply-to. `WhatsAppLiteService` ya acepta `MessageOptions.quoted`.
 | ID | Feature | Estado | Acción mínima | Esfuerzo |
 |----|---------|--------|---------------|----------|
 | **P1** | Typing indicator | ✅ | `TypingIndicator` en `ChatWindow` |
-| **P2** | MessagingQuickSetup | ✅ | Montado en Kanban (compact) |
+| **P2** | MessagingQuickSetup | ✅ removido de Kanban | Solo `/configuracion/mensajeria` + chat |
 | **P3** | Crear lead desde chat | ✅ | Botón “Pasar al Kanban” en header |
 | **P4** | Tags lead ↔ contacto | ✅ lectura (K3) | Sync write opcional |
 | **P5** | Stats CRM multi-tenant | ✅ | `usuario_id` en chats sin lead |
@@ -579,15 +569,30 @@ No hay reply-to. `WhatsAppLiteService` ya acepta `MessageOptions.quoted`.
 
 # P2 — Semana 2+ (subir si uso real lo pide)
 
-## N1 — Notas internas en el hilo
+## N1 — Notas internas (header del chat)
 
-**Estado:** decisión consciente de posponer — ver [Decisiones conscientes](#decisiones-conscientes-no-por-default).
+**Estado:** ✅ implementado (27 ago 2026).
 
-**Esfuerzo cuando suba:** ~1–1.5 d
+**Qué hay:** toggle “Nota interna” en composer; notas en **header** del chat (`ChatHeaderNotes`), no en el hilo WhatsApp. API `GET/POST/DELETE` en `nota-interna/route.ts`.
 
-**Criterios para implementar:** señales de uso listadas arriba (dueño pide “dónde anoto sin mandárselo al cliente”).
+**Esfuerzo:** ~1–1.5 d (cerrado).
 
-**Spec mínima:** toggle en composer, burbuja gris/candado, persistencia en `interacciones_lead` o tabla dedicada, visible en timeline K5/K1.
+---
+
+## Cat — Stock al Ganado + alertas (27 ago 2026)
+
+**Estado:** ✅ en `main` (ver backlog catálogo en ORDEN-ACTUAL-PRODUCTO).
+
+- [x] Descontar stock al mover lead a **Ganado** (último presupuesto del chat; RPC `decrement_catalogo_stock`).
+- [x] Metadata `presupuesto_catalogo_ids` al enviar carrito.
+- [x] Toast en Kanban al descontar (éxito / parcial / sin presupuesto).
+- [x] Alertas bajo stock en `/catalogo` (`stock_minimo` por ítem; default 5).
+
+---
+
+## N1 (histórico) — posponer referencia
+
+Decisión original de posponer notas en hilo — ver [Decisiones conscientes](#decisiones-conscientes-no-por-default). **Implementado 27 ago** en header; sección activa arriba.
 
 ---
 
@@ -610,23 +615,27 @@ Ver [comparativa](./comparativa-competencia-klosync(2).md): Basework/Chatsell co
 
 ### Implementado en código — falta QA / certificar en prod
 
-- [x] **K6** Seguimiento A8 visible en card Kanban (misma regla que inbox)
+- [x] **K6** Seguimiento A8 visible en card Kanban + dismiss atendido
 - [x] **K1** Desde chat veo persona + deals + timeline sin salir del hilo
-- [x] **K2** Encuentro un lead por nombre en Kanban en <3 s
+- [x] **K2** Encuentro un lead por nombre en Kanban en <3 s (+ siguiente hit)
 - [x] **K3** Filtro tablero por etiqueta
 - [x] **K4** Programo follow-up para mañana 9:00 con badge en card
-- [x] **K5** Veo historial de etapas del deal en panel
+- [x] **K5** Veo historial de etapas del deal en panel (no en card)
 - [x] **M2** Filtro inbox: no leídas / seguimiento / canal
 - [x] **M1** Programo un mensaje WA para hora futura
 - [x] **M3** Archivo chat muerto sin borrar historial
 - [x] **M4** Respondo citando un mensaje del cliente
 - [x] **M5** Envío video corto saliente
 
-### Aún abierto (no P0/P1 core)
+### Post-roadmap (27 ago 2026)
 
-- [x] **N1** Nota interna en hilo (toggle composer, burbuja gris, API + interacciones_lead)
-- [x] **Opcionales:** K2 “siguiente hit”, K5.5 chip “último mov”, K4.6 sync A8, M1 media programada, M1 toast post-envío, M2.4 API unread, M5 preview composer
-- [x] **Parciales:** typing, QuickSetup, crear lead desde chat, stats multi-tenant
+- [x] **N1** Notas internas en header del chat (no hilo WA)
+- [x] **Kanban** Fix carga leads (auth + `crmApiClient` service role)
+- [x] **Kanban** Sin bloque MessagingQuickSetup en `/crm`
+- [x] **Cat** Stock al Ganado + alertas + toast
+- [x] **Opcionales:** K2 siguiente hit, K4.6 dismiss A8 al completar tarea, M1 media programada, M1 toast, M2.4 API unread, M5 preview
+- [x] **Parciales:** typing, crear lead desde chat, stats multi-tenant
+- [x] **K5.5** Chip “último mov” **removido** de card (decisión UX 27 ago)
 
 ---
 
@@ -645,7 +654,8 @@ Ver [comparativa](./comparativa-competencia-klosync(2).md): Basework/Chatsell co
 | M3 | 1 | 10.5 |
 | M4 | 1.5 | 12 |
 | M5 | 1 | 13 |
-| N1 | 1.25 | *(P2, bajo demanda)* |
+| N1 | 1.25 | 14.25 *(hecho 27 ago)* |
+| Cat | 0.5 | 14.75 *(stock Ganado + alertas)* |
 
-**P0+P1 core (K6–K4 + M2 + M1):** ~7.5 días dev  
-**P1 completo + M3–M5:** ~13 días dev
+**P0+P1 core (K6–K4 + M2 + M1):** ~7.5 días dev *(cerrado)*  
+**P1 completo + M3–M5 + N1 + Cat:** ~14.75 días dev *(cerrado en código 27 ago)*

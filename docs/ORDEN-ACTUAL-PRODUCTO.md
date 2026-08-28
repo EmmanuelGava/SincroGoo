@@ -1,6 +1,6 @@
 # KloSync — Orden de trabajo actual
 
-> Actualizado: 24 agosto 2026.  
+> Actualizado: 27 agosto 2026.  
 > Este archivo es el **orden de ahora**. No reemplaza los docs de detalle; apunta a ellos.  
 > Monetización, precios y lanzamiento comercial **no están en el camino**. Primero hay que tener un MVP que un vendedor use todos los días.
 
@@ -17,7 +17,10 @@
 | UI chat, rápidas y catálogo (no estaba planificado) | [`superpowers/specs/2026-08-21-catalogo-respuestas-design.md`](./superpowers/specs/2026-08-21-catalogo-respuestas-design.md) |
 | Catálogo: categoría, stock y listas | [`superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md`](./superpowers/specs/2026-08-22-catalogo-categoria-stock-listas-design.md) — **base; primero** |
 | Carrito, nuevo pedido, tags, motivo | [`superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md`](./superpowers/specs/2026-08-22-carrito-pedido-tags-motivo-design.md) — **después** de categoría/stock |
+| Equipo v1 (org, roles, asignación) | [`superpowers/specs/2026-08-27-equipo-v1-design.md`](./superpowers/specs/2026-08-27-equipo-v1-design.md) — **core; antes de canales** |
 | Recordatorio de seguimiento (alerta interna inbox) | [`superpowers/specs/2026-08-24-recordatorio-seguimiento-design.md`](./superpowers/specs/2026-08-24-recordatorio-seguimiento-design.md) |
+| Roadmap inbox + Kanban (P0–P1, N1, catálogo stock) | [`ROADMAP-MENSAJERIA-KANBAN.md`](./ROADMAP-MENSAJERIA-KANBAN.md) |
+| Comparativa competencia + gap tasks | [`comparativa-competencia-klosync(2).md`](./comparativa-competencia-klosync(2).md) |
 
 ---
 
@@ -35,28 +38,32 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 
 ## Dónde estamos hoy (honesto)
 
-**Resumen por fase (24 ago 2026):**
+**Resumen por fase (27 ago 2026):**
 
 | Fase | Código | Certificado en prod |
 |------|--------|-------------------|
 | **0** Loop Chat ↔ Kanban | ✅ en `main` | ✅ A1–A8 OK (26 ago) |
 | **1** Mensajería confiable | ✅ en `main` | ✅ B1–B7 OK (26 ago) |
 | **2** Contactos (base CRM) | ✅ **cerrada** | ✅ migración + CRUD en prod |
-| **3** Kommo día a día | ✅ core cerrado | ✅ seguimiento OK en prod (A8, 26 ago) |
+| **3** Kommo día a día | ✅ core + catálogo stock | ✅ seguimiento OK en prod (A8, 26 ago) |
+| **3½** Equipo v1 (org, roles, asignar) | ✅ en local (sin push) | QA manual pendiente |
 | **4+** Diferencial / canales | — | no empezado |
 
-**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Siguiente: Fase 4 (Explorador → contactos) o backlog catálogo.
+**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Roadmap mensajería-Kanban P0+P1 en código (27 ago). **Siguiente prioritario: Fase 3½ Equipo v1** (spec 27 ago). En paralelo opcional: backlog catálogo o Fase 4 Explorador.
 
 **Ya anda (no rehacer):**
 
 - Sync Tools y generación de slides (plantillas, preview, re-sync, enriquecimiento, historial).
 - Explorador: buscar por zona y exportar a Sheets.
-- WhatsApp Lite en Railway (QR, envío/recepción, live del inbox, media saliente imagen/audio, catch-up al reconectar, outbox, ticks).
-- Chat unificado + Kanban (drag chat→columna, ida y vuelta chat↔CRM, filtros, scoring, stats).
+- WhatsApp Lite en Railway (QR, envío/recepción, live del inbox, media saliente imagen/audio/video, catch-up al reconectar, outbox, ticks, programados).
+- Chat unificado + Kanban (drag chat→columna, ida y vuelta chat↔CRM, filtros, scoring, stats, carga leads con auth correcta).
 - Inbox estilo WhatsApp Web, respuestas rápidas (`/`), catálogo + carrito multi-producto en `/catalogo`.
 - Contactos: CRUD, ficha, match automático, timeline, import, etiquetas, nuevo pedido.
-- Seguimiento inbox: alerta interna “esperando tu respuesta” (12 h / 24 h).
+- Seguimiento inbox: alerta interna “esperando tu respuesta” (12 h / 24 h); dismiss desde card Kanban (chip o ✓).
+- Notas internas ancladas al header del chat (no van a WhatsApp).
+- Catálogo: descontar stock al **Ganado**, alertas bajo stock en `/catalogo`, toast al mover deal.
 - Login Google / NextAuth.
+- **Equipo v1:** org, roles, asignación, `/configuracion/equipo`, invitaciones — código local; falta push + QA.
 
 **Certificado en prod (26 ago 2026):** checklist A (incl. A8) + B completos con celular real en klosync.vercel.app.
 
@@ -133,6 +140,10 @@ CRM inbox / tablero (hecho):
 - [x] Filtros del tablero: canal, valor, fecha.
 - [x] Lead scoring básico (alta / media / baja).
 - [x] Stats mínimas del inbox: nuevas, no respondidas, tiempo a primera respuesta, conversión por etapa.
+- [x] Seguimiento A8 en card Kanban + filtro “Solo seguimiento”; **marcar atendido** desde chip o botón ✓ (sin abrir chat).
+- [x] Timeline de etapas en drawer/modal (K5); **no** chip “último mov” en la card.
+- [x] Fix carga Kanban: leads tras login + API CRM con service role (RLS).
+- [x] Sin bloque “Configuración de mensajería” en `/crm` (solo en `/configuracion/mensajeria` y chat).
 
 **Recordatorio de seguimiento** (alerta interna; spec [`2026-08-24-recordatorio-seguimiento-design.md`](./superpowers/specs/2026-08-24-recordatorio-seguimiento-design.md)) — independiente del catálogo; puede adelantarse como primer “wow”:
 
@@ -142,6 +153,31 @@ CRM inbox / tablero (hecho):
 - [x] Limpieza automática al responder; persiste al recargar (no depende del socket).
 - [x] Ordenar inbox poniendo seguimiento arriba.
 - [x] **Prod:** marcar seguimiento tras umbral (12 h / 24 h) — checklist A8 — 26 ago 2026.
+
+### Fase 3½ — Equipo v1 (core producto, no “más adelante”)
+
+Spec: [`2026-08-27-equipo-v1-design.md`](./superpowers/specs/2026-08-27-equipo-v1-design.md).
+
+Para PyME con 2–5 personas, **asignar leads y ver el mismo CRM** es tan básico como el Kanban. Sin esto no compites con Kommo/Basework en la tabla comparativa.
+
+**Equipo v1 (este corte):**
+
+- [x] Organización / workspace: varios usuarios bajo la misma cuenta negocio.
+- [x] Roles simples: `admin` (invita, conecta WA) y `agente`.
+- [x] Asignar **lead** y **chat** a un miembro (dropdown en card Kanban + header chat).
+- [x] Filtros Kanban: Todos | Mis leads | Sin asignar.
+- [x] Notas en header del chat con **autor** visible para todo el equipo.
+- [x] Un número WA por org (admin conecta QR; agentes responden desde KloSync).
+- [ ] **QA prod:** invitar 2ª cuenta, asignar, filtros, agente sin QR en UI, contactos compartidos por org.
+
+**No es Equipo v1 (queda Fase 8 — escala):**
+
+- Varios agentes con sesiones Baileys paralelas en el mismo número.
+- Chat interno tipo Slack (sin cliente).
+- Broadcast / campañas.
+- Cloud API Meta.
+
+**Esfuerzo estimado:** ~4–5 d dev (ver spec).
 
 ### Fase 4 — Pegar el diferencial (Explorador + Slides al CRM)
 
@@ -174,10 +210,12 @@ Después del widget, no antes. Reglas primero; IA después y opt-in.
 - [ ] “Si no responde en X días, recordatorio” y mensajes programados.
 - [ ] IA FAQ / borrador (opt-in). Nunca stock o precio inventado.
 
-### Fase 8 — Equipo (cuando el vendedor individual ya lo usa)
+### Fase 8 — Equipo escala (multi-WA, broadcast, Cloud API)
 
-- [ ] Asignación de chat y de lead a un agente.
-- [ ] WhatsApp multiagente (varios en el mismo número).
+Solo cuando Equipo v1 ya se usa en prod con 2+ usuarios reales.
+
+- [ ] WhatsApp multiagente técnico (varios en el mismo número con inbox compartido real).
+- [ ] Chat interno de equipo (hilos sin cliente — “grupo de trabajo”).
 - [ ] Campañas / broadcast a una lista de contactos.
 - [ ] WhatsApp Business API oficial (Meta Cloud API), cuando Lite ya no alcance.
 
@@ -243,8 +281,8 @@ order by m.fecha_mensaje desc limit 5;
 
 ## Backlog catálogo (Fase 3+, no bloquea MVP)
 
-- [x] Descontar stock al marcar lead **Ganado** (o al confirmar pedido).
-- [x] Alertas de bajo stock (umbral por ítem; default 5 en `/catalogo`).
+- [x] Descontar stock al marcar lead **Ganado** (presupuesto del chat → RPC `decrement_catalogo_stock`; toast en Kanban).
+- [x] Alertas de bajo stock (umbral por ítem `stock_minimo`; default 5 en `/catalogo`).
 - [ ] Variantes anidadas (talle / color / sabor como sub-SKU).
 - [ ] Al enviar una lista, adjuntar varias fotos.
 - [ ] Atajo `/vapers` que inserte la lista si la categoría coincide.
@@ -289,22 +327,53 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 
 | Feature | Ellos | KloSync |
 |---|---|---|
-| Kanban / embudo | Sí | Sí (filtros, scoring, stats); falta **certificar** drag en prod |
+| Kanban / embudo | Sí | Sí (filtros, scoring, stats, seguimiento en card) |
 | WhatsApp | Sí | Lite (Baileys), no oficial |
 | Telegram | Kommo parcial | Recepción sí |
 | Multiagente mismo número | Sí | No |
 | Automatización / bienvenida / follow-up | Sí | No (seguimiento = alerta interna, no auto-mensaje) |
 | Respuestas rápidas | Sí | Sí (`/` en el chat) |
-| Catálogo / cotizaciones | Algunos | Sí: catálogo + **carrito multi-producto** |
+| Catálogo / cotizaciones | Algunos | Sí: catálogo + carrito; stock al Ganado |
 | Chatbot | Sí | No |
-| Asignar chats | Sí | No |
-| Programados | Casi todos | No |
-| Seguimiento / “te debe respuesta” | Sí | Sí (badge inbox + stats; umbral 12 h / 24 h) |
+| Asignar chats | Sí | **v1 pendiente** (BD `asignado_a` sin UI; spec 3½) |
+| Roles / equipo | Sí | **v1 pendiente** (spec 3½) |
+| Programados | Casi todos | Sí (outbox + composer) |
+| Seguimiento / “te debe respuesta” | Sí | Sí (inbox + Kanban; dismiss en card) |
 | Broadcast | La mayoría | No |
 | Módulo contactos | Sí | Sí (CRUD + match + import + timeline + tags) |
 | Reportes de funnel | Sí | Stats mínimas (nuevas, sin resp., seguim., embudo) |
-| Ticks entregado/leído | Sí | Sí (falta certificar en prod) |
+| Ticks entregado/leído | Sí | Sí (certificado B3 prod) |
 | Sheet → Slides / sync Google / explorador | No | Sí (nuestro diferencial) |
+
+### Backlog comparativa (gaps del doc competencia — no en fases 0–3½)
+
+Tareas derivadas de [`comparativa-competencia-klosync(2).md`](./comparativa-competencia-klosync(2).md) § Gap vs competencia. **No bloquean Equipo v1.**
+
+**Equipo y operación (después de 3½):**
+
+- [ ] Reportes / supervisión por agente (tiempo respuesta, conversión por asignado) — Chatty, Darwin.
+- [ ] Agenda / citas ligadas a contacto o lead — Basework.
+- [ ] Campos personalizados en lead/contacto (más allá de etiquetas) — Whaticket, Kommo.
+- [ ] Telegram: paridad inbox (saliente + lista unificada) — hoy recepción parcial.
+
+**E-commerce e integraciones (Chatsell / Aoki):**
+
+- [ ] Integración Tiendanube (pedidos, stock sync).
+- [ ] Integración Mercado Libre — además de inbox Fase 5.
+- [ ] Shopify (sync catálogo/pedidos).
+- [ ] ERP argentinos (Tango, Odoo, Dux) — evaluar por demanda.
+- [ ] Link de pago / cobro en hilo — Poli, Chatsell.
+- [ ] Carrito abandonado / remarketing — WhatChimp.
+
+**IA y marketing (opt-in / nicho):**
+
+- [ ] Resumen IA de conversación — Leadsales.
+- [ ] Atribución ads / Meta Conversions API / ROAS — Chatty (solo si ICP pauta).
+
+**Comercial (fuera de orden técnico pero gap vs Basework/BotIA):**
+
+- [ ] Planes públicos con usuarios incluidos (ej. hasta 5 usuarios).
+- [ ] Facturación en pesos (ARS) — tabla mínima Argentina.
 
 ### Fuera de este orden (guardar, no ejecutar)
 
@@ -315,9 +384,10 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 ## Cómo decidir qué toca ahora
 
 1. **MVP Fase 0 + 1** — ✅ certificado (26 ago 2026). Checklist A1–A8 + B1–B7.
-2. **Roadmap mensajería + Kanban** — **P0+P1 completo en código** (K6–M5, 26 ago); deploy Vercel + Railway worker + QA manual → [`ROADMAP-MENSAJERIA-KANBAN.md`](./ROADMAP-MENSAJERIA-KANBAN.md). Solo N1 (notas internas) queda P2 bajo demanda.
-3. Alternativa en paralelo: **Fase 4** (Explorador → contactos) o backlog catálogo.
-4. ¿Se pierde un envío con worker down? → fix outbox antes de features nuevas.
-5. ¿Inbox estable una semana? → Instagram / ML. Después widget. Después bot.
+2. **Fase 3½ Equipo v1** — **siguiente prioritario** (org, roles, asignación); ver spec 27 ago.
+3. **Roadmap mensajería + Kanban** — P0+P1 + N1 + catálogo stock en código (27 ago). Pendiente: QA prod post-deploy.
+4. Paralelo opcional: backlog catálogo o **Fase 4** (Explorador → contactos).
+5. ¿Se pierde un envío con worker down? → fix outbox antes de features nuevas.
+6. ¿Inbox estable + equipo en prod? → Instagram / ML. Después widget. Después bot.
 
-No saltar a widget, chatbot, multiagente, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en el **loop diario certificado en prod**, no en el catálogo de features.
+No saltar a widget, chatbot, multiagente técnico, Cloud API o cobro para “parecer más Kommo”. Kommo se parece en **loop diario + equipo básico** certificado en prod.

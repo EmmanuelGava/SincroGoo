@@ -6,14 +6,17 @@ import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { contactoWriteFields, isUniquePhoneViolation } from '@/lib/contactos/contactoWrite';
 
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+
 async function requireContactos() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
+  const ctx = await getOrganizacionContext(session);
+  if (!ctx) return null;
   return {
     supabase: getSupabaseAdmin() as unknown as SupabaseClient,
-    usuarioId,
+    usuarioId: ctx.usuarioId,
+    organizacionId: ctx.organizacionId,
   };
 }
 
@@ -35,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       .from('contactos')
       .select('*')
       .eq('id', id)
-      .eq('usuario_id', client.usuarioId)
+      .eq('organizacion_id', client.organizacionId)
       .maybeSingle();
 
     if (contactoError) throw contactoError;
@@ -120,7 +123,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         fecha_actualizacion: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('usuario_id', client.usuarioId)
+      .eq('organizacion_id', client.organizacionId)
       .select('*')
       .maybeSingle();
 
@@ -161,7 +164,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
       .from('contactos')
       .delete()
       .eq('id', id)
-      .eq('usuario_id', client.usuarioId)
+      .eq('organizacion_id', client.organizacionId)
       .select('id')
       .maybeSingle();
 

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin } from '../../../../../lib/supabase/client';
 import { formatErrorResponse } from '../../../../../lib/supabase/utils/error-handler';
+import { ensureOrganizacionForUsuario } from '@/lib/auth/getOrganizacionContext';
 
 /**
  * GET /api/supabase/usuarios/verify
@@ -91,6 +92,8 @@ export async function GET(_request: NextRequest) {
       }
       
       console.log('✅ [API Users Verify] Usuario creado:', newUser);
+
+      await ensureOrganizacionForUsuario(newUser[0].id, nombre);
       
       return NextResponse.json({ 
         user: newUser[0],

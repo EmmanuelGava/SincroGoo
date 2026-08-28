@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sendMessage } from '@/lib/chat/sendMessage';
+import { getUsuarioIdFromSession } from '@/lib/supabase/client';
 
 /**
  * Endpoint unificado para enviar mensajes desde el frontend
@@ -51,6 +52,8 @@ export async function POST(request: NextRequest) {
       userId: session.user.id
     });
 
+    const enviadoPorUsuarioId = await getUsuarioIdFromSession();
+
     // Enviar mensaje usando la función central
     const result = await sendMessage({
       platform,
@@ -59,7 +62,10 @@ export async function POST(request: NextRequest) {
       messageType,
       filePath,
       userId: session.user.id,
-      metadata,
+      metadata: {
+        ...(metadata || {}),
+        ...(enviadoPorUsuarioId ? { enviado_por_usuario_id: enviadoPorUsuarioId } : {}),
+      },
       scheduledFor: scheduled_for || null,
     });
 

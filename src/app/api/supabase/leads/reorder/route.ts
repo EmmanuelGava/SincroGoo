@@ -1,29 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import type { KanbanLeadOrderUpdate } from '@/lib/crm/kanbanOrder';
+import { getCrmApiClient } from '@/lib/crm/crmApiClient';
 
 type ReorderBody = {
   updates?: KanbanLeadOrderUpdate[];
 };
 
-async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
-  try {
-    const { supabase } = await getSupabaseClient(true);
-    return { supabase, userId: usuarioId };
-  } catch {
-    return { supabase: getSupabaseAdmin(), userId: usuarioId };
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const client = await getUserSupabaseClient();
+    const client = await getCrmApiClient();
     if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    const { supabase, userId } = client;
+    const { supabase, userId, organizacionId } = client;
     const body = (await request.json()) as ReorderBody;
     const updates = Array.isArray(body.updates) ? body.updates : [];
 
@@ -41,7 +31,7 @@ export async function POST(request: NextRequest) {
     const { data: ownedLeads, error: ownedError } = await supabase
       .from('leads')
       .select('id')
-      .eq('asignado_a', userId)
+      .eq('organizacion_id', organizacionId)
       .in('id', ids);
 
     if (ownedError) throw ownedError;
@@ -55,7 +45,7 @@ export async function POST(request: NextRequest) {
           .from('leads')
           .update({ estado_id: update.estado_id, orden: update.orden })
           .eq('id', update.id)
-          .eq('asignado_a', userId)
+          .eq('organizacion_id', organizacionId)
           .select('id, estado_id, orden')
           .single(),
       ),

@@ -5,14 +5,17 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+
 async function requireContactos() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
+  const ctx = await getOrganizacionContext(session);
+  if (!ctx) return null;
   return {
     supabase: getSupabaseAdmin() as unknown as SupabaseClient,
-    usuarioId,
+    usuarioId: ctx.usuarioId,
+    organizacionId: ctx.organizacionId,
   };
 }
 
@@ -55,7 +58,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
       .from('contactos')
       .select('id, nombre, telefono, email, empresa')
       .eq('id', contactoId)
-      .eq('usuario_id', client.usuarioId)
+      .eq('organizacion_id', client.organizacionId)
       .maybeSingle();
 
     if (contactoError) throw contactoError;
@@ -78,6 +81,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
         estado_id: estadoId,
         asignado_a: client.usuarioId,
         creado_por: client.usuarioId,
+        organizacion_id: client.organizacionId,
         contacto_id: contactoId,
         notas: 'Nuevo pedido desde ficha de contacto',
       })

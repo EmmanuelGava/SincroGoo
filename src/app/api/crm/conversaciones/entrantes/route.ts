@@ -11,13 +11,16 @@ import {
   type LeadConEstado,
 } from '@/lib/contactos/matchContacto';
 
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+
 export const dynamic = 'force-dynamic';
 
 async function requireCrm() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
-  const usuarioId = await getUsuarioIdFromSession();
-  return { supabase: getSupabaseAdmin(), usuarioId };
+  const ctx = await getOrganizacionContext(session);
+  if (!ctx) return null;
+  return { supabase: getSupabaseAdmin(), ...ctx };
 }
 
 export async function GET() {
@@ -43,6 +46,7 @@ export async function GET() {
         )
       `)
       .is('lead_id', null)
+      .eq('organizacion_id', client.organizacionId)
       .order('fecha_mensaje', { ascending: false });
 
     if (error) throw error;
@@ -182,7 +186,7 @@ export async function POST(req: NextRequest) {
         .from('leads')
         .select('id, nombre, estado_id, estados_lead(nombre)')
         .eq('contacto_id', contactoId)
-        .eq('asignado_a', client.usuarioId);
+        .eq('organizacion_id', client.organizacionId);
       const abierto = findOpenLead((abiertos || []) as LeadConEstado[]);
       if (abierto) {
         openLead = { id: abierto.id, nombre: abierto.nombre, estado_id: abierto.estado_id };
@@ -219,7 +223,7 @@ export async function POST(req: NextRequest) {
         .from('leads')
         .select('*')
         .eq('id', decision.reuseLeadId)
-        .eq('asignado_a', client.usuarioId)
+        .eq('organizacion_id', client.organizacionId)
         .maybeSingle();
       if (existingErr || !existingLead) {
         return NextResponse.json({ error: 'Lead no encontrado' }, { status: 404 });
@@ -249,6 +253,7 @@ export async function POST(req: NextRequest) {
         estado_id: estadoId,
         asignado_a: client.usuarioId,
         creado_por: client.usuarioId,
+        organizacion_id: client.organizacionId,
         notas: `Creado desde chat ${conversacion.servicio_origen || ''}`.trim(),
         ...(contactoId ? { contacto_id: contactoId } : {}),
       })

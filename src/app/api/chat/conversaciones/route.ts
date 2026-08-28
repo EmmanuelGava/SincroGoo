@@ -13,6 +13,7 @@ import {
   computeSeguimientoMeta,
   sortConversacionesConSeguimiento,
 } from '@/lib/crm/seguimientoInbox';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 import {
   ilikeContainsPattern,
   normalizeSearchQuery,
@@ -46,6 +47,7 @@ type ConversacionRow = {
   unread_count?: number | null;
   last_read_at?: string | null;
   archived_at?: string | null;
+  asignado_a?: string | null;
   mensajes_conversacion?: MensajeRow[] | null;
 };
 
@@ -62,6 +64,7 @@ type ConversacionListaItem = {
   unread_count: number;
   ultimo_mensaje: string | null;
   archived_at?: string | null;
+  asignado_a?: string | null;
   match_kind?: ConversationSearchMatchKind;
   esperando_seguimiento: boolean;
   seguimiento_desde: string | null;
@@ -135,6 +138,7 @@ function mapConversacionRow(conv: ConversacionRow): ConversacionListaItem {
     unread_count: conv.unread_count || 0,
     ultimo_mensaje: ultimoMensaje?.contenido || null,
     archived_at: conv.archived_at || null,
+    asignado_a: conv.asignado_a || null,
     esperando_seguimiento: seguimiento.esperando_seguimiento,
     seguimiento_desde: seguimiento.seguimiento_desde,
     seguimiento_horas: seguimiento.seguimiento_horas,
@@ -209,6 +213,7 @@ const CONVERSACION_SELECT = `
   unread_count,
   last_read_at,
   archived_at,
+  asignado_a,
   mensajes_conversacion (
     contenido,
     fecha_mensaje,
@@ -230,6 +235,7 @@ function parseUnreadParam(value: string | null): boolean {
 async function searchConversaciones(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   query: string,
+  organizacionId: string,
   archivedOnly = false
 ): Promise<ConversacionListaItem[]> {
   const pattern = ilikeContainsPattern(query);
@@ -249,12 +255,14 @@ async function searchConversaciones(
   const remitentePromise = supabase
     .from('conversaciones')
     .select('id')
+    .eq('organizacion_id', organizacionId)
     .ilike('remitente', pattern)
     .limit(100);
 
   const metaNamePromise = supabase
     .from('conversaciones')
     .select('id')
+    .eq('organizacion_id', organizacionId)
     .filter('metadata->>contact_name', 'ilike', pattern)
     .limit(100);
 
@@ -263,17 +271,20 @@ async function searchConversaciones(
       ? supabase
           .from('conversaciones')
           .select('id')
+          .eq('organizacion_id', organizacionId)
           .filter('metadata->>phone_number', 'ilike', `%${digits}%`)
           .limit(100)
       : supabase
           .from('conversaciones')
           .select('id')
+          .eq('organizacion_id', organizacionId)
           .filter('metadata->>phone_number', 'ilike', pattern)
           .limit(100);
 
   const contactosNombrePromise = supabase
     .from('contactos')
     .select('id')
+    .eq('organizacion_id', organizacionId)
     .ilike('nombre', pattern)
     .limit(100);
 
@@ -282,6 +293,7 @@ async function searchConversaciones(
       ? supabase
           .from('contactos')
           .select('id')
+          .eq('organizacion_id', organizacionId)
           .or(`telefono_digits.ilike.%${digits}%,telefono.ilike.%${digits}%`)
           .limit(100)
       : Promise.resolve({ data: [] as { id: string }[], error: null });
@@ -335,6 +347,7 @@ async function searchConversaciones(
     const { data: byContacto } = await supabase
       .from('conversaciones')
       .select('id')
+      .eq('organizacion_id', organizacionId)
       .in('contacto_id', contactoIds)
       .limit(100);
     for (const row of byContacto || []) {
@@ -347,6 +360,7 @@ async function searchConversaciones(
     const { data: byDigits } = await supabase
       .from('conversaciones')
       .select('id')
+      .eq('organizacion_id', organizacionId)
       .ilike('remitente', `%${digits}%`)
       .limit(100);
     for (const row of byDigits || []) {
@@ -360,6 +374,7 @@ async function searchConversaciones(
   let convQuery = supabase
     .from('conversaciones')
     .select(CONVERSACION_SELECT)
+    .eq('organizacion_id', organizacionId)
     .in('id', ids.slice(0, 80));
   convQuery = archivedOnly
     ? convQuery.not('archived_at', 'is', null)
@@ -413,13 +428,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    const ctx = await getOrganizacionContext(session);
+    if (!ctx) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
     const q = normalizeSearchQuery(req.nextUrl.searchParams.get('q'));
     const archivedOnly = parseArchivedParam(req.nextUrl.searchParams.get('archived'));
     const unreadOnly = parseUnreadParam(req.nextUrl.searchParams.get('unread'));
 
     if (q) {
-      let conversaciones = await searchConversaciones(supabase, q, archivedOnly);
+      let conversaciones = await searchConversaciones(supabase, q, ctx.organizacionId, archivedOnly);
       if (unreadOnly) {
         conversaciones = conversaciones.filter((c) => (c.unread_count || 0) > 0);
       }
@@ -432,7 +452,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let listQuery = supabase.from('conversaciones').select(CONVERSACION_SELECT);
+    let listQuery = supabase
+      .from('conversaciones')
+      .select(CONVERSACION_SELECT)
+      .eq('organizacion_id', ctx.organizacionId);
     listQuery = archivedOnly
       ? listQuery.not('archived_at', 'is', null)
       : listQuery.is('archived_at', null);

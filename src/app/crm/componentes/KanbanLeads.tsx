@@ -53,6 +53,9 @@ import { humanizeSeguimientoHoras } from '@/lib/crm/seguimientoInbox';
 import { resolveTaskBadgeKind, TASK_BADGE_LABEL } from '@/lib/crm/leadTaskBadge';
 import RecordatorioLeadModal from './RecordatorioLeadModal';
 import { buildLeadsPorEstado } from '@/lib/crm/kanbanOrder';
+import { useOrganizacionMiembros, type MiembroOrganizacion } from '@/hooks/useOrganizacionMiembros';
+import AssigneeSelector from '@/app/components/equipo/AssigneeSelector';
+import type { LeadAsignacionFiltro } from '@/lib/crm/leadKanbanFilters';
 
 const scoreChipColor: Record<LeadScore, 'error' | 'warning' | 'default'> = {
   alta: 'error',
@@ -98,6 +101,8 @@ function TarjetaLead({
   onRecordatorio,
   onCompleteTask,
   onDismissSeguimiento,
+  onAssign,
+  miembros,
   colors,
   highlighted,
 }: {
@@ -108,6 +113,8 @@ function TarjetaLead({
   onRecordatorio: (lead: Lead) => void;
   onCompleteTask: (lead: Lead) => void;
   onDismissSeguimiento: (lead: Lead) => void;
+  onAssign: (lead: Lead, usuarioId: string | null) => void;
+  miembros: MiembroOrganizacion[];
   colors: any;
   highlighted?: boolean;
 }) {
@@ -258,6 +265,16 @@ function TarjetaLead({
               )}
             </Box>
           )}
+
+          <Box sx={{ mt: 0.75 }} onClick={(e) => e.stopPropagation()}>
+            <AssigneeSelector
+              value={lead.asignado_a}
+              miembros={miembros}
+              onChange={(uid) => onAssign(lead, uid)}
+              size="small"
+              label="Asignado"
+            />
+          </Box>
 
           {lead.ultimo_mensaje ? (
             <Typography
@@ -447,7 +464,9 @@ export default function KanbanLeads() {
     query: '',
     soloSeguimiento: false,
     etiquetas: [],
+    asignacion: 'todos',
   });
+  const { miembros, usuarioId } = useOrganizacionMiembros();
   const [busquedaInput, setBusquedaInput] = useState('');
   const [searchHitIndex, setSearchHitIndex] = useState(-1);
   const [recordatorioLead, setRecordatorioLead] = useState<Lead | null>(null);
@@ -468,8 +487,30 @@ export default function KanbanLeads() {
 
   const hayFiltrosActivos = hayFiltrosKanbanActivos(filtros);
   const etiquetaOpciones = collectEtiquetasUnicas(leads);
-  const leadsFiltrados = filtrarLeadsKanban(leads, filtros);
+  const leadsFiltrados = filtrarLeadsKanban(leads, {
+    ...filtros,
+    usuarioActualId: usuarioId || undefined,
+  });
   const searchHitIds = filtros.query ? leadsFiltrados.map((lead) => lead.id) : [];
+
+  const asignarLead = async (lead: Lead, asignadoA: string | null) => {
+    try {
+      const res = await fetch('/api/supabase/leads', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: lead.id, asignado_a: asignadoA }),
+      });
+      if (res.ok) {
+        await refrescarLeads();
+      }
+    } catch {
+      /* noop */
+    }
+  };
+
+  const setAsignacionFiltro = (asignacion: LeadAsignacionFiltro) => {
+    setFiltros((prev) => ({ ...prev, asignacion }));
+  };
 
   const goToNextSearchHit = () => {
     if (searchHitIds.length === 0) return;
@@ -758,6 +799,27 @@ export default function KanbanLeads() {
             }}
           >
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', minWidth: 0 }}>
+              <Chip
+                label="Todos"
+                size="small"
+                color={filtros.asignacion === 'todos' || !filtros.asignacion ? 'primary' : 'default'}
+                variant={filtros.asignacion === 'todos' || !filtros.asignacion ? 'filled' : 'outlined'}
+                onClick={() => setAsignacionFiltro('todos')}
+              />
+              <Chip
+                label="Mis leads"
+                size="small"
+                color={filtros.asignacion === 'mios' ? 'primary' : 'default'}
+                variant={filtros.asignacion === 'mios' ? 'filled' : 'outlined'}
+                onClick={() => setAsignacionFiltro('mios')}
+              />
+              <Chip
+                label="Sin asignar"
+                size="small"
+                color={filtros.asignacion === 'sin_asignar' ? 'primary' : 'default'}
+                variant={filtros.asignacion === 'sin_asignar' ? 'filled' : 'outlined'}
+                onClick={() => setAsignacionFiltro('sin_asignar')}
+              />
               <TextField
                 size="small"
                 placeholder="Buscar nombre, teléfono…"
@@ -870,6 +932,7 @@ export default function KanbanLeads() {
                       query: '',
                       soloSeguimiento: false,
                       etiquetas: [],
+                      asignacion: 'todos',
                     });
                   }}
                   sx={{ textTransform: 'none', color: colors.textSecondary }}
@@ -1096,6 +1159,8 @@ export default function KanbanLeads() {
                                             onRecordatorio={setRecordatorioLead}
                                             onCompleteTask={handleCompleteTask}
                                             onDismissSeguimiento={handleDismissSeguimiento}
+                                            onAssign={asignarLead}
+                                            miembros={miembros}
                                             colors={colors}
                                             highlighted={highlightLeadId === lead.id}
                                           />

@@ -39,6 +39,8 @@ import LeadProfileModal from './LeadProfileModal';
 import { conversationDisplayName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 import ChatHeaderNotes from './ChatHeaderNotes';
 import { useWaTheme } from '@/app/chat/chatTheme';
+import { useOrganizacionMiembros } from '@/hooks/useOrganizacionMiembros';
+import AssigneeSelector from '@/app/components/equipo/AssigneeSelector';
 
 interface Conversacion {
   id: string;
@@ -52,6 +54,7 @@ interface Conversacion {
   ultimo_mensaje?: string;
   metadata?: any;
   archived_at?: string | null;
+  asignado_a?: string | null;
 }
 
 interface ConversationHeaderProps {
@@ -108,8 +111,14 @@ export default function ConversationHeader({
   const [creatingPedido, setCreatingPedido] = useState(false);
   const [creatingLead, setCreatingLead] = useState(false);
   const [resolvedLeadId, setResolvedLeadId] = useState<string | null>(conversacion.lead_id || null);
+  const [asignadoA, setAsignadoA] = useState<string | null>(conversacion.asignado_a ?? null);
   const [recordatorioOpen, setRecordatorioOpen] = useState(false);
+  const { miembros } = useOrganizacionMiembros();
   const router = useRouter();
+  
+  useEffect(() => {
+    setAsignadoA(conversacion.asignado_a ?? null);
+  }, [conversacion.id, conversacion.asignado_a]);
   
   useEffect(() => {
     if (conversacion.lead_id) {
@@ -217,6 +226,27 @@ export default function ConversationHeader({
             getLastSeenText(),
           ].filter(Boolean).join(' · ')}
         </Typography>
+      </Box>
+
+      <Box sx={{ mr: 1, minWidth: 150 }} onClick={(e) => e.stopPropagation()}>
+        <AssigneeSelector
+          value={asignadoA}
+          miembros={miembros}
+          label="Asignado"
+          size="small"
+          onChange={async (uid) => {
+            setAsignadoA(uid);
+            try {
+              await fetch(`/api/chat/conversaciones/${encodeURIComponent(conversacion.id)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ asignado_a: uid }),
+              });
+            } catch {
+              setAsignadoA(conversacion.asignado_a ?? null);
+            }
+          }}
+        />
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>

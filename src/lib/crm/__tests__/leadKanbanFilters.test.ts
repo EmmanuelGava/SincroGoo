@@ -68,11 +68,33 @@ describe('filtrarLeadsKanban con query y seguimiento', () => {
   });
 });
 
+describe('filtrarLeadsKanban asignación', () => {
+  const leads = [
+    { id: '1', nombre: 'A', asignado_a: 'user-1' },
+    { id: '2', nombre: 'B', asignado_a: 'user-2' },
+    { id: '3', nombre: 'C', asignado_a: null },
+  ];
+
+  it('filtra mis leads', () => {
+    const filtered = filtrarLeadsKanban(leads, {
+      asignacion: 'mios',
+      usuarioActualId: 'user-1',
+    });
+    expect(filtered.map((l) => l.id)).toEqual(['1']);
+  });
+
+  it('filtra sin asignar', () => {
+    const filtered = filtrarLeadsKanban(leads, { asignacion: 'sin_asignar' });
+    expect(filtered.map((l) => l.id)).toEqual(['3']);
+  });
+});
+
 describe('hayFiltrosKanbanActivos', () => {
   it('detecta filtros nuevos', () => {
     expect(hayFiltrosKanbanActivos({ query: 'emma' })).toBe(true);
     expect(hayFiltrosKanbanActivos({ soloSeguimiento: true })).toBe(true);
     expect(hayFiltrosKanbanActivos({ etiquetas: ['vip'] })).toBe(true);
+    expect(hayFiltrosKanbanActivos({ asignacion: 'mios' })).toBe(true);
     expect(hayFiltrosKanbanActivos({})).toBe(false);
   });
 });

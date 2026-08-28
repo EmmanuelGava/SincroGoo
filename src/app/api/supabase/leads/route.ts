@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { getCrmApiClient } from '@/lib/crm/crmApiClient';
 import { formatErrorResponse } from '../../../../lib/supabase/utils/error-handler';
+import { isMiembroOrganizacion } from '@/lib/auth/getOrganizacionContext';
+import { syncConversacionesAsignadoFromLead } from '@/lib/auth/syncAsignacionLeadConversacion';
 import {
   attachLeadConversationMeta,
   pickUltimoMensaje,
@@ -89,8 +91,8 @@ function attachProximaTarea<T extends { id: string }>(
   }));
 }
 
-// Helper: CRM con service role + usuario_id de la sesión.
-async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
+// Helper: CRM con service role + scope por organización.
+async function getUserSupabaseClient() {
   return getCrmApiClient();
 }
 
@@ -100,7 +102,7 @@ export async function GET(request: NextRequest) {
     const client = await getUserSupabaseClient();
     if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
-    const { supabase, userId } = client;
+    const { supabase, userId, organizacionId } = client;
 
     const searchParams = request.nextUrl.searchParams;
     const estado_id = searchParams.get('estado_id');
@@ -108,7 +110,7 @@ export async function GET(request: NextRequest) {
     let query = supabase.from('leads').select(`
       *,
       estados_lead(nombre, color)
-    `).eq('asignado_a', userId);
+    `).eq('organizacion_id', organizacionId);
 
     if (estado_id) {
       query = query.eq('estado_id', estado_id);
@@ -215,7 +217,7 @@ export async function POST(request: NextRequest) {
     const client = await getUserSupabaseClient();
     if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    const { supabase, userId } = client;
+    const { supabase, userId, organizacionId } = client;
     const body = await request.json();
     const {
       nombre,
@@ -258,7 +260,8 @@ export async function POST(request: NextRequest) {
       fecha_cierre: fecha_cierre || null,
       score: score || 'media',
       asignado_a: userId,
-      creado_por: userId
+      creado_por: userId,
+      organizacion_id: organizacionId,
     }).select('*').single();
     
     if (error) {
@@ -278,10 +281,24 @@ export async function PATCH(request: NextRequest) {
     const client = await getUserSupabaseClient();
     if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
-    const { supabase, userId } = client;
+    const { supabase, userId, organizacionId } = client;
     const body = await request.json();
     const { id, motivo, ...fields } = body;
     if (!id) return NextResponse.json({ error: 'Falta el id del lead' }, { status: 400 });
+
+    if ('asignado_a' in fields) {
+      if (fields.asignado_a) {
+        const valido = await isMiembroOrganizacion(organizacionId, fields.asignado_a);
+        if (!valido) {
+          return NextResponse.json(
+            { error: 'El asignado debe ser miembro de tu organización' },
+            { status: 400 }
+          );
+        }
+      } else {
+        fields.asignado_a = null;
+      }
+    }
 
     if (fields.score != null && fields.score !== '' && !['alta', 'media', 'baja'].includes(fields.score)) {
       return NextResponse.json({ error: 'score inválido (alta, media o baja)' }, { status: 400 });
@@ -299,7 +316,7 @@ export async function PATCH(request: NextRequest) {
         .from('leads')
         .select('id, estado_id, contacto_id, tags')
         .eq('id', id)
-        .eq('asignado_a', userId)
+        .eq('organizacion_id', organizacionId)
         .maybeSingle();
       if (!current) {
         return NextResponse.json({ error: 'Lead no encontrado' }, { status: 404 });
@@ -352,8 +369,24 @@ export async function PATCH(request: NextRequest) {
       }
     }
     
-    const { data, error } = await supabase.from('leads').update(fields).eq('id', id).select('*').single();
+    const { data, error } = await supabase
+      .from('leads')
+      .update(fields)
+      .eq('id', id)
+      .eq('organizacion_id', organizacionId)
+      .select('*')
+      .single();
     if (error) throw error;
+
+    if ('asignado_a' in fields) {
+      await syncConversacionesAsignadoFromLead(
+        supabase,
+        id,
+        fields.asignado_a ?? null,
+        organizacionId
+      );
+    }
+
     return NextResponse.json({
       ...data,
       stock_deduction: stockDeduction?.applied

@@ -5,15 +5,17 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { contactoWriteFields, isUniquePhoneViolation } from '@/lib/contactos/contactoWrite';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 
 async function requireContactos() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
+  const ctx = await getOrganizacionContext(session);
+  if (!ctx) return null;
   return {
     supabase: getSupabaseAdmin() as unknown as SupabaseClient,
-    usuarioId,
+    usuarioId: ctx.usuarioId,
+    organizacionId: ctx.organizacionId,
   };
 }
 
@@ -60,6 +62,7 @@ export async function POST(req: NextRequest) {
       .from('contactos')
       .insert({
         usuario_id: client.usuarioId,
+        organizacion_id: client.organizacionId,
         ...parsed.fields,
       })
       .select('*')

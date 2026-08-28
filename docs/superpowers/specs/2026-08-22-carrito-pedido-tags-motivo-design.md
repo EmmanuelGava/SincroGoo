@@ -18,7 +18,7 @@ Fecha: 2026-08-22. Huecos de venta real **antes** de scoring, filtros de tablero
 - UI: chips + “Agregar producto” + total **arriba** del TextField; el texto se edita abajo.
 - Solo agregar ítems con `stock > 0` (misma regla que el picker de listas).
 
-**No es (acá):** descontar stock al vender, variantes anidadas, varios PDF. Eso queda en el backlog del spec de categoría/stock.
+**No es (acá):** variantes anidadas, varios PDF. Descontar stock al Ganado y alertas bajo stock → hecho 27 ago (spec categoría/stock §4).
 
 ## 2. Nuevo pedido para un contacto que ya compró
 

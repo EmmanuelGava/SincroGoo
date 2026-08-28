@@ -1,10 +1,10 @@
 # Comparativa de competencia — KloSync (WhatsApp CRM / LATAM)
 
-*Actualizado agosto 2026. Precios en USD salvo aclaración; sujetos a cambio.*
+*Actualizado: 27 agosto 2026. Precios en USD salvo aclaración; sujetos a cambio.*
 
 | Plataforma | Origen | Precio desde | Modelo de precio | Integración WhatsApp | CRM / Pipeline | IA | Facturación local (ARG) | Enfoque / fortaleza | Debilidad |
 |---|---|---|---|---|---|---|---|---|---|
-| **KloSync** | 🇦🇷 (vos) | — | — | Dual: Baileys (Lite) + Meta Cloud API (Business) | Contacts CRM propio, separación persona/deal tipo Kommo | Planeada, no implementada aún | Objetivo del proyecto | WhatsApp-first, precio local, flexibilidad de entrada (Lite sin verificación Meta) | Producto en construcción, sin base de usuarios ni reviews aún |
+| **KloSync** | 🇦🇷 | — | — | Lite Baileys (prod); Cloud API planeada | CRM persona/deal, Kanban, contactos, catálogo+carrito+stock | Planeada (Fase 7); no en prod | Objetivo del proyecto | WA-first + Sheets→Slides + explorador; Lite sin Meta | Sin equipo multiusuario en UI aún; sin omnicanal; sin broadcast |
 | **Basework** | 🇦🇷 Argentina | Gratis hasta 5 usuarios / planes pagos escalonados | Plan fijo por tamaño de equipo | Meta Cloud API oficial (Meta Tech Provider), Coexistence | CRM + agenda + chat de equipo + control horario, todo en un plan | Sí, incluida (responde catálogo, agenda, deriva a vendedor) | **Sí — factura en pesos, sin dólares** | Todo-en-uno para PyME (reemplaza Slack+Calendly+Zendesk+HubSpot), fuerte en Coexistence sin perder número | Producto más nuevo, menos reviews que competidores establecidos; es tu competidor directo más cercano geográficamente |
 | **Leadsales** | 🇲🇽 México | ~$84 USD/mes (3 usuarios) | Plan fijo + usuario adicional (~$13/u) | Meta API oficial desde plan Profesional (~$133) | Pipeline visual, foco 100% WhatsApp | Sí (resumen de conversaciones) | No — factura en USD | Líder LATAM en volumen de usuarios (+10.000 equipos), simple y enfocado | CRM de contactos básico, pocas integraciones nativas fuera de Meta, sin Telegram |
 | **Kommo** (ex amoCRM) | 🇷🇺/global | $15 USD/usuario/mes | Por usuario | API oficial | Pipeline Kanban muy pulido, referencia de UX del sector | Add-ons | No — USD | Producto maduro, marketing agresivo, buen onboarding | No incluye comunicación interna de equipo ni agenda con IA; precio escala rápido con el equipo |
@@ -40,6 +40,97 @@ Tu combo diferencial hoy (según lo que venís construyendo) es: **CRM con separ
 - **Poli Digital** es la referencia de escala regional madura, aunque fuera de tu mercado geográfico inmediato.
 - **Kommo** tiene el CRM pulido pero nada de lo local/AR.
 
-**Ninguno de los doce apunta hoy al segmento que elegiste: micro/dueño solo, sin equipo.** Todos —incluidos Basework y BotIA— asumen al menos algo de coordinación de equipo o presupuesto de ads. Ese es tu espacio más despejado ahora mismo.
+**Posicionamiento revisado (27 ago):** el loop WA + Kanban para un solo login ya está; la competencia directa (Basework, Leadsales, Whaticket) vende **equipo desde el día uno**. Equipo v1 (org, roles, asignación) es **Fase 3½** en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-PRODUCTO.md), no “dueño solo forever”.
 
-El riesgo a vigilar más de cerca sigue siendo **Basework**: mismo país, mismo público (PyME argentina), y ya tiene tracción con Coexistence + facturación en pesos. **BotIA** es un segundo caso a monitorear si el diferencial de "datos 100% tuyos, sin lock-in" empieza a pesar en las decisiones de compra de PyMEs más grandes o sectores sensibles a privacidad.
+El riesgo a vigilar más de cerca sigue siendo **Basework**: mismo país, PyME argentina, Coexistence + facturación en pesos + agenda + chat de equipo. **Aoki** si el buyer es e-commerce (Tiendanube / ML). **Chatsell** si el buyer tiene volumen y budget (IA + ERP).
+
+---
+
+## Gap vs competencia — tasks pendientes
+
+Leyenda: **fase** = dónde está en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-PRODUCTO.md) · **spec** si existe doc de detalle.
+
+### Prioridad alta (tabla de compra PyME 2–5 personas)
+
+| Gap (ellos tienen) | Quién lo tiene | KloSync hoy | Task / fase |
+|---|---|---|---|
+| Workspace + varios usuarios | Casi todos | Un Google login = mundo aislado | **Fase 3½** — [`2026-08-27-equipo-v1-design.md`](./superpowers/specs/2026-08-27-equipo-v1-design.md) |
+| Roles admin / agente | Basework, Leadsales, Chatty | No | **Fase 3½** |
+| Asignar chat / lead a persona | Kommo, Darwin, todos | `asignado_a` en BD, sin UI | **Fase 3½** |
+| Bandeja compartida (mismo número) | Whaticket, Poli, Basework | Un WA Lite por cuenta | **Fase 8** — inbox multi-sesión / Cloud API |
+| Facturación en **pesos** (ARS) | Basework, BotIA | No (monetización fuera de orden) | **Comercial** — Lemon + ARS; tabla mínima en Argentina |
+| Plan entrada bajo / usuarios incluidos | Basework (5 gratis), Whaticket flat | Sin pricing público | **Comercial** — definir plan PyME vs Pro |
+
+### Equipo y operación (post Equipo v1)
+
+| Gap | Quién | Task / fase |
+|---|---|---|
+| Chat interno de equipo (sin cliente) | Basework, Kommo (parcial) | **Fase 8** — chat interno |
+| Supervisión / reportes por agente | Chatty, Darwin | **Backlog comparativa** — dashboard desempeño agentes |
+| Control horario / fuera de horario | Basework, BotIA | **Fase 7** — reglas fuera de horario (+ handoff) |
+| Agenda / citas en el CRM | Basework | **Backlog comparativa** — agenda ligada a contacto/lead |
+| Campos personalizados en lead/contacto | Whaticket, Kommo | **Backlog comparativa** — custom fields v1 (más allá de tags) |
+
+### Mensajería y canales
+
+| Gap | Quién | Task / fase |
+|---|---|---|
+| Instagram DM | Aoki, Whaticket, Poli, Darwin, BotIA | **Fase 5** |
+| Mercado Libre (preguntas + post-venta) | Chatsell, Aoki | **Fase 5** |
+| Facebook Messenger | Whaticket, BotIA, Poli | **Fase 5** — después de IG |
+| Email inbox completo | Darwin, BotIA | **Fase 5** |
+| Telegram saliente + inbox unificado | BotIA, Kommo parcial | **Backlog comparativa** — Telegram paridad (hoy solo recepción) |
+| Widget / webchat | Poli, Darwin, BotIA | **Fase 6** |
+| Meta **Cloud API** + Coexistence | Basework, Chatsell, Aoki | **Fase 8** — Cloud API oficial |
+| Broadcast / campañas a listas | WhatChimp, mayoría | **Fase 8** |
+
+### Automatización e IA
+
+| Gap | Quién | Task / fase |
+|---|---|---|
+| Bienvenida / menú / FAQ / handoff | Todos los bots | **Fase 7** |
+| Follow-up automático al cliente (no solo alerta interna) | Leadsales, Aoki, Darwin | **Fase 7** — distinto de A8 seguimiento interno |
+| Resumen de conversación (IA) | Leadsales | **Backlog comparativa** — resumen IA opt-in |
+| IA que consulta catálogo/stock al responder | Basework, Chatsell | **Fase 7+** — function calling catálogo; no inventar precio |
+| Agente IA autónomo de ventas | Chatsell, Darwin | **Visión lejana** — no corto plazo |
+| Carrito abandonado / remarketing | WhatChimp | **Backlog comparativa** — e-commerce remarketing |
+
+### E-commerce e integraciones (Chatsell / Aoki)
+
+| Gap | Quién | Task / fase |
+|---|---|---|
+| Tiendanube nativo | Aoki, Chatsell | **Backlog comparativa** — sync pedidos/stock Tiendanube |
+| Shopify | Chatsell | **Backlog comparativa** |
+| ERP argentinos (Tango, Odoo, Dux) | Chatsell | **Backlog comparativa** — integraciones ERP |
+| Pagos en chat (PoliPay, links) | Poli, Chatsell | **Backlog comparativa** — link de pago / cobro en hilo |
+| Variantes SKU (talle/color) | E-commerce estándar | **Backlog catálogo** en ORDEN-ACTUAL |
+
+### Marketing / nicho (solo si el buyer pauta)
+
+| Gap | Quién | Task / fase |
+|---|---|---|
+| Atribución ads / ROAS / Conversions API | Chatty | **Backlog comparativa** — nicho marketing; no core PyME ventas |
+| Reportes de campaña → venta | Chatty | Idem |
+
+### Ya tenemos (diferencial — no duplicar esfuerzo en paridad)
+
+| Feature | Notas |
+|---|---|
+| Kanban + persona/deal + contactos | Core cerrado |
+| Seguimiento interno A8 + dismiss | No es auto-mensaje al cliente |
+| Catálogo + carrito + stock al Ganado | Chatsell-level en catálogo manual; sin ERP sync |
+| Programados, archivar, reply-to, ticks, outbox | Paridad mensajería WA Lite |
+| Respuestas rápidas `/` | Paridad |
+| Sheet → Slides, sync Google, explorador | **Único en la tabla** — Fase 4 pega esto al CRM |
+| Lite Baileys sin verificación Meta | Entrada barata vs solo Cloud API |
+
+### Orden sugerido para cerrar gaps “de compra”
+
+1. **Fase 3½ Equipo v1** — cierra asignación, roles, org (Leadsales/Kommo/Basework baseline).
+2. **Facturación ARS + plan visible** — cierra Basework/BotIA en checkout local.
+3. **Fase 5** IG + ML — cierra Aoki/Chatsell en canales.
+4. **Fase 7** reglas + IA opt-in — cierra “automatización” sin agente autónomo.
+5. **Fase 8** broadcast + Cloud API + inbox multi técnico — cierra WhatChimp/Whaticket escala.
+6. **Integraciones e-commerce** — solo si el ICP es tienda online.
+
+Ver checklist operativo en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-PRODUCTO.md) § Comparativa CRM y § Cómo decidir qué toca ahora.

@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 
 // GET - Obtener configuraciones del usuario
 export async function GET(req: NextRequest) {
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Crear nueva configuración
+// POST - Crear nueva configuración (solo admin de la org)
 export async function POST(req: NextRequest) {
   try {
     // Verificar autenticación con NextAuth (excepto en modo desarrollo)
@@ -114,6 +115,19 @@ export async function POST(req: NextRequest) {
     
     if (!DEV_MODE_NO_AUTH && !session) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    if (!DEV_MODE_NO_AUTH) {
+      const ctx = await getOrganizacionContext(session);
+      if (!ctx) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      }
+      if (ctx.rol !== 'admin') {
+        return NextResponse.json(
+          { error: 'Solo administradores pueden conectar mensajería' },
+          { status: 403 }
+        );
+      }
     }
 
     // Obtener el UUID de Supabase del usuario
@@ -198,8 +212,11 @@ export async function POST(req: NextRequest) {
       }, { status: 409 });
     }
 
+    const ctx = !DEV_MODE_NO_AUTH ? await getOrganizacionContext(session) : null;
+
     const nuevaConfiguracion = {
       usuario_id: userId,
+      organizacion_id: ctx?.organizacionId || null,
       plataforma: plataformaNormalizada,
       nombre_configuracion,
       descripcion: descripcion || null,

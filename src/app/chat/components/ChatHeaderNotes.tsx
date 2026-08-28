@@ -10,6 +10,8 @@ export type ChatHeaderNote = {
   id: string;
   contenido: string;
   fecha_mensaje: string;
+  autor_nombre?: string | null;
+  autor_usuario_id?: string | null;
 };
 
 interface ChatHeaderNotesProps {
@@ -84,7 +86,7 @@ export default function ChatHeaderNotes({ conversacionId, refreshKey = 0 }: Chat
         }}
       >
         <LockOutlinedIcon sx={{ fontSize: 12 }} />
-        Notas internas (solo equipo)
+        Notas de equipo — no se envían al cliente
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {notas.map((nota) => (
@@ -102,19 +104,35 @@ export default function ChatHeaderNotes({ conversacionId, refreshKey = 0 }: Chat
               boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
             }}
           >
-            <Typography
-              variant="body2"
-              sx={{
-                flex: 1,
-                color: WA.text,
-                fontSize: '0.8rem',
-                lineHeight: 1.35,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }}
-            >
-              {nota.contenido}
-            </Typography>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {nota.autor_nombre ? (
+                <Typography
+                  variant="caption"
+                  sx={{ color: WA.muted, display: 'block', fontSize: '0.65rem', mb: 0.25 }}
+                >
+                  {nota.autor_nombre}
+                  {' · '}
+                  {new Date(nota.fecha_mensaje).toLocaleString('es-AR', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Typography>
+              ) : null}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: WA.text,
+                  fontSize: '0.8rem',
+                  lineHeight: 1.35,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {nota.contenido}
+              </Typography>
+            </Box>
             <Tooltip title="Quitar nota">
               <IconButton
                 size="small"

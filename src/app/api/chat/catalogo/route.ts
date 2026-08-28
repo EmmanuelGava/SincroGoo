@@ -6,14 +6,17 @@ import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { validateCatalogoItem } from '@/lib/chat/catalogoVentas';
 
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+
 async function requireUser() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
+  const ctx = await getOrganizacionContext(session);
+  if (!ctx) return null;
   return {
     supabase: getSupabaseAdmin() as unknown as SupabaseClient,
-    usuarioId,
+    usuarioId: ctx.usuarioId,
+    organizacionId: ctx.organizacionId,
   };
 }
 
@@ -27,7 +30,7 @@ export async function GET() {
     const { data, error } = await client.supabase
       .from('chat_catalogo')
       .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, stock_minimo, created_at')
-      .eq('usuario_id', client.usuarioId)
+      .eq('organizacion_id', client.organizacionId)
       .order('nombre', { ascending: true });
 
     if (error) throw error;
@@ -56,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await client.supabase
       .from('chat_catalogo')
-      .insert({ usuario_id: client.usuarioId, ...parsed.fields })
+      .insert({ usuario_id: client.usuarioId, organizacion_id: client.organizacionId, ...parsed.fields })
       .select('id, tipo, nombre, precio, descripcion, imagen_url, archivo_url, categoria, stock, stock_minimo, created_at')
       .single();
 

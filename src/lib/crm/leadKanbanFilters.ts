@@ -12,6 +12,8 @@ export const LEAD_SCORE_LABEL: Record<LeadScore, string> = {
 
 export type KanbanCanalFiltro = 'whatsapp' | 'telegram' | 'email';
 
+export type LeadAsignacionFiltro = 'todos' | 'mios' | 'sin_asignar';
+
 export type LeadKanbanFiltros = {
   canal?: KanbanCanalFiltro | '';
   valorMin?: number | null;
@@ -21,6 +23,9 @@ export type LeadKanbanFiltros = {
   query?: string;
   soloSeguimiento?: boolean;
   etiquetas?: string[];
+  asignacion?: LeadAsignacionFiltro;
+  /** UUID del usuario logueado (para filtro "mios"). */
+  usuarioActualId?: string;
 };
 
 export type LeadFiltrable = {
@@ -34,6 +39,7 @@ export type LeadFiltrable = {
   servicio_origen?: string | null;
   esperando_seguimiento?: boolean;
   contacto_etiquetas?: string[] | null;
+  asignado_a?: string | null;
 };
 
 /** Normaliza servicio_origen / canal a whatsapp | telegram | email | otro. */
@@ -125,6 +131,13 @@ export function leadMatchesKanbanFiltros(
 
   if (!leadMatchesEtiquetas(lead, filtros.etiquetas)) return false;
 
+  const asignacion = filtros.asignacion || 'todos';
+  if (asignacion === 'mios') {
+    if (!filtros.usuarioActualId || lead.asignado_a !== filtros.usuarioActualId) return false;
+  } else if (asignacion === 'sin_asignar') {
+    if (lead.asignado_a) return false;
+  }
+
   return true;
 }
 
@@ -169,5 +182,6 @@ export function hayFiltrosKanbanActivos(filtros: LeadKanbanFiltros): boolean {
     || String(filtros.query || '').trim()
     || filtros.soloSeguimiento
     || (filtros.etiquetas && filtros.etiquetas.length > 0)
+    || (filtros.asignacion && filtros.asignacion !== 'todos')
   );
 }

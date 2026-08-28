@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { v4 as uuidv4 } from 'uuid';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 
 type RouteContext = { params: { id: string } };
 
@@ -14,6 +15,28 @@ type NotaRow = {
   tipo?: string | null;
   metadata?: Record<string, unknown> | null;
 };
+
+type AutorInfo = { id: string; nombre: string };
+
+async function resolveAutores(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  rows: NotaRow[]
+): Promise<Map<string, AutorInfo>> {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+    const autorId = meta.autor_usuario_id;
+    if (typeof autorId === 'string' && autorId) ids.add(autorId);
+  }
+  if (ids.size === 0) return new Map();
+
+  const { data } = await supabase
+    .from('usuarios')
+    .select('id, nombre')
+    .in('id', [...ids]);
+
+  return new Map((data || []).map((u) => [u.id, { id: u.id, nombre: u.nombre || 'Usuario' }]));
+}
 
 function isInternalNoteRow(row: NotaRow): boolean {
   const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
@@ -31,7 +54,23 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    const ctx = await getOrganizacionContext(session);
+    if (!ctx) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
+
+    const { data: convCheck } = await supabase
+      .from('conversaciones')
+      .select('id')
+      .eq('id', params.id)
+      .eq('organizacion_id', ctx.organizacionId)
+      .maybeSingle();
+    if (!convCheck) {
+      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 });
+    }
+
     const { data, error } = await supabase
       .from('mensajes_conversacion')
       .select('id, contenido, fecha_mensaje, tipo, metadata')
@@ -41,13 +80,21 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
     if (error) throw error;
 
-    const notas = ((data || []) as NotaRow[])
-      .filter(isInternalNoteRow)
-      .map((row) => ({
+    const notaRows = ((data || []) as NotaRow[]).filter(isInternalNoteRow);
+    const autores = await resolveAutores(supabase, notaRows);
+
+    const notas = notaRows.map((row) => {
+      const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+      const autorId = typeof meta.autor_usuario_id === 'string' ? meta.autor_usuario_id : null;
+      const autor = autorId ? autores.get(autorId) : null;
+      return {
         id: row.id,
         contenido: row.contenido,
         fecha_mensaje: row.fecha_mensaje,
-      }));
+        autor_nombre: autor?.nombre || null,
+        autor_usuario_id: autorId,
+      };
+    });
 
     return NextResponse.json({ notas });
   } catch (error) {
@@ -64,6 +111,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     }
 
     await getUsuarioIdFromSession();
+    const ctx = await getOrganizacionContext(session);
+    if (!ctx) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const body = await req.json();
     const contenido = String(body.contenido || '').trim();
     const leadId = body.lead_id ? String(body.lead_id) : null;
@@ -79,6 +131,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       .from('conversaciones')
       .select('id, lead_id, servicio_origen')
       .eq('id', conversacionId)
+      .eq('organizacion_id', ctx.organizacionId)
       .maybeSingle();
 
     if (convError || !conv) {
@@ -103,6 +156,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         direction: 'internal',
         estado_envio: 'nota',
         pinned_header: true,
+        autor_usuario_id: ctx.usuarioId,
       },
     });
 
@@ -125,6 +179,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         id: messageId,
         contenido,
         fecha_mensaje: now,
+        autor_usuario_id: ctx.usuarioId,
       },
     });
   } catch (error) {

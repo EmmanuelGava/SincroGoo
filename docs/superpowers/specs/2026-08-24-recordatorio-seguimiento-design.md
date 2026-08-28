@@ -55,9 +55,12 @@ Futuro (fuera v1): override por etapa en UI de configuración.
 - Nuevo contador junto a “Sin resp.”: **“Seguimiento: N”** (solo conversaciones que cumplen la regla con umbral).
 - Definición en tooltip distinta de “no respondidas”: esta métrica **exige tiempo**; “sin resp.” es instantáneo.
 
-### Kanban (opcional v1)
+### Kanban (v1 — 27 ago 2026)
 
-- No obligatorio. Si hay tiempo: mismo borde en tarjeta del lead si la conversación vinculada está en seguimiento. Si no, solo inbox + stats.
+- [x] Borde/chip seguimiento en tarjeta del lead si la conversación vinculada está en seguimiento.
+- [x] Filtro “Solo seguimiento” en tablero.
+- [x] Marcar atendido desde card (chip o ✓) → `dismiss-seguimiento`.
+- [x] Timeline de etapas solo en drawer/modal (K5), no chip en card.
 
 ---
 

@@ -69,8 +69,8 @@ Productos con `stock === 0`: ocultos o deshabilitados con label “sin stock”.
 
 No se hacen en este corte. Quedan como backlog explícito:
 
-- [ ] Descontar stock automáticamente al marcar un lead **Ganado** (o al confirmar pedido).
-- [ ] Alertas de bajo stock (umbral configurable por usuario / por ítem).
+- [x] Descontar stock automáticamente al marcar un lead **Ganado** (27 ago).
+- [x] Alertas de bajo stock (`stock_minimo` por ítem; default 5 en `/catalogo`).
 - [ ] Variantes anidadas (talle / color / sabor como sub-SKU bajo un producto padre).
 - [ ] Al enviar una lista, adjuntar varias fotos (hoy: un media por mensaje).
 - [ ] Atalho tipo `/vapers` que inserte la lista si la categoría coincide.

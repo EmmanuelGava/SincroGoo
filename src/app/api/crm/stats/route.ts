@@ -1,28 +1,28 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import {
   buildInboxStatsSnapshot,
   type ConversationStatsInput,
 } from '@/lib/crm/inboxStats';
 
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+
 /**
  * GET /api/crm/stats
  *
- * Auth: NextAuth + UUID de usuarios (igual que el resto del CRM).
- * Scope:
- * - Leads: asignado_a = usuario
- * - Estados: usuario_id = usuario
- * - Conversaciones: sin lead del mismo Google ID + leads/contactos del usuario
+ * Auth: NextAuth + scope por organizacion_id.
  */
 async function requireCrm() {
-  const session = await getServerSession(authOptions);
-  if (!session) return null;
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
-  return { supabase: getSupabaseAdmin(), usuarioId };
+  const ctx = await getOrganizacionContext();
+  if (!ctx) return null;
+  return {
+    supabase: getSupabaseAdmin(),
+    usuarioId: ctx.usuarioId,
+    organizacionId: ctx.organizacionId,
+  };
 }
 
 type MsgRow = {
@@ -52,8 +52,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { supabase, usuarioId } = client;
-    const googleUserId = session.user.id;
+    const { supabase, usuarioId, organizacionId } = client;
 
     const [{ data: estados, error: estadosError }, { data: leads, error: leadsError }, { data: contactos }] =
       await Promise.all([
@@ -65,8 +64,8 @@ export async function GET() {
         supabase
           .from('leads')
           .select('id, estado_id, contacto_id')
-          .eq('asignado_a', usuarioId),
-        supabase.from('contactos').select('id').eq('usuario_id', usuarioId),
+          .eq('organizacion_id', organizacionId),
+        supabase.from('contactos').select('id').eq('organizacion_id', organizacionId),
       ]);
 
     if (estadosError) throw estadosError;
@@ -98,7 +97,7 @@ export async function GET() {
       .from('conversaciones')
       .select(convSelect)
       .is('lead_id', null)
-      .eq('usuario_id', googleUserId);
+      .eq('organizacion_id', organizacionId);
     if (sinLeadErr) throw sinLeadErr;
     for (const row of (sinLead || []) as ConvRow[]) {
       convMap.set(row.id, row);

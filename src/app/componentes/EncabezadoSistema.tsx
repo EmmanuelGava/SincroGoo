@@ -193,6 +193,10 @@ export function EncabezadoSistema() {
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Mensajería
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/configuracion/equipo")}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Equipo
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={(event) => {

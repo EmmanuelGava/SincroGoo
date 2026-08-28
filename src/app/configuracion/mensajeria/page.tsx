@@ -36,6 +36,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import WhatsAppConnect from './components/WhatsAppConnect';
 import WhatsAppBusinessConnect from './components/WhatsAppBusinessConnect';
 import TelegramConnect from './components/TelegramConnect';
+import { useOrganizacionMiembros } from '@/hooks/useOrganizacionMiembros';
 
 interface ConfiguracionMensajeria {
   id: string;
@@ -105,6 +106,8 @@ const getPlatformLabel = (platform: string, configuracion?: any) => {
 };
 
 export default function ConfiguracionMensajeriaPage() {
+  const { rol: orgRol, loading: orgLoading } = useOrganizacionMiembros();
+  const puedeConectarWa = orgRol === 'admin';
   const [configuraciones, setConfiguraciones] = useState<ConfiguracionMensajeria[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ConfiguracionMensajeria | null>(null);
@@ -703,12 +706,21 @@ export default function ConfiguracionMensajeriaPage() {
             <TelegramConnect 
               onConnected={(config) => handlePlatformConnected('telegram', config)}
             />
-            <WhatsAppConnect
-              onConnected={(config) => handlePlatformConnected('whatsapp-lite', config)}
-            />
-            <WhatsAppBusinessConnect
-              onConnected={(config) => handlePlatformConnected('whatsapp-business', config)}
-            />
+            {orgLoading ? null : puedeConectarWa ? (
+              <>
+                <WhatsAppConnect
+                  onConnected={(config) => handlePlatformConnected('whatsapp-lite', config)}
+                />
+                <WhatsAppBusinessConnect
+                  onConnected={(config) => handlePlatformConnected('whatsapp-business', config)}
+                />
+              </>
+            ) : (
+              <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>
+                Solo un administrador puede vincular WhatsApp. Pedile al admin de tu equipo que conecte el número
+                o ve a <strong>Configuración → Equipo</strong> si necesitás ese rol.
+              </Alert>
+            )}
           </Box>
         </Box>
 

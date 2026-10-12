@@ -385,7 +385,7 @@ Tareas derivadas de [`comparativa-competencia-klosync(2).md`](./comparativa-comp
 
 **Equipo y operación (después de 3½):**
 
-- [ ] Reportes / supervisión por agente (tiempo respuesta, conversión por asignado) — Chatty, Darwin.
+- [x] Reportes / supervisión por agente (tiempo respuesta, conversión por asignado) — Chatty, Darwin. *Hecho:* `/crm/reportes` (botón "Reportes" en el Kanban y menú de usuario), períodos de 7/30/90 días. Por agente: leads abiertos y nuevos, ganados/perdidos y conversión (según `lead_etapa_historial`), valor ganado, conversaciones, mensajes enviados, mediana y promedio de tiempo de respuesta, y conversaciones sin responder. Admin ve al equipo y la fila "Sin asignar"; el agente ve solo la suya. Se atribuye al asignado actual y el tiempo cuenta horas no laborables.
 - [ ] Agenda / citas ligadas a contacto o lead — Basework.
 - [x] Campos personalizados en lead/contacto (más allá de etiquetas) — Whaticket, Kommo. *Hecho:* definiciones por organización en `/configuracion/campos` (admin; texto, número, fecha, opción, sí/no), valores en `leads.campos` / `contactos.campos` (jsonb), editor en ficha de lead, drawer y página de contacto, campos visibles en la tarjeta del Kanban y búsqueda por valor.
 - [ ] Telegram: paridad inbox (saliente + lista unificada) — hoy recepción parcial.

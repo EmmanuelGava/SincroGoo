@@ -29,6 +29,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
 import Autocomplete from '@mui/material/Autocomplete';
 import { useLeadsKanbanContext } from '../contexts/LeadsKanbanContext';
 import { Lead } from '@/app/tipos/lead';
@@ -980,8 +981,17 @@ export default function KanbanLeads() {
                 </Typography>
               )}
             </Box>
-            <Box sx={{ flex: '1 1 220px', minWidth: 0, display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+            <Box sx={{ flex: '1 1 220px', minWidth: 0, display: 'flex', alignItems: 'center', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
               <InboxStatsPanel />
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<InsightsOutlinedIcon fontSize="small" />}
+                onClick={() => router.push('/crm/reportes')}
+                sx={{ textTransform: 'none', flexShrink: 0 }}
+              >
+                Reportes
+              </Button>
             </Box>
           </Box>
         </Box>

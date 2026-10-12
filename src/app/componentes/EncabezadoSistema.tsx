@@ -181,6 +181,10 @@ export function EncabezadoSistema() {
                   <Kanban className="mr-2 h-4 w-4" />
                   Kanban
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/crm/reportes")}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  Reportes por agente
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/dashboard")}>
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   Dashboard

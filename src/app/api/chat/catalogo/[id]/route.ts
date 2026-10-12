@@ -6,8 +6,8 @@ import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { validateCatalogoItem } from '@/lib/chat/catalogoVentas';
 import { CATALOGO_DB_SELECT, mapCatalogoRow } from '@/lib/catalogo/catalogoImagenes';
-
 import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+import { resolverCategoriaId } from '@/lib/catalogo/catalogoCategoriasDb';
 
 async function requireUser() {
   const session = await getServerSession(authOptions);
@@ -37,6 +37,12 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+
+    parsed.fields.categoria_id = await resolverCategoriaId(
+      client.supabase,
+      client.organizacionId,
+      parsed.fields.categoria,
+    );
 
     const { data, error } = await client.supabase
       .from('chat_catalogo')

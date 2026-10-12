@@ -1,5 +1,6 @@
 import { parseStockMinimo } from '@/lib/catalogo/stockAlerts';
 import { parseCatalogoImagenUrls, imagenUrlsToJsonb } from '@/lib/catalogo/catalogoImagenes';
+import { normalizeCategoriaSlug } from '@/lib/catalogo/catalogoCategorias';
 
 export const CATALOGO_TIPOS = ['producto', 'presupuesto', 'propuesta'] as const;
 export type CatalogoTipo = (typeof CATALOGO_TIPOS)[number];
@@ -34,8 +35,7 @@ export function isCatalogoTipo(value: unknown): value is CatalogoTipo {
 }
 
 export function normalizeCatalogoCategoria(value: unknown): string | null {
-  const text = String(value ?? '').trim().toLowerCase();
-  return text || null;
+  return normalizeCategoriaSlug(value);
 }
 
 export function parseCatalogoStock(value: unknown): number {

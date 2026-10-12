@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CATALOGO_TIPOS, isCatalogoTipo, type CatalogoTipo, validateCatalogoItem } from './catalogoVentas';
+import { sincronizarCategoriasCatalogo } from '@/lib/catalogo/catalogoCategoriasDb';
 
 export type CatalogoDraft = {
   tipo: CatalogoTipo;
@@ -174,12 +175,13 @@ export const CATALOGO_CSV_TEMPLATE =
 export async function applyCatalogDrafts(
   supabase: SupabaseClient,
   usuarioId: string,
+  organizacionId: string,
   drafts: CatalogoDraft[]
 ): Promise<{ created: number; updated: number; total: number }> {
   const { data: existing, error: existingError } = await supabase
     .from('chat_catalogo')
     .select('id, tipo, nombre')
-    .eq('usuario_id', usuarioId);
+    .eq('organizacion_id', organizacionId);
   if (existingError) throw existingError;
 
   const byKey = new Map(
@@ -209,13 +211,13 @@ export async function applyCatalogDrafts(
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('usuario_id', usuarioId);
+        .eq('organizacion_id', organizacionId);
       if (error) throw error;
       updated += 1;
     } else {
       const { data, error } = await supabase
         .from('chat_catalogo')
-        .insert({ usuario_id: usuarioId, ...draft })
+        .insert({ usuario_id: usuarioId, organizacion_id: organizacionId, ...draft })
         .select('id, tipo, nombre')
         .single();
       if (error) throw error;
@@ -223,6 +225,7 @@ export async function applyCatalogDrafts(
       created += 1;
     }
   }
+  await sincronizarCategoriasCatalogo(supabase, organizacionId);
   return { created, updated, total: drafts.length };
 }
 

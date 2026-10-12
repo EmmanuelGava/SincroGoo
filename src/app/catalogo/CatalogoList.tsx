@@ -46,6 +46,7 @@ import {
   type CategoriaCatalogo,
 } from '@/lib/catalogo/catalogoCategorias';
 import { FileUploadService } from '@/app/servicios/storage/FileUploadService';
+import { CategoriasDialog } from './CategoriasDialog';
 
 type FilterTipo = CatalogoTipo | 'todos';
 
@@ -68,6 +69,7 @@ export function CatalogoList() {
   const [q, setQ] = useState('');
   const [tipoFilter, setTipoFilter] = useState<FilterTipo>('todos');
   const [categoriaFilter, setCategoriaFilter] = useState<string>('todas');
+  const [categoriasOpen, setCategoriasOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -136,6 +138,12 @@ export function CatalogoList() {
             .filter(Boolean),
         ),
       ).sort((a, b) => a.localeCompare(b, 'es'));
+
+  const itemsPorCategoria = new Map<string, number>();
+  for (const item of items) {
+    const slug = (item.categoria || '').trim().toLowerCase();
+    if (slug) itemsPorCategoria.set(slug, (itemsPorCategoria.get(slug) ?? 0) + 1);
+  }
 
   const productosPadre = items.filter(
     (item) => item.tipo === 'producto' && !item.parent_id && item.id !== editingId,
@@ -411,10 +419,21 @@ export function CatalogoList() {
         <Button variant="outlined" onClick={() => filesInputRef.current?.click()} disabled={busy} sx={{ flexShrink: 0 }}>
           Subir archivos
         </Button>
+        <Button variant="outlined" onClick={() => setCategoriasOpen(true)} sx={{ flexShrink: 0 }}>
+          Categorías
+        </Button>
         <Button variant="text" onClick={downloadTemplate} sx={{ flexShrink: 0 }}>
           Plantilla CSV
         </Button>
       </Stack>
+
+      <CategoriasDialog
+        open={categoriasOpen}
+        categorias={categorias}
+        itemsPorCategoria={itemsPorCategoria}
+        onClose={() => setCategoriasOpen(false)}
+        onChanged={cargar}
+      />
 
       <Stack direction="row" spacing={1} flexWrap="wrap">
         {(['todos', ...CATALOGO_TIPOS] as FilterTipo[]).map((key) => (

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 import { applyCatalogDrafts, draftFromUploadedFile } from '@/lib/chat/importCatalogo';
 import { isCatalogoTipo, type CatalogoTipo } from '@/lib/chat/catalogoVentas';
@@ -15,11 +16,12 @@ const MAX_FILES = 50;
 async function requireUser() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return null;
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
+  const ctx = await getOrganizacionContext(session);
+  if (!ctx) return null;
   return {
     supabase: getSupabaseAdmin() as unknown as SupabaseClient,
-    usuarioId,
+    usuarioId: ctx.usuarioId,
+    organizacionId: ctx.organizacionId,
     userId: session.user.id,
   };
 }
@@ -72,7 +74,12 @@ export async function POST(req: NextRequest) {
       drafts.push(draftFromUploadedFile(file.name, urlData.publicUrl, mime, fallbackTipo));
     }
 
-    const result = await applyCatalogDrafts(client.supabase, client.usuarioId, drafts);
+    const result = await applyCatalogDrafts(
+      client.supabase,
+      client.usuarioId,
+      client.organizacionId,
+      drafts,
+    );
     return NextResponse.json(result);
   } catch (error) {
     const { error: errorMessage, status } = formatErrorResponse(error);

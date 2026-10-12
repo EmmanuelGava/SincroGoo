@@ -1,6 +1,6 @@
 # KloSync — Orden de trabajo actual
 
-> Actualizado: 27 agosto 2026.  
+> Actualizado: 12 octubre 2026.  
 > Este archivo es el **orden de ahora**. No reemplaza los docs de detalle; apunta a ellos.  
 > Monetización, precios y lanzamiento comercial **no están en el camino**. Primero hay que tener un MVP que un vendedor use todos los días.
 
@@ -38,7 +38,7 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 
 ## Dónde estamos hoy (honesto)
 
-**Resumen por fase (27 ago 2026):**
+**Resumen por fase (12 oct 2026):**
 
 | Fase | Código | Certificado en prod |
 |------|--------|-------------------|
@@ -46,10 +46,11 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 | **1** Mensajería confiable | ✅ en `main` | ✅ B1–B7 OK (26 ago) |
 | **2** Contactos (base CRM) | ✅ **cerrada** | ✅ migración + CRUD en prod |
 | **3** Kommo día a día | ✅ core + catálogo stock | ✅ seguimiento OK en prod (A8, 26 ago) |
-| **3½** Equipo v1 (org, roles, asignar) | ✅ en local (sin push) | QA manual pendiente |
+| **3½** Equipo v1 (org, roles, asignar) | ✅ en `main` (`6f27c09`) | QA manual pendiente |
+| **3 catálogo v2** | ✅ en `main` (`d7711b9`) | — |
 | **4+** Diferencial / canales | — | no empezado |
 
-**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Roadmap mensajería-Kanban P0+P1 en código (27 ago). **Siguiente prioritario: Fase 3½ Equipo v1** (spec 27 ago). En paralelo opcional: backlog catálogo o Fase 4 Explorador.
+**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Roadmap mensajería-Kanban P0+P1 en código (27 ago). Equipo v1 y catálogo v2 ya están en `main` (`6f27c09`, `d7711b9`). **Siguiente de Equipo v1:** QA prod con una segunda cuenta. Ítems del deal: código + migración `lead_lineas` en Supabase (12 oct). Después, Fase 4 Explorador.
 
 **Ya anda (no rehacer):**
 
@@ -63,7 +64,7 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 - Notas internas ancladas al header del chat (no van a WhatsApp).
 - Catálogo: descontar stock al **Ganado**, alertas bajo stock en `/catalogo`, toast al mover deal.
 - Login Google / NextAuth.
-- **Equipo v1:** org, roles, asignación, `/configuracion/equipo`, invitaciones — código local; falta push + QA.
+- **Equipo v1:** org, roles, asignación, `/configuracion/equipo`, invitaciones — en `main` (`6f27c09`); falta QA con una segunda cuenta.
 
 **Certificado en prod (26 ago 2026):** checklist A (incl. A8) + B completos con celular real en klosync.vercel.app.
 
@@ -168,7 +169,7 @@ Para PyME con 2–5 personas, **asignar leads y ver el mismo CRM** es tan básic
 - [x] Filtros Kanban: Todos | Mis leads | Sin asignar.
 - [x] Notas en header del chat con **autor** visible para todo el equipo.
 - [x] Un número WA por org (admin conecta QR; agentes responden desde KloSync).
-- [ ] **QA prod:** invitar 2ª cuenta, asignar, filtros, agente sin QR en UI, contactos compartidos por org.
+- [ ] **QA prod:** invitar 2ª cuenta, asignar, filtros, agente sin QR en UI, contactos compartidos por org. Verificado en código (12 oct 2026): APIs `organizacion/**`, filtros Todos | Mis leads | Sin asignar, header de chat, `/configuracion/equipo`, `/invitar`, notas con autor, QR de WhatsApp solo si el rol es admin. Corregido: historial de etapa, recordatorio y lead del chat ya no exigen ser el asignado; alcanza con la misma organización. Pendiente de humano: ejecutarlo en klosync.vercel.app con una segunda cuenta real.
 
 **No es Equipo v1 (queda Fase 8 — escala):**
 
@@ -178,6 +179,21 @@ Para PyME con 2–5 personas, **asignar leads y ver el mismo CRM** es tan básic
 - Cloud API Meta.
 
 **Esfuerzo estimado:** ~4–5 d dev (ver spec).
+
+### Ítems del deal (lead)
+
+El stock al pasar a Propuesta o Ganado infería los productos del texto del chat. Si el vendedor editaba el mensaje, el stock no veía los ítems. Ahora las líneas viven en el lead.
+
+- [x] Líneas de primer nivel en `lead_lineas` (lead, catálogo, cantidad, precio, nombre snapshot, `organizacion_id`). Al enviar un presupuesto/carrito desde el chat se guardan en el lead de esa conversación. La reserva en Propuesta y el descuento al Ganado leen esas líneas; si no hay, siguen el texto del mensaje. UI en el drawer del chat y en Editar lead. Tests y `tsc --noEmit` OK (12 oct 2026).
+- [x] Aplicar en Supabase KloSync la migración `supabase/migrations/20261012210000_lead_lineas.sql` (12 oct 2026).
+
+### Categorías del catálogo
+
+Las listas del chat filtran por categoría. La tabla `catalogo_categorias` solo tenía GET/POST y no había forma de administrarla desde la UI.
+
+- [x] Crear, renombrar (nombre y slug) y borrar categorías desde `/catalogo` (botón **Categorías**, solo admin). Renombrar el slug actualiza todos los ítems de esa categoría (12 oct 2026).
+- [x] Guardar o importar un ítem con una categoría nueva la crea en la tabla, así aparece como lista en el chat. El slug quita acentos (`categoría` → `categoria`) (12 oct 2026).
+- [x] Fix: el import CSV/Excel/Sheets y la subida de archivos guardaban ítems sin `organizacion_id`, y `/catalogo` no los mostraba (12 oct 2026).
 
 ### Fase 4 — Pegar el diferencial (Explorador + Slides al CRM)
 
@@ -336,8 +352,8 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Respuestas rápidas | Sí | Sí (`/` en el chat) |
 | Catálogo / cotizaciones | Algunos | Sí: catálogo + carrito; stock al Ganado |
 | Chatbot | Sí | No |
-| Asignar chats | Sí | **v1 pendiente** (BD `asignado_a` sin UI; spec 3½) |
-| Roles / equipo | Sí | **v1 pendiente** (spec 3½) |
+| Asignar chats | Sí | Sí en código (Equipo v1, `6f27c09`); QA prod pendiente |
+| Roles / equipo | Sí | Sí en código (admin / agente); QA prod pendiente |
 | Programados | Casi todos | Sí (outbox + composer) |
 | Seguimiento / “te debe respuesta” | Sí | Sí (inbox + Kanban; dismiss en card) |
 | Broadcast | La mayoría | No |
@@ -385,7 +401,7 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 ## Cómo decidir qué toca ahora
 
 1. **MVP Fase 0 + 1** — ✅ certificado (26 ago 2026). Checklist A1–A8 + B1–B7.
-2. **Fase 3½ Equipo v1** — **siguiente prioritario** (org, roles, asignación); ver spec 27 ago.
+2. **Fase 3½ Equipo v1** — código en `main` (`6f27c09`). Pendiente: QA prod con 2ª cuenta (el checkbox de QA sigue abierto).
 3. **Roadmap mensajería + Kanban** — P0+P1 + N1 + catálogo stock en código (27 ago). Pendiente: QA prod post-deploy.
 4. Paralelo opcional: backlog catálogo o **Fase 4** (Explorador → contactos).
 5. ¿Se pierde un envío con worker down? → fix outbox antes de features nuevas.

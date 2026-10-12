@@ -19,11 +19,21 @@ export function nombreDisplayCatalogo(
 
 export function normalizeCategoriaSlug(value: unknown): string | null {
   const text = String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9_-]/g, '');
+    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
   return text || null;
+}
+
+export function nombreDesdeSlug(slug: string): string {
+  const text = slug.replace(/[-_]+/g, ' ').trim();
+  if (!text) return slug;
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 export type CategoriaCatalogo = {

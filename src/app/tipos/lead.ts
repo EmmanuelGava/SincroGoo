@@ -15,6 +15,7 @@ export interface Lead {
   probabilidad_cierre?: number;
   tags?: string[];
   contacto_etiquetas?: string[];
+  campos?: Record<string, string | number | boolean> | null;
   valor_potencial?: number | null;
   fecha_cierre?: string | null;
   score?: LeadScore | null;

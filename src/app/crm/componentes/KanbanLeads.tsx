@@ -56,6 +56,7 @@ import { buildLeadsPorEstado } from '@/lib/crm/kanbanOrder';
 import { useOrganizacionMiembros, type MiembroOrganizacion } from '@/hooks/useOrganizacionMiembros';
 import AssigneeSelector from '@/app/components/equipo/AssigneeSelector';
 import type { LeadAsignacionFiltro } from '@/lib/crm/leadKanbanFilters';
+import { camposParaTarjeta, type CampoDefinicion } from '@/lib/crm/camposPersonalizados';
 
 const scoreChipColor: Record<LeadScore, 'error' | 'warning' | 'default'> = {
   alta: 'error',
@@ -103,6 +104,7 @@ function TarjetaLead({
   onDismissSeguimiento,
   onAssign,
   miembros,
+  camposTarjeta,
   colors,
   highlighted,
 }: {
@@ -115,6 +117,7 @@ function TarjetaLead({
   onDismissSeguimiento: (lead: Lead) => void;
   onAssign: (lead: Lead, usuarioId: string | null) => void;
   miembros: MiembroOrganizacion[];
+  camposTarjeta: CampoDefinicion[];
   colors: any;
   highlighted?: boolean;
 }) {
@@ -128,6 +131,7 @@ function TarjetaLead({
   const etiquetas = lead.contacto_etiquetas || [];
   const visibleTags = etiquetas.slice(0, 2);
   const extraTags = etiquetas.length - visibleTags.length;
+  const camposVisibles = camposParaTarjeta(camposTarjeta, lead.campos);
 
   return (
     <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
@@ -235,6 +239,18 @@ function TarjetaLead({
               </Typography>
             </Box>
           )}
+
+          {camposVisibles.map((campo) => (
+            <Typography
+              key={campo.clave}
+              variant="caption"
+              component="div"
+              noWrap
+              sx={{ color: colors.textSecondary }}
+            >
+              {campo.etiqueta}: <Box component="span" sx={{ color: colors.textPrimary }}>{campo.texto}</Box>
+            </Typography>
+          ))}
 
           {(lead.score || lead.valor_potencial != null || lead.fecha_cierre) && (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
@@ -467,6 +483,22 @@ export default function KanbanLeads() {
     asignacion: 'todos',
   });
   const { miembros, usuarioId } = useOrganizacionMiembros();
+  const [camposTarjeta, setCamposTarjeta] = useState<CampoDefinicion[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/campos-personalizados?entidad=lead', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { campos: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const campos = Array.isArray(data.campos) ? (data.campos as CampoDefinicion[]) : [];
+        setCamposTarjeta(campos.filter((c) => c.mostrar_en_tarjeta));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [busquedaInput, setBusquedaInput] = useState('');
   const [searchHitIndex, setSearchHitIndex] = useState(-1);
   const [recordatorioLead, setRecordatorioLead] = useState<Lead | null>(null);
@@ -1163,6 +1195,7 @@ export default function KanbanLeads() {
                                             onDismissSeguimiento={handleDismissSeguimiento}
                                             onAssign={asignarLead}
                                             miembros={miembros}
+                                            camposTarjeta={camposTarjeta}
                                             colors={colors}
                                             highlighted={highlightLeadId === lead.id}
                                           />

@@ -387,7 +387,7 @@ Tareas derivadas de [`comparativa-competencia-klosync(2).md`](./comparativa-comp
 
 - [ ] Reportes / supervisión por agente (tiempo respuesta, conversión por asignado) — Chatty, Darwin.
 - [ ] Agenda / citas ligadas a contacto o lead — Basework.
-- [ ] Campos personalizados en lead/contacto (más allá de etiquetas) — Whaticket, Kommo.
+- [x] Campos personalizados en lead/contacto (más allá de etiquetas) — Whaticket, Kommo. *Hecho:* definiciones por organización en `/configuracion/campos` (admin; texto, número, fecha, opción, sí/no), valores en `leads.campos` / `contactos.campos` (jsonb), editor en ficha de lead, drawer y página de contacto, campos visibles en la tarjeta del Kanban y búsqueda por valor.
 - [ ] Telegram: paridad inbox (saliente + lista unificada) — hoy recepción parcial.
 
 **E-commerce e integraciones (Chatsell / Aoki):**

@@ -40,6 +40,7 @@ export type LeadFiltrable = {
   esperando_seguimiento?: boolean;
   contacto_etiquetas?: string[] | null;
   asignado_a?: string | null;
+  campos?: Record<string, unknown> | null;
 };
 
 /** Normaliza servicio_origen / canal a whatsapp | instagram | mercadolibre | telegram | email | otro. */
@@ -78,6 +79,9 @@ export function leadMatchesSearch(lead: LeadFiltrable, query?: string | null): b
     || textMatchesQuery(lead.empresa, q)
     || textMatchesQuery(lead.email, q)
     || phoneMatchesQuery(lead.telefono, q)
+    || Object.values(lead.campos || {}).some(
+      (valor) => typeof valor === 'string' && textMatchesQuery(valor, q)
+    )
   );
 }
 

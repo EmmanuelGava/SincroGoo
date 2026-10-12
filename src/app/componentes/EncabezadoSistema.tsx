@@ -197,6 +197,10 @@ export function EncabezadoSistema() {
                   <Settings className="mr-2 h-4 w-4" />
                   Equipo
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/configuracion/campos")}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Campos personalizados
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={(event) => {

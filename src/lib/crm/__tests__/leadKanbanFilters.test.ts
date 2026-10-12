@@ -30,6 +30,12 @@ describe('leadMatchesSearch', () => {
     expect(leadMatchesSearch(lead, '')).toBe(true);
     expect(leadMatchesSearch(lead, '   ')).toBe(true);
   });
+
+  it('matchea por valores de texto de campos personalizados', () => {
+    const conCampos = { ...lead, campos: { rubro: 'Gastronomía', empleados: 12 } };
+    expect(leadMatchesSearch(conCampos, 'gastro')).toBe(true);
+    expect(leadMatchesSearch(conCampos, 'retail')).toBe(false);
+  });
 });
 
 describe('leadMatchesEtiquetas / collectEtiquetasUnicas', () => {

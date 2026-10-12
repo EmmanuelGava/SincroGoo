@@ -18,6 +18,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import { EncabezadoSistema } from '@/app/componentes/EncabezadoSistema';
 import { formatEtapaHistorialLine } from '@/lib/crm/leadEtapaHistorial';
+import CamposPersonalizadosEditor from '@/app/crm/componentes/CamposPersonalizadosEditor';
 
 type Contacto = {
   id: string;
@@ -400,6 +401,13 @@ export default function ContactoFichaPage() {
                     <AddIcon />
                   </IconButton>
                 </Stack>
+              </Paper>
+
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Campos personalizados
+                </Typography>
+                <CamposPersonalizadosEditor entidad="contacto" entidadId={contacto.id} sinTitulo />
               </Paper>
 
               <Paper sx={{ p: 3 }}>

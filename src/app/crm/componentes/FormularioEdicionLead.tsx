@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { leadFormEmail, leadFormPhone } from '@/lib/chat/conversationIdentity';
 import { LEAD_SCORE_LABEL, LEAD_SCORES } from '@/lib/crm/leadKanbanFilters';
 import LeadLineasEditor from './LeadLineasEditor';
+import CamposPersonalizadosEditor from './CamposPersonalizadosEditor';
 
 const formSchema = z.object({
   id: z.string(),
@@ -176,6 +177,7 @@ export function FormularioEdicionLead({ lead, estados, open, onClose }: Formular
                     <Controller name="notas" control={control} render={({ field }) => ( <TextField {...field} label="Notas" multiline rows={4} error={!!errors.notas} helperText={errors.notas?.message} /> )} />
 
                     <LeadLineasEditor leadId={lead.id} />
+                    <CamposPersonalizadosEditor entidad="lead" entidadId={lead.id} />
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mt: 2 }}>
                         <Button

@@ -24,6 +24,7 @@ import AlarmIcon from '@mui/icons-material/Alarm';
 import { useRouter } from 'next/navigation';
 import LeadEtapaTimeline from '@/app/crm/componentes/LeadEtapaTimeline';
 import LeadLineasEditor from '@/app/crm/componentes/LeadLineasEditor';
+import CamposPersonalizadosEditor from '@/app/crm/componentes/CamposPersonalizadosEditor';
 import RecordatorioLeadModal from '@/app/crm/componentes/RecordatorioLeadModal';
 import { isPlaceholderLeadEmail, leadFormPhone } from '@/lib/chat/conversationIdentity';
 
@@ -316,6 +317,7 @@ export default function ContactDealDrawer({
             {resolvedLeadId ? (
               <>
                 <LeadLineasEditor leadId={resolvedLeadId} />
+                <CamposPersonalizadosEditor entidad="lead" entidadId={resolvedLeadId} ocultarSiVacio />
                 <Button
                   size="small"
                   startIcon={<AlarmIcon />}

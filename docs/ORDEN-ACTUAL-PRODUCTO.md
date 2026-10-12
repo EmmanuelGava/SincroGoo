@@ -48,9 +48,11 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 | **3** Kommo día a día | ✅ core + catálogo stock | ✅ seguimiento OK en prod (A8, 26 ago) |
 | **3½** Equipo v1 (org, roles, asignar) | ✅ en `main` (`6f27c09`) | QA manual pendiente |
 | **3 catálogo v2** | ✅ en `main` (`d7711b9`) | — |
-| **4+** Diferencial / canales | — | no empezado |
+| **4** Diferencial (Explorador + Slides al CRM) | — | no empezado |
+| **5** Canales: Instagram DM + ML preguntas | ✅ en `main` (`40e7b06`, `ec4a350`) | QA pendiente (credenciales Meta / ML) |
+| Backlog CRM: campos personalizados + reportes por agente | ✅ en `main` (`b533a1a`, `67dbc3a`) | — |
 
-**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Roadmap mensajería-Kanban P0+P1 en código (27 ago). Equipo v1 y catálogo v2 ya están en `main` (`6f27c09`, `d7711b9`). **Siguiente de Equipo v1:** QA prod con una segunda cuenta. Ítems del deal: código + migración `lead_lineas` en Supabase (12 oct). Después, Fase 4 Explorador.
+**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Equipo v1, catálogo v2, ítems del deal, Instagram, Mercado Libre, campos personalizados y reportes por agente están en `main`. **Bloqueante antes del QA de Equipo v1:** etapas y tareas compartidas por organización (ver Fase 3½). Cruce de docs vs. código del 12 oct en [`FUNCIONALIDADES-PROYECTO.md`](./FUNCIONALIDADES-PROYECTO.md) § Brechas.
 
 **Ya anda (no rehacer):**
 
@@ -65,6 +67,9 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 - Catálogo: descontar stock al **Ganado**, alertas bajo stock en `/catalogo`, toast al mover deal.
 - Login Google / NextAuth.
 - **Equipo v1:** org, roles, asignación, `/configuracion/equipo`, invitaciones — en `main` (`6f27c09`); falta QA con una segunda cuenta.
+- Instagram DM y preguntas de Mercado Libre en el inbox (falta QA con credenciales).
+- Campos personalizados en lead y contacto (`/configuracion/campos`).
+- Reportes por agente (`/crm/reportes`).
 
 **Certificado en prod (26 ago 2026):** checklist A (incl. A8) + B completos con celular real en klosync.vercel.app.
 
@@ -169,6 +174,8 @@ Para PyME con 2–5 personas, **asignar leads y ver el mismo CRM** es tan básic
 - [x] Filtros Kanban: Todos | Mis leads | Sin asignar.
 - [x] Notas en header del chat con **autor** visible para todo el equipo.
 - [x] Un número WA por org (admin conecta QR; agentes responden desde KloSync).
+- [ ] **Etapas del Kanban por organización** (bloqueante del QA). Hoy `GET /api/supabase/estados_lead` filtra por `usuario_id` y siembra etapas propias si el usuario no tiene: un agente invitado ve columnas vacías porque los leads de la org apuntan a las etapas del admin. Agregar `organizacion_id` a `estados_lead`, backfill desde el usuario y leer/editar por org (editar etapas: solo admin).
+- [ ] **Tareas por organización.** `tasks` solo tiene `usuario_id` (texto): el "Recordarme" de un agente no lo ve nadie más. Agregar `organizacion_id` + `asignado_a`, backfill, y filtrar por org en `/api/dashboard/tasks` y en la próxima tarea de la tarjeta.
 - [ ] **QA prod:** invitar 2ª cuenta, asignar, filtros, agente sin QR en UI, contactos compartidos por org. Verificado en código (12 oct 2026): APIs `organizacion/**`, filtros Todos | Mis leads | Sin asignar, header de chat, `/configuracion/equipo`, `/invitar`, notas con autor, QR de WhatsApp solo si el rol es admin. Corregido: historial de etapa, recordatorio y lead del chat ya no exigen ser el asignado; alcanza con la misma organización. Pendiente de humano: ejecutarlo en klosync.vercel.app con una segunda cuenta real.
 
 **No es Equipo v1 (queda Fase 8 — escala):**
@@ -225,7 +232,8 @@ Mismo `handleIncomingMessage`, badge de canal, mismo drag al Kanban. No widget. 
   - [x] Badge y filtro de canal Mercado Libre en inbox y Kanban.
   - [ ] **QA prod:** cargar `MERCADOLIBRE_APP_ID` y `MERCADOLIBRE_CLIENT_SECRET` en Vercel; en la app de ML, redirect `…/api/integrations/mercadolibre/callback`, notificaciones `…/api/integrations/incoming/mercadolibre` con tópico Questions y scope `offline_access`. Preguntar desde otra cuenta, responder desde KloSync y desde la web de ML.
   - [ ] Mensajería post-venta (segundo corte).
-- [ ] Email completo (SMTP/SendGrid) si hace falta un tercer canal simple.
+- [ ] Facebook Messenger (página de Facebook). Mismo stack de Meta que Instagram (Graph API, webhook firmado, ventana 24 h); reutilizar conexión y patrón de `src/lib/instagram/`. Lo tienen Whaticket, BotIA y Poli.
+- [ ] Email completo (SMTP/SendGrid) si hace falta un tercer canal simple. Hoy entra por `incoming/email` pero `sendViaEmail` devuelve "no implementado".
 
 ### Fase 6 — Widget en la web del comerciante
 
@@ -347,6 +355,8 @@ Pendiente, no MVP:
 
 ### Infra de producto (cuando haya usuarios reales, no para “lanzar a cobrar”)
 
+- [ ] Borrar rutas de prueba que siguen en producción: `/api/test-send`, `/api/test-chat-send`, `/api/test/telegram`, `/api/test/whatsapp` y la página `/pruebas/telegram`. Cualquier usuario logueado puede disparar envíos sin control de organización.
+- [ ] Dashboard (`/dashboard`): `DashboardMetricsService` devuelve valores fijos (95 s de respuesta, 12,5 % de conversión), filtra por usuario y usa el cliente anónimo. Pasarlo a datos reales por organización (reusar `reporteAgentes`) o sacarlo del menú y llevar a `/crm/reportes`.
 - [ ] Validar sesión en APIs que todavía confían en el `usuario_id` del cliente.
 - [ ] RLS donde corresponda (ojo: chat = NextAuth, no `auth.uid()` de Supabase).
 - [ ] Corregir rutas rotas (`/precios`, `/proyectos/editar/[id]`, etc.).
@@ -361,7 +371,9 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 |---|---|---|
 | Kanban / embudo | Sí | Sí (filtros, scoring, stats, seguimiento en card) |
 | WhatsApp | Sí | Lite (Baileys), no oficial |
-| Telegram | Kommo parcial | Recepción sí |
+| Telegram | Kommo parcial | Recepción sí; envío no implementado |
+| Email | Darwin, BotIA | Recepción básica; envío no implementado |
+| Facebook Messenger | Whaticket, BotIA, Poli | No |
 | Instagram DM | Sí | En código (12 oct); falta QA con app de Meta |
 | Mercado Libre (preguntas) | Algunos | En código (12 oct); falta QA con app de ML |
 | Multiagente mismo número | Sí | No |
@@ -370,12 +382,18 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Catálogo / cotizaciones | Algunos | Sí: catálogo + carrito; stock al Ganado |
 | Chatbot | Sí | No |
 | Asignar chats | Sí | Sí en código (Equipo v1, `6f27c09`); QA prod pendiente |
-| Roles / equipo | Sí | Sí en código (admin / agente); QA prod pendiente |
+| Roles / equipo | Sí | Sí en código (admin / agente); etapas y tareas todavía por usuario; QA prod pendiente |
+| Campos personalizados | Kommo, Whaticket | Sí (lead y contacto; en tarjeta y búsqueda) |
+| Reportes por agente | Chatty, Darwin | Sí (`/crm/reportes`) |
+| Agenda / calendario | Basework | Tareas con fecha por lead; sin vista calendario ni citas |
+| Varios embudos | Kommo, Leadsales | No (un embudo) |
+| Exportar contactos / leads | Todos | No |
+| Fusionar duplicados | Kommo, HubSpot | No |
 | Programados | Casi todos | Sí (outbox + composer) |
 | Seguimiento / “te debe respuesta” | Sí | Sí (inbox + Kanban; dismiss en card) |
 | Broadcast | La mayoría | No |
 | Módulo contactos | Sí | Sí (CRUD + match + import + timeline + tags) |
-| Reportes de funnel | Sí | Stats mínimas (nuevas, sin resp., seguim., embudo) |
+| Reportes de funnel | Sí | Stats del inbox + reportes por agente; dashboard con datos fijos |
 | Ticks entregado/leído | Sí | Sí (certificado B3 prod) |
 | Sheet → Slides / sync Google / explorador | No | Sí (nuestro diferencial) |
 
@@ -386,9 +404,12 @@ Tareas derivadas de [`comparativa-competencia-klosync(2).md`](./comparativa-comp
 **Equipo y operación (después de 3½):**
 
 - [x] Reportes / supervisión por agente (tiempo respuesta, conversión por asignado) — Chatty, Darwin. *Hecho:* `/crm/reportes` (botón "Reportes" en el Kanban y menú de usuario), períodos de 7/30/90 días. Por agente: leads abiertos y nuevos, ganados/perdidos y conversión (según `lead_etapa_historial`), valor ganado, conversaciones, mensajes enviados, mediana y promedio de tiempo de respuesta, y conversaciones sin responder. Admin ve al equipo y la fila "Sin asignar"; el agente ve solo la suya. Se atribuye al asignado actual y el tiempo cuenta horas no laborables.
-- [ ] Agenda / citas ligadas a contacto o lead — Basework.
+- [ ] Agenda / citas ligadas a contacto o lead — Basework. Base existente: tabla `tasks` (lead, conversación, `due_date`, prioridad) y "Recordarme" en la tarjeta. Falta: vista calendario semanal/mensual por org, tipo "cita" con hora, y que dependa de "Tareas por organización" (Fase 3½).
+- [ ] Exportar contactos y leads a CSV/Excel (con filtros aplicados y campos personalizados como columnas) — todos los CRM.
+- [ ] Fusionar contactos duplicados (elegir principal, mover conversaciones, leads y etiquetas; sugerir por teléfono/email) — Kommo, HubSpot.
+- [ ] Varios embudos por organización (ventas, post-venta, mayoristas) — Kommo, Leadsales.
 - [x] Campos personalizados en lead/contacto (más allá de etiquetas) — Whaticket, Kommo. *Hecho:* definiciones por organización en `/configuracion/campos` (admin; texto, número, fecha, opción, sí/no), valores en `leads.campos` / `contactos.campos` (jsonb), editor en ficha de lead, drawer y página de contacto, campos visibles en la tarjeta del Kanban y búsqueda por valor.
-- [ ] Telegram: paridad inbox (saliente + lista unificada) — hoy recepción parcial.
+- [ ] Telegram: paridad inbox (saliente + lista unificada) — hoy recepción parcial; `sendViaTelegram` devuelve "no implementado" y la UI deja escribir igual.
 
 **E-commerce e integraciones (Chatsell / Aoki):**
 
@@ -418,7 +439,7 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 ## Cómo decidir qué toca ahora
 
 1. **MVP Fase 0 + 1** — ✅ certificado (26 ago 2026). Checklist A1–A8 + B1–B7.
-2. **Fase 3½ Equipo v1** — código en `main` (`6f27c09`). Pendiente: QA prod con 2ª cuenta (el checkbox de QA sigue abierto).
+2. **Fase 3½ Equipo v1** — código en `main` (`6f27c09`). Antes del QA con 2ª cuenta: etapas y tareas por organización (sin eso el agente ve el Kanban vacío).
 3. **Roadmap mensajería + Kanban** — P0+P1 + N1 + catálogo stock en código (27 ago). Pendiente: QA prod post-deploy.
 4. Paralelo opcional: backlog catálogo o **Fase 4** (Explorador → contactos).
 5. ¿Se pierde un envío con worker down? → fix outbox antes de features nuevas.

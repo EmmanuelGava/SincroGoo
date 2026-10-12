@@ -1,10 +1,10 @@
 # Comparativa de competencia — KloSync (WhatsApp CRM / LATAM)
 
-*Actualizado: 27 agosto 2026. Precios en USD salvo aclaración; sujetos a cambio.*
+*Competidores: 27 agosto 2026. Estado de KloSync y gaps: 12 octubre 2026. Precios en USD salvo aclaración; sujetos a cambio.*
 
 | Plataforma | Origen | Precio desde | Modelo de precio | Integración WhatsApp | CRM / Pipeline | IA | Facturación local (ARG) | Enfoque / fortaleza | Debilidad |
 |---|---|---|---|---|---|---|---|---|---|
-| **KloSync** | 🇦🇷 | — | — | Lite Baileys (prod); Cloud API planeada | CRM persona/deal, Kanban, contactos, catálogo+carrito+stock | Planeada (Fase 7); no en prod | Objetivo del proyecto | WA-first + Sheets→Slides + explorador; Lite sin Meta | Sin equipo multiusuario en UI aún; sin omnicanal; sin broadcast |
+| **KloSync** | 🇦🇷 | — | — | Lite Baileys (prod) + Instagram DM y preguntas ML (en código); Cloud API planeada | CRM persona/deal, Kanban, contactos, catálogo+carrito+stock, equipo (org/roles/asignación), campos personalizados, reportes por agente | Planeada (Fase 7); no en prod | Objetivo del proyecto | WA-first + Sheets→Slides + explorador; Lite sin Meta | Equipo sin QA en prod (etapas aún por usuario); sin broadcast ni bot; Telegram/Email sin envío; sin agenda |
 | **Basework** | 🇦🇷 Argentina | Gratis hasta 5 usuarios / planes pagos escalonados | Plan fijo por tamaño de equipo | Meta Cloud API oficial (Meta Tech Provider), Coexistence | CRM + agenda + chat de equipo + control horario, todo en un plan | Sí, incluida (responde catálogo, agenda, deriva a vendedor) | **Sí — factura en pesos, sin dólares** | Todo-en-uno para PyME (reemplaza Slack+Calendly+Zendesk+HubSpot), fuerte en Coexistence sin perder número | Producto más nuevo, menos reviews que competidores establecidos; es tu competidor directo más cercano geográficamente |
 | **Leadsales** | 🇲🇽 México | ~$84 USD/mes (3 usuarios) | Plan fijo + usuario adicional (~$13/u) | Meta API oficial desde plan Profesional (~$133) | Pipeline visual, foco 100% WhatsApp | Sí (resumen de conversaciones) | No — factura en USD | Líder LATAM en volumen de usuarios (+10.000 equipos), simple y enfocado | CRM de contactos básico, pocas integraciones nativas fuera de Meta, sin Telegram |
 | **Kommo** (ex amoCRM) | 🇷🇺/global | $15 USD/usuario/mes | Por usuario | API oficial | Pipeline Kanban muy pulido, referencia de UX del sector | Add-ons | No — USD | Producto maduro, marketing agresivo, buen onboarding | No incluye comunicación interna de equipo ni agenda con IA; precio escala rápido con el equipo |
@@ -54,9 +54,9 @@ Leyenda: **fase** = dónde está en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-
 
 | Gap (ellos tienen) | Quién lo tiene | KloSync hoy | Task / fase |
 |---|---|---|---|
-| Workspace + varios usuarios | Casi todos | Un Google login = mundo aislado | **Fase 3½** — [`2026-08-27-equipo-v1-design.md`](./superpowers/specs/2026-08-27-equipo-v1-design.md) |
-| Roles admin / agente | Basework, Leadsales, Chatty | No | **Fase 3½** |
-| Asignar chat / lead a persona | Kommo, Darwin, todos | `asignado_a` en BD, sin UI | **Fase 3½** |
+| Workspace + varios usuarios | Casi todos | En código; etapas y tareas todavía por usuario; QA pendiente | **Fase 3½** — [`2026-08-27-equipo-v1-design.md`](./superpowers/specs/2026-08-27-equipo-v1-design.md) |
+| Roles admin / agente | Basework, Leadsales, Chatty | En código | **Fase 3½** |
+| Asignar chat / lead a persona | Kommo, Darwin, todos | En código (Kanban + header de chat) | **Fase 3½** |
 | Bandeja compartida (mismo número) | Whaticket, Poli, Basework | Un WA Lite por cuenta | **Fase 8** — inbox multi-sesión / Cloud API |
 | Facturación en **pesos** (ARS) | Basework, BotIA | No (monetización fuera de orden) | **Comercial** — Lemon + ARS; tabla mínima en Argentina |
 | Plan entrada bajo / usuarios incluidos | Basework (5 gratis), Whaticket flat | Sin pricing público | **Comercial** — definir plan PyME vs Pro |
@@ -66,19 +66,22 @@ Leyenda: **fase** = dónde está en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-
 | Gap | Quién | Task / fase |
 |---|---|---|
 | Chat interno de equipo (sin cliente) | Basework, Kommo (parcial) | **Fase 8** — chat interno |
-| Supervisión / reportes por agente | Chatty, Darwin | **Backlog comparativa** — dashboard desempeño agentes |
+| Supervisión / reportes por agente | Chatty, Darwin | ✅ **Hecho** (12 oct) — `/crm/reportes` |
 | Control horario / fuera de horario | Basework, BotIA | **Fase 7** — reglas fuera de horario (+ handoff) |
-| Agenda / citas en el CRM | Basework | **Backlog comparativa** — agenda ligada a contacto/lead |
-| Campos personalizados en lead/contacto | Whaticket, Kommo | **Backlog comparativa** — custom fields v1 (más allá de tags) |
+| Agenda / citas en el CRM | Basework | **Backlog comparativa** — hay tareas con fecha por lead; falta calendario y citas |
+| Campos personalizados en lead/contacto | Whaticket, Kommo | ✅ **Hecho** (12 oct) — `/configuracion/campos` |
+| Varios embudos | Kommo, Leadsales | **Backlog comparativa** |
+| Exportar contactos / leads | Todos | **Backlog comparativa** |
+| Fusionar contactos duplicados | Kommo, HubSpot | **Backlog comparativa** |
 
 ### Mensajería y canales
 
 | Gap | Quién | Task / fase |
 |---|---|---|
-| Instagram DM | Aoki, Whaticket, Poli, Darwin, BotIA | **Fase 5** |
-| Mercado Libre (preguntas + post-venta) | Chatsell, Aoki | **Fase 5** |
-| Facebook Messenger | Whaticket, BotIA, Poli | **Fase 5** — después de IG |
-| Email inbox completo | Darwin, BotIA | **Fase 5** |
+| Instagram DM | Aoki, Whaticket, Poli, Darwin, BotIA | **Fase 5** — en código (12 oct); QA con app de Meta |
+| Mercado Libre (preguntas + post-venta) | Chatsell, Aoki | **Fase 5** — preguntas en código (12 oct); post-venta pendiente |
+| Facebook Messenger | Whaticket, BotIA, Poli | **Fase 5** — después de IG (ya cargado en el orden) |
+| Email inbox completo | Darwin, BotIA | **Fase 5** — hoy solo entrante |
 | Telegram saliente + inbox unificado | BotIA, Kommo parcial | **Backlog comparativa** — Telegram paridad (hoy solo recepción) |
 | Widget / webchat | Poli, Darwin, BotIA | **Fase 6** |
 | Meta **Cloud API** + Coexistence | Basework, Chatsell, Aoki | **Fase 8** — Cloud API oficial |
@@ -117,6 +120,8 @@ Leyenda: **fase** = dónde está en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-
 | Feature | Notas |
 |---|---|
 | Kanban + persona/deal + contactos | Core cerrado |
+| Campos personalizados + reportes por agente | Paridad con Kommo / Chatty (12 oct) |
+| Líneas del deal + reserva de stock en Propuesta | Más que Kommo en catálogo manual |
 | Seguimiento interno A8 + dismiss | No es auto-mensaje al cliente |
 | Catálogo + carrito + stock al Ganado | Chatsell-level en catálogo manual; sin ERP sync |
 | Programados, archivar, reply-to, ticks, outbox | Paridad mensajería WA Lite |

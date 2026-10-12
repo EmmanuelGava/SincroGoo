@@ -1,457 +1,156 @@
-# KloSync - Funcionalidades del Proyecto
-> Documento de estado actual del proyecto desde una perspectiva de negocio
-> Última actualización: Marzo 2026
+# KloSync — Funcionalidades del producto
+
+> Estado real del producto, verificado contra el código.
+> Última actualización: 12 octubre 2026.
+> El orden de trabajo vive en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-PRODUCTO.md); la competencia en [`comparativa-competencia-klosync(2).md`](./comparativa-competencia-klosync(2).md).
+
+Leyenda: ✅ en código y usable · 🧪 en código, falta QA en prod · 🟡 parcial · ❌ no existe.
 
 ---
 
-## 🎯 ¿Qué es KloSync?
+## Qué es KloSync
 
-KloSync es una plataforma integral de productividad diseñada para vendedores, consultores y equipos comerciales que necesitan:
+CRM de ventas para PyMEs argentinas (2–5 personas) que venden por WhatsApp: **inbox unificado + contactos + Kanban de deals + catálogo y cotizaciones**, con un equipo compartiendo el mismo CRM. El norte de UX es Kommo.
 
-1. **Automatizar la creación de presentaciones** - Generar presentaciones personalizadas desde datos en hojas de cálculo
-2. **Gestionar leads y clientes** - CRM con tablero Kanban visual
-3. **Comunicarse con clientes** - Chat unificado para WhatsApp, Telegram y Email
-4. **Descubrir prospectos** - Explorador de negocios por zona geográfica
-5. **Convertir y sincronizar documentos** - 18 herramientas de conversión entre formatos
+El diferencial frente a los CRM de WhatsApp es la suite Google (Sheets → Slides masivo, sync programada, explorador de negocios por zona). Hoy es secundaria: el foco es el CRM.
+
+Loop objetivo: **Explorador → Contactos → Chat → Kanban → Presentación / cotización → Ganado.**
 
 ---
 
-## 📊 MÓDULO 1: GENERACIÓN AUTOMÁTICA DE PRESENTACIONES
+## 1. Inbox unificado (`/chat`)
 
-### ¿Qué hace?
-Convierte datos de hojas de cálculo (Google Sheets o Excel) en presentaciones profesionales de Google Slides, generando una diapositiva personalizada por cada fila de datos.
+### Canales
 
-### Funcionalidades implementadas ✅
+| Canal | Recibir | Responder | Estado | Notas |
+|---|---|---|---|---|
+| WhatsApp Lite (Baileys, worker en Railway) | ✅ | ✅ | ✅ certificado en prod (26 ago) | QR por organización (solo admin). Texto, imagen, audio, archivos; video rechazado. |
+| Instagram DM | ✅ | ✅ | 🧪 | OAuth de cuenta profesional, firma de webhook, ventana de 24 h con aviso. Falta cargar credenciales de Meta y probar. |
+| Mercado Libre (preguntas) | ✅ | ✅ | 🧪 | Una conversación por comprador + publicación; responde la pregunta pendiente más vieja. Falta app de ML y probar. |
+| Mercado Libre (post-venta) | ❌ | ❌ | ❌ | Segundo corte de Fase 5. |
+| Telegram | 🟡 | ❌ | 🟡 | Entra por webhook del bot; `sendViaTelegram` devuelve "no implementado". |
+| Email | 🟡 | ❌ | 🟡 | Hay handler entrante; `sendViaEmail` devuelve "no implementado". |
+| Facebook Messenger | ❌ | ❌ | ❌ | Lo tienen Whaticket, BotIA, Poli. |
+| Widget web | ❌ | ❌ | ❌ | Fase 6. |
 
-#### Creación de proyectos con plantillas
-- Conectar una hoja de cálculo de Google Sheets
-- Elegir entre 6 plantillas prediseñadas:
-  - Catálogo de productos
-  - Ficha de cliente
-  - Ficha de local/negocio
-  - Propuesta comercial
-  - Reporte simple
-  - Plantilla en blanco
-- Mapear columnas del Sheet a campos de la plantilla
-- Vista previa antes de generar
+### Mensajería (WhatsApp)
 
-#### Personalización de presentaciones
-- **Tipografías**: 5 opciones de Google Fonts (Roboto, Montserrat, Playfair Display, Lato, Oswald)
-- **Paletas de colores**: 8 paletas predefinidas + selector de color personalizado
-- **Logo corporativo**: Subir logo y posicionarlo en 4 ubicaciones (superior izquierda/derecha, inferior izquierda/derecha)
-- **Slide de portada**: Opcional con título y subtítulo personalizados
-- **Filtros de datos**: Filtrar filas por condiciones (contiene, igual, mayor que, menor que)
-- **Ordenamiento**: Ordenar datos por columna (ascendente/descendente)
-- **Límite de filas**: Generar solo las primeras 10, 20, 30 o todas las filas
+- ✅ Outbox con reintento cuando el worker está caído; catch-up de entrantes al reconectar.
+- ✅ Ticks reales: enviando, enviado, entregado, leído, error.
+- ✅ Media entrante persistida en Storage; límites de tamaño visibles en la UI.
+- ✅ Anti-ban: 2–4 s entre salientes.
+- ✅ Mensajes programados, archivar, responder citando (reply-to).
 
-#### Plantillas autoajustables
-- Las plantillas se adaptan automáticamente al número de columnas detectadas
-- Soporte para imágenes: detecta columnas con URLs de imágenes y las inserta automáticamente
-- Alineación de texto configurable (izquierda, centro, derecha)
-- Tamaños de fuente y colores personalizables
+### Interfaz
 
-#### Gestión de presentaciones
-- **Sincronización automática**: Programar actualizaciones cada hora, día o semana
-- **Trigger por cambios**: Actualizar automáticamente cuando cambian los datos en el Sheet
-- **Re-sincronización**: Actualizar slides existentes sin regenerar todo
-- **Modo enriquecimiento**: Actualizar datos respetando el diseño manual
-- **Historial de generaciones**: Ver todas las generaciones anteriores con fecha, estado y errores
-- **Preview con miniaturas**: Carrusel de vista previa al terminar la generación
-
-#### Exportación y compartir
-- Exportar presentación a PDF
-- Copiar enlace para compartir
-- Abrir directamente en Google Slides para edición manual
-
-### Casos de uso reales
-- **Vendedor de inmuebles**: Genera 50 fichas de propiedades desde un Sheet con fotos, precios y características
-- **Consultor**: Crea reportes mensuales personalizados para cada cliente desde datos de rendimiento
-- **Agencia**: Produce catálogos de productos actualizados automáticamente cuando cambian precios o stock
+- ✅ UI estilo WhatsApp Web (compositor `+`, emoji, grabación de audio, burbujas).
+- ✅ Respuestas rápidas con `/`, variables (`{{nombre}}`) y editor.
+- ✅ Catálogo y carrito en el compositor (presupuesto multi-producto, listas por categoría `/categoría`, fotos múltiples).
+- ✅ Búsqueda en el historial de conversaciones.
+- ✅ Filtros por canal; badge de canal en lista, header y burbuja.
+- ✅ Notas internas con autor, ancladas al header (no salen al cliente).
+- ✅ Asignar la conversación a un miembro del equipo.
+- ✅ Seguimiento: alerta interna "esperando tu respuesta" (12 h Nuevo/Contactado, 24 h resto), ordenada arriba.
+- ✅ Notificaciones del navegador y tiempo real (Supabase Realtime).
+- ✅ Drawer de contacto/deal dentro del chat (lead, líneas del deal, campos personalizados).
 
 ---
 
-## 🗂️ MÓDULO 2: CRM Y GESTIÓN DE LEADS
+## 2. CRM / Kanban (`/crm`)
 
-### ¿Qué hace?
-Sistema de gestión de relaciones con clientes con tablero Kanban visual para seguimiento del proceso de ventas.
-
-### Funcionalidades implementadas ✅
-
-#### Tablero Kanban
-- Vista visual de leads en columnas por etapa del proceso
-- Etapas típicas: Nuevo, Contactado, Calificado, Propuesta, Negociación, Ganado, Perdido
-- Arrastrar y soltar leads entre etapas
-- Contador de leads por etapa
-
-#### Gestión de leads
-- Crear leads manualmente con información básica
-- Ver detalles completos de cada lead
-- Editar información del lead
-- Cambiar estado del lead
-- Eliminar leads
-
-#### Información de leads
-- Nombre del contacto
-- Empresa
-- Teléfono
-- Email
-- Estado actual
-- Fecha de creación
-- Notas y observaciones
-
-### Funcionalidades pendientes 🔄
-- Valor monetario por lead
-- Fecha de cierre estimada
-- Filtros avanzados (por canal, valor, fecha)
-- Reportes de conversión por etapa
-- Asignación de leads a miembros del equipo
-- Lead scoring (prioridad alta/media/baja)
-- Historial de cambios de estado
+- ✅ Kanban por etapa con drag & drop; etapas por defecto (Nuevo, Contactado, Calificado, Propuesta, Ganado, Perdido) y etapas editables.
+- ✅ Chats entrantes sin lead en un costado: arrastrar a una columna crea el lead.
+- ✅ Ida y vuelta lead ↔ chat (`/chat?conversacion=`, `/crm?lead=`).
+- ✅ Tarjeta: valor, fecha de cierre, scoring alta/media/baja, asignado, próxima tarea, seguimiento, campos personalizados marcados.
+- ✅ Filtros: Todos / Mis leads / Sin asignar, búsqueda (incluye valores de campos personalizados), canal, valor, fecha de cierre, etiquetas, solo seguimiento.
+- ✅ Motivo obligatorio al pasar a Perdido.
+- ✅ Historial de etapas (`lead_etapa_historial`) con timeline en el drawer.
+- ✅ Líneas del deal (`lead_lineas`): productos, cantidad y precio en el lead.
+- ✅ Stock: reserva en Propuesta, descuento al Ganado, toast al mover.
+- ✅ Stats del inbox: nuevas, sin responder, tiempo a primera respuesta, conversión por etapa.
+- ✅ **Reportes por agente** (`/crm/reportes`): leads abiertos/nuevos, ganados, perdidos, conversión, valor ganado, mensajes, mediana de tiempo de respuesta, sin responder. Períodos 7/30/90 días.
+- ✅ "Recordarme" desde la tarjeta: crea una tarea con fecha ligada al lead.
+- ❌ Varios embudos (pipelines) por organización.
+- ❌ Vista calendario / agenda de tareas y citas.
+- ❌ Exportar leads a CSV/Excel.
 
 ---
 
-## 💬 MÓDULO 3: CHAT UNIFICADO
+## 3. Contactos (`/contactos`)
 
-### ¿Qué hace?
-Centraliza todas las conversaciones con clientes desde múltiples canales en una sola interfaz.
-
-### Funcionalidades implementadas ✅
-
-#### Canales soportados
-- **Telegram**: Completamente funcional (recepción de mensajes)
-- **WhatsApp Lite**: Conexión QR, envío y recepción funcionales (worker Baileys en Railway). Flujo técnico: [`docs/MENSAJERIA-WHATSAPP-FLUJO.md`](./MENSAJERIA-WHATSAPP-FLUJO.md)
-- **Email**: Estructura básica implementada
-
-#### Interfaz de chat
-- Lista de conversaciones activas con indicadores por plataforma
-- Ventana de chat con historial completo
-- UI estilo WhatsApp Web (compositor `+`, emoji, rayo, grabación)
-- Burbujas de mensajes diferenciadas (entrantes/salientes)
-- Input unificado para responder
-- Header con información del contacto
-- Indicadores visuales por plataforma (iconos de Telegram, WhatsApp, Email)
-- Respuestas rápidas (`/` + plantillas y variables)
-- Catálogo comercial en `/catalogo` (import masivo); el chat solo elige el ítem
-
-#### Tiempo real
-- Actualización automática cuando llegan nuevos mensajes
-- Sin necesidad de recargar la página
-- Notificaciones visuales de mensajes nuevos
-
-#### Base de datos
-- Almacenamiento centralizado de todas las conversaciones
-- Historial completo de mensajes
-- Vinculación automática con leads del CRM
-
-### Funcionalidades en desarrollo 🔄
-- **Envío real de mensajes**: Actualmente solo se guardan en BD, falta integración con APIs externas
-- **WhatsApp Business API oficial**: Migración desde WhatsApp Lite a API oficial de Meta
-- **Email completo**: Integración con SendGrid o Mailgun
-- **Estados de mensaje**: Enviado, entregado, leído *(en prod)*
-- **Indicador "escribiendo..."**
-- **Mensajes programados**
-- **Automatización de seguimiento**
-- **Chatbot básico**
-- **Multiagente** (varios agentes, mismo número)
-- **Campañas masivas** (broadcast)
-- **Búsqueda en historial**
-
-### Diferenciador único 🌟
-- **Envío automático por WhatsApp**: Al terminar de generar una presentación, enviarla automáticamente al cliente por WhatsApp (ningún competidor tiene esto)
+- ✅ CRUD, búsqueda sin acentos, ficha con conversaciones, leads y timeline de etapas.
+- ✅ Match automático del teléfono/WhatsApp entrante con contactos existentes.
+- ✅ Importar desde Sheets, CSV y Google Contacts.
+- ✅ Etiquetas (chips y filtro `/contactos?etiqueta=`).
+- ✅ Nuevo pedido desde la ficha (lead nuevo sin pisar uno Ganado).
+- ✅ Campos personalizados (también en leads).
+- ❌ Fusionar contactos duplicados.
+- ❌ Exportar contactos a CSV/Excel.
 
 ---
 
-## 🗺️ MÓDULO 4: EXPLORADOR DE NEGOCIOS
+## 4. Catálogo y ventas (`/catalogo`)
 
-### ¿Qué hace?
-Permite buscar establecimientos y negocios en una zona geográfica específica usando Google Maps, ideal para prospección comercial.
-
-### Funcionalidades implementadas ✅
-
-#### Búsqueda geográfica
-- Buscar negocios por zona/ubicación
-- Filtrar por tipo de establecimiento
-- Ver resultados en mapa interactivo
-- Obtener información de contacto
-
-#### Exportación de datos
-- Exportar resultados a Google Sheets
-- Datos incluyen: nombre, dirección, teléfono, categoría, calificación
-
-### Funcionalidades pendientes 🔄
-- Exportar directamente a Excel
-- Exportar directo al módulo de Contactos (sin pasar por Sheet)
-- Filtros por categoría antes de exportar
-- Guardar búsquedas frecuentes
-- Enriquecimiento automático: email, LinkedIn, sitio web
-
-### Caso de uso real
-Un vendedor de sistemas de punto de venta busca todos los restaurantes en una zona, exporta la lista con teléfonos y direcciones, y los contacta uno por uno desde el CRM.
+- ✅ Ítems con categoría, stock, stock mínimo y alertas de bajo stock.
+- ✅ Variantes (talle/color) anidadas.
+- ✅ Categorías administrables (crear, renombrar con slug, borrar).
+- ✅ Import masivo CSV/Excel/Sheets y carga de muchos archivos.
+- ✅ Plantillas editables de presupuesto y propuesta.
+- ❌ Link de pago / cobro en el hilo.
+- ❌ Sync con Tiendanube, Shopify, Mercado Libre (stock/pedidos) o ERP.
 
 ---
 
-## 🔄 MÓDULO 5: HERRAMIENTAS DE CONVERSIÓN (18 HERRAMIENTAS)
+## 5. Equipo y configuración
 
-### ¿Qué hace?
-Suite completa de herramientas para convertir y sincronizar documentos entre diferentes formatos.
-
-### Herramientas implementadas ✅
-
-#### Conversiones de Sheets
-1. **Google Sheets → Slides**: Generación masiva con plantillas (módulo principal)
-2. **Google Sheets → Excel**: Exportar a formato .xlsx
-3. **Google Sheets → Word**: Generar documentos Word con plantilla
-4. **Sheets → Slides directo**: Conversión rápida sin plantilla
-
-#### Conversiones de Excel
-5. **Excel → Google Sheets**: Importar archivos Excel a Sheets
-6. **Excel → Slides**: Generar presentaciones desde Excel
-7. **CSV → Google Sheets**: Importar archivos CSV
-8. **CSV → Slides**: Generar presentaciones desde CSV
-
-#### Conversiones de Slides
-9. **Slides → Sheet**: Extraer textos de cada slide a una hoja
-10. **Slides → PowerPoint**: Exportar a formato .pptx
-11. **PowerPoint → Slides**: Importar presentaciones PowerPoint
-
-#### Conversiones de PDF
-12. **PDF → Sheets**: Extraer datos de PDF (modo texto y modo tabla)
-
-#### Herramientas avanzadas
-13. **Fusionar Sheets**: Combinar múltiples hojas (modo append o merge por clave)
-14. **Limpiar datos**: Eliminar duplicados, espacios, formatear teléfonos y emails, capitalización
-
-#### Automatizaciones
-15. **Sincronización programada**: Cada hora, día o semana
-16. **Trigger por cambio**: Webhook cuando cambia el Sheet
-17. **Historial de sincronizaciones**: Ver todas las ejecuciones anteriores
-18. **Re-sincronización inteligente**: Actualizar sin regenerar todo
-
-### Casos de uso reales
-- Importar catálogo de productos desde Excel y generar presentación automática
-- Limpiar base de datos de clientes eliminando duplicados y formateando teléfonos
-- Fusionar datos de ventas de múltiples sucursales en un solo Sheet
-- Extraer datos de facturas en PDF a una hoja de cálculo
+- 🧪 Organización con varios usuarios, roles `admin` / `agente`, invitaciones por enlace (`/configuracion/equipo`, `/invitar`).
+- 🧪 Asignación de leads y chats; contactos compartidos por organización.
+- ✅ Campos personalizados por organización (`/configuracion/campos`, solo admin): texto, número, fecha, opción, sí/no.
+- ✅ Conexión de canales en `/configuracion/mensajeria` (WhatsApp QR, Instagram, Mercado Libre; solo admin).
+- 🟡 **Etapas del Kanban por usuario, no por organización** (ver brechas).
+- 🟡 **Tareas por usuario, sin `organizacion_id`** (ver brechas).
+- ❌ Chat interno de equipo, horarios de atención, multi-número.
 
 ---
 
-## 📊 MÓDULO 6: DASHBOARD
+## 6. Dashboard (`/dashboard`)
 
-### ¿Qué hace?
-Panel de control personalizable con métricas y accesos rápidos.
-
-### Funcionalidades implementadas ✅
-
-#### Widgets disponibles
-- Métricas de leads (total, por estado)
-- Tareas pendientes
-- Conversaciones recientes
-- Proyectos activos
-- Accesos rápidos a herramientas
-
-#### Personalización
-- Configurar qué widgets mostrar
-- Reordenar widgets
-- Modo enfoque (ocultar distracciones)
-- Actualización en tiempo real
-
-### Funcionalidades pendientes 🔄
-- Gráficos de conversión por etapa
-- Métricas de tiempo de respuesta
-- Reportes de actividad
-- Exportar reportes a PDF
+- 🟡 Existe la pantalla (widgets, tareas, conversaciones prioritarias, modo foco), pero `DashboardMetricsService` devuelve **valores fijos** para tiempo de respuesta (95 s) y conversión (12,5 %), filtra solo por usuario y usa el cliente anónimo. Los números reales del equipo están en `/crm/reportes`.
 
 ---
 
-## 👤 MÓDULO 7: CONTACTOS (PENDIENTE)
+## 7. Suite Google (diferencial, secundaria)
 
-### ¿Qué hará?
-Base de datos centralizada de todos los contactos con historial unificado.
-
-### Funcionalidades planificadas 🔄
-- CRUD completo de contactos
-- Importar desde Google Sheets
-- Importar desde CSV
-- Ficha de contacto con:
-  - Conversaciones vinculadas (WhatsApp, Telegram, Email)
-  - Leads del Kanban vinculados
-  - Presentaciones generadas vinculadas
-  - Historial de interacciones
-- Cruzar número de WhatsApp entrante con lista de contactos
-- Vincular automáticamente conversaciones a contactos
-- Registrar cambios de estado de leads en ficha
+- ✅ Sheets → Slides masivo con plantillas, tipografías, paletas, logo, portada, filtros y orden.
+- ✅ Sync programada (hora/día/semana), trigger por cambio en el Sheet, re-sync, modo enriquecimiento, historial y preview.
+- ✅ Conversiones: Excel/CSV → Sheets, Sheets → Excel/Word/Slides, Slides → Sheet/PPTX, PPTX → Slides, PDF → Sheets, fusionar Sheets, limpiar datos.
+- ✅ Explorador de negocios por zona (Google Places) con export a Sheets.
+- ❌ Explorador → contactos directo, export a Excel, búsquedas guardadas (Fase 4).
+- ❌ Aviso por WhatsApp al terminar una generación de slides (Fase 4).
 
 ---
 
-## 🔐 MÓDULO 8: AUTENTICACIÓN Y USUARIOS
+## 8. Infraestructura
 
-### Funcionalidades implementadas ✅
-- Login con Google (OAuth)
-- Gestión de sesiones con NextAuth
-- Perfiles de usuario
-- Configuración de cuenta
-- Sincronización de tokens de Google para automatizaciones
+- Next.js 14.1 (App Router), React, TypeScript, MUI; NextAuth con Google.
+- Supabase (Postgres, Storage, Realtime); acceso server-side con service role y scope por `organizacion_id`.
+- Vercel (app) + Railway (worker WhatsApp Baileys).
+- Tests con Vitest (339 al 12 oct 2026); `tsc --noEmit` limpio.
 
 ---
 
-## 💰 MONETIZACIÓN (EN DESARROLLO)
+## Brechas detectadas al cruzar docs y código (12 oct 2026)
 
-### Planes propuestos
+Ordenadas por impacto. Están cargadas como tareas en [`ORDEN-ACTUAL-PRODUCTO.md`](./ORDEN-ACTUAL-PRODUCTO.md).
 
-| Característica | Free | Pro ($19/mes) | Business ($39/mes) |
+| # | Brecha | Por qué importa | Dónde |
 |---|---|---|---|
-| Proyectos Sheets/Slides | 3 | Ilimitados | Ilimitados |
-| Sincronizaciones/mes | 50 | Ilimitadas | Ilimitadas |
-| CRM Kanban | Solo lectura | Completo | Completo |
-| WhatsApp | ✗ | ✓ | ✓ |
-| Telegram | Limitado | ✓ | ✓ |
-| Email | ✗ | ✗ | ✓ |
-| Usuarios del equipo | 1 | 1 | Hasta 5 |
-| Soporte | Comunidad | Email 48hs | Email 24hs |
-
-### Implementación pendiente 🔄
-- Página /precios funcional
-- Integración con Lemon Squeezy (procesador de pagos)
-- Tabla de suscripciones en base de datos
-- Límites por plan
-- Webhooks para eventos de suscripción
-- Secuencia de emails de onboarding
-
----
-
-## 🌍 INTERNACIONALIZACIÓN
-
-### Estado actual
-- Interfaz completamente en español
-- Documentación en español
-
-### Pendiente 🔄
-- Traducción completa al inglés (estimado 5-8 días)
-- Configuración de next-intl
-- Soporte multi-idioma (español/inglés)
-- Fechas y números localizados
-
----
-
-## 🚀 INFRAESTRUCTURA
-
-### Tecnologías utilizadas
-- **Frontend**: Next.js 14, React, TypeScript, Material UI
-- **Backend**: Next.js API Routes, Node.js
-- **Base de datos**: Supabase (PostgreSQL)
-- **Autenticación**: NextAuth.js
-- **APIs externas**: Google Sheets API, Google Slides API, Google Drive API, Telegram Bot API
-- **Tiempo real**: Supabase Realtime (WebSockets)
-- **Hosting**: Vercel (frontend), Railway (servidor WhatsApp)
-
-### Servicios integrados
-- Google Workspace (Sheets, Slides, Drive)
-- Telegram Bot API
-- WhatsApp (Baileys - no oficial)
-- Supabase (base de datos, autenticación, storage, realtime)
-
----
-
-## 📈 DIFERENCIADORES ÚNICOS
-
-### Lo que KloSync tiene y la competencia no (a este precio)
-
-1. **Explorador de establecimientos por zona** → Prospección geográfica integrada
-2. **Generación masiva personalizada** → Una presentación por cada fila de datos
-3. **Envío automático por WhatsApp** → Presentación lista y enviada al cliente
-4. **Flujo completo de ventas** → Explorador → Contactos → CRM → Chat → Presentaciones
-5. **Precio accesible** → $19/mes vs $500+/mes de competidores (Rollstack, Slideform)
-6. **18 herramientas de conversión** → Todo en un solo lugar
-7. **Limpieza inteligente de datos** → Antes de sincronizar
-8. **Sincronización automática** → Con pg_cron + triggers por cambio
-
----
-
-## 🎯 MERCADO OBJETIVO
-
-### Cliente ideal
-- Vendedor independiente o consultor
-- Agencia pequeña (2-10 personas)
-- Equipo comercial de empresa mediana
-- Profesionales que:
-  - Crean presentaciones con datos semanalmente
-  - Gestionan leads por WhatsApp/Telegram
-  - Necesitan automatizar tareas repetitivas
-  - Pagan herramientas SaaS en dólares
-
-### Geografía
-- **Mercado principal**: Estados Unidos, Europa occidental, Australia, Canadá
-- **Mercado secundario**: Latinoamérica (validación inicial)
-
----
-
-## 📊 ESTADO GENERAL DEL PROYECTO
-
-### Completado ✅
-- Generación automática de presentaciones con plantillas
-- Personalización completa (colores, tipografías, logo, portada)
-- Sincronización automática programada
-- 18 herramientas de conversión de documentos
-- CRM básico con Kanban
-- Chat unificado (recepción de mensajes)
-- Explorador de negocios
-- Dashboard personalizable
-- Autenticación con Google
-
-### En desarrollo 🔄
-- Envío real de mensajes (WhatsApp, Telegram, Email)
-- Módulo de Contactos completo
-- Monetización (planes y pagos)
-- Internacionalización (inglés)
-- WhatsApp Business API oficial
-- Respuestas rápidas y automatizaciones de chat
-
-### Pendiente 📋
-- Integraciones con HubSpot, Airtable, Notion
-- IA para análisis de datos y generación de insights
-- Editor visual de plantillas propio
-- API pública documentada
-- Google Workspace Add-on
-- Programa de referidos
-
----
-
-## 🎯 PRÓXIMOS PASOS CRÍTICOS
-
-### Antes de lanzar (Fase 0)
-1. Comprar dominio propio (klosync.com)
-2. ~~Mover servidor WhatsApp a Railway~~ ✅ (worker `worker/whatsapp.ts`)
-3. Cerrar vulnerabilidades de seguridad
-4. Activar RLS en Supabase
-5. Traducción completa al inglés
-
-### Primer mes (Fase 1)
-1. Implementar monetización con Lemon Squeezy
-2. Página /precios funcional
-3. Límites por plan
-4. Secuencia de emails de onboarding
-5. Video demo de 60 segundos
-
-### Segundo mes (Fase 2)
-1. Estabilizar WhatsApp Lite (envío/recepción y live inbox ya andan; ver `docs/MENSAJERIA-WHATSAPP-FLUJO.md`)
-2. Completar envío de mensajes
-3. Onboarding guiado
-4. Templates de presentación
-5. Rate limiting completo
-
-### Tercer mes (Fase 3)
-1. Módulo de Contactos completo
-2. Completar Email (SMTP/SendGrid)
-3. API pública básica
-4. Google Workspace Add-on
-5. WhatsApp Business API oficial
-
----
-
-## 💡 CONCLUSIÓN
-
-KloSync es una plataforma integral que combina automatización de presentaciones, CRM, chat unificado y herramientas de conversión de documentos. Su propuesta de valor única es ofrecer un flujo completo de ventas (desde prospección hasta cierre) en una sola herramienta, a un precio accesible para vendedores individuales y equipos pequeños.
-
-El proyecto está en un estado avanzado de desarrollo con las funcionalidades core implementadas. Los próximos pasos críticos son: estabilizar la infraestructura, implementar monetización, traducir al inglés y lanzar al mercado global.
-
-**Meta a 3 meses**: 200 usuarios Pro = $3,800 USD/mes de ingresos recurrentes.
+| 1 | **Etapas del Kanban por usuario.** `GET /api/supabase/estados_lead` filtra por `usuario_id` y siembra etapas propias si no hay. | Un agente invitado ve columnas propias vacías: los leads de la org apuntan a las etapas del admin. Rompe Equipo v1 y hay que resolverlo antes del QA con segunda cuenta. | Fase 3½ |
+| 2 | **Tareas por usuario** (`tasks.usuario_id`, sin `organizacion_id`). | Un "Recordarme" de un agente no lo ve el admin; no hay base para la agenda de equipo. | Fase 3½ / Agenda |
+| 3 | **Dashboard con métricas inventadas.** | Muestra números falsos al cliente. Reemplazar por datos reales o redirigir a `/crm/reportes`. | Infra producto |
+| 4 | **Rutas de prueba en producción** (`/api/test-send`, `/api/test-chat-send`, `/api/test/telegram`, `/api/test/whatsapp`, `/pruebas/telegram`). | Cualquier usuario logueado puede disparar envíos sin control de organización. | Infra producto |
+| 5 | **Telegram y Email sin envío** aunque la UI los lista como canales. | El vendedor responde y el mensaje falla. | Backlog comparativa / Fase 5 |
+| 6 | **Exportar contactos y leads** (CSV/Excel). | Pedido básico de cualquier PyME; también cubre "no me ato a la herramienta". | Backlog CRM |
+| 7 | **Fusionar contactos duplicados.** | El match automático evita muchos, pero importaciones y canales distintos (IG, ML, WA) crean duplicados de la misma persona. | Backlog CRM |
+| 8 | **Facebook Messenger** no figuraba en el orden. | Mismo stack de Meta que Instagram; lo tienen Whaticket, BotIA, Poli. | Fase 5 |
+| 9 | **Varios embudos (pipelines).** | Kommo y Leadsales permiten ventas vs. post-venta vs. mayoristas. | Backlog comparativa |

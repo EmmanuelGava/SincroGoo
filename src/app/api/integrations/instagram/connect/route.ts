@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 import { buildInstagramAuthorizeUrl, getInstagramEnv } from '@/lib/instagram/api';
-import { createInstagramOAuthState } from '@/lib/instagram/oauthState';
+import { createOAuthState } from '@/lib/integrations/oauthState';
 
 export async function GET() {
   const ctx = await getOrganizacionContext();
@@ -19,8 +19,8 @@ export async function GET() {
     );
   }
 
-  const state = createInstagramOAuthState(
-    { usuarioId: ctx.usuarioId, organizacionId: ctx.organizacionId },
+  const state = createOAuthState(
+    { proveedor: 'instagram', usuarioId: ctx.usuarioId, organizacionId: ctx.organizacionId },
     secret
   );
   return NextResponse.json({ url: buildInstagramAuthorizeUrl(env, state) });

@@ -7,7 +7,7 @@ import {
   verifyInstagramSignature,
 } from '../webhook';
 import { isInstagramWindowOpen } from '../window';
-import { createInstagramOAuthState, readInstagramOAuthState } from '../oauthState';
+import { createOAuthState, readOAuthState } from '@/lib/integrations/oauthState';
 import { splitInstagramText } from '../api';
 import { looksLikePhoneNumber, preferredConversationRemitente } from '@/lib/chat/conversationIdentity';
 
@@ -132,20 +132,25 @@ describe('identidad de conversación', () => {
 
 describe('state del OAuth', () => {
   const secret = 's3cret';
-  const data = { usuarioId: 'u1', organizacionId: 'o1' };
+  const data = { proveedor: 'instagram' as const, usuarioId: 'u1', organizacionId: 'o1' };
 
   it('valida su propia firma y respeta el vencimiento', () => {
     const now = 1_000_000_000_000;
-    const state = createInstagramOAuthState(data, secret, now);
-    expect(readInstagramOAuthState(state, secret, now + 1000)).toMatchObject(data);
-    expect(readInstagramOAuthState(state, 'otro', now + 1000)).toBeNull();
-    expect(readInstagramOAuthState(state, secret, now + 16 * 60 * 1000)).toBeNull();
+    const state = createOAuthState(data, secret, now);
+    expect(readOAuthState(state, secret, 'instagram', now + 1000)).toMatchObject(data);
+    expect(readOAuthState(state, 'otro', 'instagram', now + 1000)).toBeNull();
+    expect(readOAuthState(state, secret, 'instagram', now + 16 * 60 * 1000)).toBeNull();
+  });
+
+  it('no sirve para otro proveedor', () => {
+    const state = createOAuthState(data, secret);
+    expect(readOAuthState(state, secret, 'mercadolibre')).toBeNull();
   });
 
   it('rechaza un state manipulado', () => {
-    const state = createInstagramOAuthState(data, secret);
+    const state = createOAuthState(data, secret);
     const [, signature] = state.split('.');
     const forged = Buffer.from(JSON.stringify({ ...data, organizacionId: 'o2', issuedAt: Date.now() })).toString('base64url');
-    expect(readInstagramOAuthState(`${forged}.${signature}`, secret)).toBeNull();
+    expect(readOAuthState(`${forged}.${signature}`, secret, 'instagram')).toBeNull();
   });
 });

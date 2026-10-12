@@ -12,15 +12,24 @@ import {
 import { ensureFreshInstagramToken, getInstagramConnectionByOrg } from '@/lib/instagram/connection';
 import { igsidFromRemitente, instagramMessageId } from '@/lib/instagram/webhook';
 import { isInstagramWindowOpen } from '@/lib/instagram/window';
+import { answerMlQuestion, getMlQuestion, MlApiError } from '@/lib/mercadolibre/api';
+import { ensureFreshMlToken, getMlConnectionByOrg } from '@/lib/mercadolibre/connection';
+import { markMlQuestionAnswered } from '@/lib/mercadolibre/incoming';
+import {
+  isMlQuestionAnswerable,
+  ML_ANSWER_MAX,
+  mlAnswerMessageId,
+  pickPendingMlQuestion,
+} from '@/lib/mercadolibre/notification';
 
 export interface SendMessageData {
-  platform: 'whatsapp' | 'telegram' | 'email' | 'instagram';
+  platform: 'whatsapp' | 'telegram' | 'email' | 'instagram' | 'mercadolibre';
   to: string;
   message: string;
   messageType?: 'text' | 'image' | 'audio' | 'video' | 'file';
   filePath?: string;
   userId?: string;
-  /** Requerido para Instagram: la conversación debe ser de esta organización. */
+  /** Requerido para Instagram y Mercado Libre: la conversación debe ser de esta organización. */
   organizacionId?: string;
   metadata?: Record<string, any>;
   scheduledFor?: string | Date | null;
@@ -74,6 +83,15 @@ export async function sendMessage(data: SendMessageData) {
         platformDetails = igResult.platformDetails;
         error = igResult.error;
         alreadySaved = igResult.alreadySaved;
+        break;
+      }
+
+      case 'mercadolibre': {
+        const mlResult = await sendViaMercadoLibre(data);
+        success = mlResult.success;
+        platformDetails = mlResult.platformDetails;
+        error = mlResult.error;
+        alreadySaved = mlResult.alreadySaved;
         break;
       }
 
@@ -370,6 +388,88 @@ async function sendViaInstagram(data: SendMessageData): Promise<{
       ? `Instagram rechazó el mensaje: ${err.message}`
       : err instanceof Error ? err.message : 'Error enviando a Instagram';
     await updateOutgoingStatus(pending.messageId, mids.length ? 'enviado' : 'error', message);
+    return fail(message, true);
+  }
+}
+
+async function sendViaMercadoLibre(data: SendMessageData): Promise<{
+  success: boolean;
+  platformDetails: string;
+  error?: string;
+  alreadySaved: boolean;
+}> {
+  const platformDetails = 'mercadolibre-questions';
+  const fail = (error: string, alreadySaved = false) => ({ success: false, platformDetails, error, alreadySaved });
+
+  if (data.scheduledFor) return fail('Mercado Libre no admite respuestas programadas.');
+  if (data.messageType && data.messageType !== 'text') {
+    return fail('Mercado Libre solo acepta respuestas de texto.');
+  }
+  const text = String(data.message || '').trim();
+  if (!text) return fail('Mensaje vacío');
+  if (text.length > ML_ANSWER_MAX) return fail(`La respuesta supera los ${ML_ANSWER_MAX} caracteres que permite Mercado Libre.`);
+
+  const conversacionId = data.metadata?.conversacion_id;
+  if (!conversacionId || !data.organizacionId) return fail('Falta la conversación de Mercado Libre');
+
+  const supabase = getSupabaseAdmin();
+  const { data: conv } = await supabase
+    .from('conversaciones')
+    .select('id, organizacion_id, servicio_origen')
+    .eq('id', conversacionId)
+    .maybeSingle();
+  if (!conv || conv.servicio_origen !== 'mercadolibre' || conv.organizacion_id !== data.organizacionId) {
+    return fail('Conversación de Mercado Libre no encontrada');
+  }
+
+  const { data: preguntas } = await supabase
+    .from('mensajes_conversacion')
+    .select('fecha_mensaje, metadata')
+    .eq('conversacion_id', conversacionId)
+    .is('usuario_id', null)
+    .not('metadata->>ml_question_id', 'is', null);
+  const pendiente = pickPendingMlQuestion(preguntas || []);
+  const questionId = pendiente?.metadata?.ml_question_id ? String(pendiente.metadata.ml_question_id) : null;
+  if (!questionId) {
+    return fail('No hay preguntas sin responder en esta conversación: Mercado Libre solo deja responder preguntas.');
+  }
+
+  const conn = await getMlConnectionByOrg(supabase, data.organizacionId);
+  if (!conn) return fail('Mercado Libre no está conectado. Conectalo desde Configuración → Mensajería.');
+  const token = await ensureFreshMlToken(supabase, conn);
+
+  try {
+    const live = await getMlQuestion(token, questionId);
+    if (!isMlQuestionAnswerable(live.status)) {
+      await markMlQuestionAnswered(supabase, questionId);
+      return fail('Esa pregunta ya fue respondida o eliminada en Mercado Libre. Recargá el chat.');
+    }
+  } catch (err) {
+    return fail(err instanceof MlApiError ? `Mercado Libre: ${err.message}` : 'No se pudo leer la pregunta en Mercado Libre');
+  }
+
+  const pending = await saveOutgoingMessage(
+    { ...data, message: text, metadata: { ...(data.metadata || {}), ml_question_id_answered: questionId } },
+    platformDetails,
+    'enviando'
+  );
+  if (!pending?.messageId) return fail('No se pudo guardar el mensaje');
+  await supabase
+    .from('mensajes_conversacion')
+    .update({ wa_message_id: mlAnswerMessageId(questionId) })
+    .eq('id', pending.messageId);
+
+  try {
+    await answerMlQuestion(token, questionId, text);
+    await updateOutgoingStatus(pending.messageId, 'enviado');
+    await markMlQuestionAnswered(supabase, questionId);
+    return { success: true, platformDetails, alreadySaved: true };
+  } catch (err) {
+    const message = err instanceof MlApiError
+      ? `Mercado Libre rechazó la respuesta: ${err.message}`
+      : err instanceof Error ? err.message : 'Error respondiendo en Mercado Libre';
+    await supabase.from('mensajes_conversacion').update({ wa_message_id: null }).eq('id', pending.messageId);
+    await updateOutgoingStatus(pending.messageId, 'error', message);
     return fail(message, true);
   }
 }

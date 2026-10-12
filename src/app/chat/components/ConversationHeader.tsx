@@ -21,6 +21,7 @@ import {
 import TelegramIcon from '@mui/icons-material/Telegram';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import InstagramIcon from '@mui/icons-material/Instagram';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
 import PersonIcon from '@mui/icons-material/Person';
@@ -72,6 +73,7 @@ interface ConversationHeaderProps {
 
 const servicioIcons: Record<string, React.ElementType> = {
   instagram: InstagramIcon,
+  mercadolibre: StorefrontIcon,
   telegram: TelegramIcon,
   whatsapp: WhatsAppIcon,
   email: EmailIcon,
@@ -80,6 +82,7 @@ const servicioIcons: Record<string, React.ElementType> = {
 
 const servicioColors: Record<string, string> = {
   instagram: '#E1306C',
+  mercadolibre: '#2D3277',
   telegram: '#229ED9',
   whatsapp: '#25D366',
   email: '#D44638',
@@ -88,6 +91,7 @@ const servicioColors: Record<string, string> = {
 
 const servicioNames: Record<string, string> = {
   instagram: 'Instagram',
+  mercadolibre: 'Mercado Libre',
   telegram: 'Telegram',
   whatsapp: 'WhatsApp',
   email: 'Email',

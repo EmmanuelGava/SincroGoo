@@ -10,7 +10,7 @@ export const LEAD_SCORE_LABEL: Record<LeadScore, string> = {
   baja: 'Baja',
 };
 
-export type KanbanCanalFiltro = 'whatsapp' | 'instagram' | 'telegram' | 'email';
+export type KanbanCanalFiltro = 'whatsapp' | 'instagram' | 'mercadolibre' | 'telegram' | 'email';
 
 export type LeadAsignacionFiltro = 'todos' | 'mios' | 'sin_asignar';
 
@@ -42,13 +42,14 @@ export type LeadFiltrable = {
   asignado_a?: string | null;
 };
 
-/** Normaliza servicio_origen / canal a whatsapp | instagram | telegram | email | otro. */
+/** Normaliza servicio_origen / canal a whatsapp | instagram | mercadolibre | telegram | email | otro. */
 export function normalizeCanalLead(raw?: string | null): string | null {
   if (!raw) return null;
   const value = raw.trim().toLowerCase();
   if (!value) return null;
   if (value.startsWith('whatsapp')) return 'whatsapp';
   if (value.startsWith('instagram')) return 'instagram';
+  if (value.startsWith('mercadolibre')) return 'mercadolibre';
   if (value.startsWith('telegram')) return 'telegram';
   if (value === 'email' || value === 'mail') return 'email';
   return value;

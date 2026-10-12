@@ -861,6 +861,7 @@ export default function KanbanLeads() {
                   <MenuItem value="">Todos</MenuItem>
                   <MenuItem value="whatsapp">WhatsApp</MenuItem>
                   <MenuItem value="instagram">Instagram</MenuItem>
+                  <MenuItem value="mercadolibre">Mercado Libre</MenuItem>
                   <MenuItem value="telegram">Telegram</MenuItem>
                   <MenuItem value="email">Email</MenuItem>
                 </Select>

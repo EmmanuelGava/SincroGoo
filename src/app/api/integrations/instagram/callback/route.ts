@@ -9,7 +9,7 @@ import {
   subscribeInstagramWebhooks,
 } from '@/lib/instagram/api';
 import { saveInstagramConnection } from '@/lib/instagram/connection';
-import { readInstagramOAuthState } from '@/lib/instagram/oauthState';
+import { readOAuthState } from '@/lib/integrations/oauthState';
 
 function backTo(request: NextRequest, params: Record<string, string>) {
   const url = new URL('/configuracion/mensajeria', request.nextUrl.origin);
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   }
 
   const env = getInstagramEnv();
-  const state = readInstagramOAuthState(params.get('state'), process.env.NEXTAUTH_SECRET || '');
+  const state = readOAuthState(params.get('state'), process.env.NEXTAUTH_SECRET || '', 'instagram');
   const code = params.get('code');
   if (!env || !state || !code) {
     return backTo(request, { instagram: 'error', motivo: 'Solicitud inválida o vencida. Probá de nuevo.' });

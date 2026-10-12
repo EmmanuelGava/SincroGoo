@@ -83,6 +83,7 @@
     "@types/leaflet": "^1.9.16",
     "@types/next-auth": "^3.13.0",
     "@types/react-beautiful-dnd": "^13.1.8",
+    "@vercel/functions": "^3.9.11",
     "baileys": "^6.7.18",
     "bufferutil": "^4.0.9",
     "class-variance-authority": "^0.7.1",

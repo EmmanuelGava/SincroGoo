@@ -17,6 +17,7 @@ import { conversationGreetingName, conversationRealPhone } from '@/lib/chat/conv
 import { buildQuotedMeta, type ReplyToMessage } from '@/lib/chat/quotedMessage';
 import { formatScheduleLocal } from '@/lib/chat/scheduleSend';
 import { isInstagramWindowOpen } from '@/lib/instagram/window';
+import { pickPendingMlQuestion } from '@/lib/mercadolibre/notification';
 import { useWaChatBgSx, useWaTheme } from '@/app/chat/chatTheme';
 
 interface Conversacion {
@@ -126,6 +127,10 @@ export default function ChatWindow({
         .find((m) => !m.usuario_id && m.metadata?.direction !== 'outgoing')?.fecha_mensaje
     : null;
   const ventanaInstagramAbierta = !esInstagram || isInstagramWindowOpen(ultimoEntrante);
+  const esMercadoLibre = conversacion?.servicio_origen === 'mercadolibre';
+  const preguntaMlPendiente = esMercadoLibre
+    ? pickPendingMlQuestion(mensajesSinNotas.filter((m) => !m.usuario_id))
+    : null;
 
   useEffect(() => {
     setOptimistic([]);
@@ -501,6 +506,7 @@ export default function ChatWindow({
                 }
                 onReply={
                   !esInstagram
+                  && !esMercadoLibre
                   && !mensaje.usuario_id
                   && mensaje.metadata?.direction !== 'outgoing'
                   && mensaje.tipo !== 'nota_interna'
@@ -534,6 +540,16 @@ export default function ChatWindow({
         <Box sx={{ px: 2, py: 1, bgcolor: 'rgba(225, 48, 108, 0.1)', borderTop: `1px solid ${WA.border}` }}>
           <Typography variant="body2" sx={{ color: WA.text }}>
             Pasaron más de 24 h desde el último mensaje del cliente: Instagram no permite responder hasta que vuelva a escribir.
+          </Typography>
+        </Box>
+      ) : null}
+
+      {esMercadoLibre ? (
+        <Box sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 230, 0, 0.18)', borderTop: `1px solid ${WA.border}` }}>
+          <Typography variant="body2" sx={{ color: WA.text }} noWrap>
+            {preguntaMlPendiente
+              ? `Tu mensaje responde la pregunta: «${preguntaMlPendiente.contenido}»`
+              : 'No hay preguntas sin responder: Mercado Libre solo deja responder preguntas.'}
           </Typography>
         </Box>
       ) : null}

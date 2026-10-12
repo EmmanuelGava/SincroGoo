@@ -37,6 +37,7 @@ import WhatsAppConnect from './components/WhatsAppConnect';
 import WhatsAppBusinessConnect from './components/WhatsAppBusinessConnect';
 import TelegramConnect from './components/TelegramConnect';
 import InstagramConnect from './components/InstagramConnect';
+import MercadoLibreConnect from './components/MercadoLibreConnect';
 import { useOrganizacionMiembros } from '@/hooks/useOrganizacionMiembros';
 
 interface ConfiguracionMensajeria {
@@ -110,7 +111,9 @@ export default function ConfiguracionMensajeriaPage() {
   const { rol: orgRol, loading: orgLoading } = useOrganizacionMiembros();
   const puedeConectarWa = orgRol === 'admin';
   const [configuraciones, setConfiguraciones] = useState<ConfiguracionMensajeria[]>([]);
-  const configsEditables = configuraciones.filter((c) => (c.plataforma as string) !== 'instagram');
+  const configsEditables = configuraciones.filter(
+    (c) => !['instagram', 'mercadolibre'].includes(c.plataforma as string)
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ConfiguracionMensajeria | null>(null);
   const [loading, setLoading] = useState(false);
@@ -707,6 +710,9 @@ export default function ConfiguracionMensajeriaPage() {
           <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' } }}>
             <Suspense fallback={null}>
               <InstagramConnect />
+            </Suspense>
+            <Suspense fallback={null}>
+              <MercadoLibreConnect />
             </Suspense>
             <TelegramConnect 
               onConnected={(config) => handlePlatformConnected('telegram', config)}

@@ -6,9 +6,9 @@ export function isWhatsAppLid(value: string | null | undefined): boolean {
   return String(value || '').includes('@lid');
 }
 
-/** Ids de canales sin teléfono (Instagram, Telegram): nunca son números de teléfono. */
+/** Ids de canales sin teléfono (Instagram, Telegram, Mercado Libre): nunca son números de teléfono. */
 export function isChannelScopedId(value: string | null | undefined): boolean {
-  return /^(ig|telegram)_/.test(String(value || ''));
+  return /^(ig|telegram|ml)_/.test(String(value || ''));
 }
 
 export function looksLikePhoneNumber(value: string | null | undefined): boolean {

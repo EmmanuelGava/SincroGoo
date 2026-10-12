@@ -9,7 +9,7 @@ import {
 import { linkConversacionAContactoSiExiste } from '@/lib/contactos/matchContacto';
 
 export interface IncomingMessageData {
-  platform: 'whatsapp' | 'telegram' | 'email' | 'instagram';
+  platform: 'whatsapp' | 'telegram' | 'email' | 'instagram' | 'mercadolibre';
   message: string;
   contact: {
     id: string;
@@ -162,6 +162,8 @@ function normalizeContactId(platform: string, contact: any): string {
       return `telegram_${contact.id}`;
     case 'instagram':
       return `ig_${contact.id}`;
+    case 'mercadolibre':
+      return `ml_${contact.id}`;
     case 'email':
       // Para email, usar la dirección de email
       return contact.email || contact.id;

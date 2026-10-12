@@ -218,7 +218,13 @@ Mismo `handleIncomingMessage`, badge de canal, mismo drag al Kanban. No widget. 
   - [x] Responder desde `/chat` (texto y adjuntos) con aviso de ventana de 24 h.
   - [x] Badge y filtro de canal Instagram en inbox y Kanban.
   - [ ] **QA prod:** cargar `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` en Vercel; en la app de Meta, redirect `…/api/integrations/instagram/callback` y webhook `…/api/integrations/incoming/instagram` (campo `messages`); cuenta propia como tester. Probar DM entrante, respuesta, eco desde la app y foto.
-- [ ] Mercado Libre: preguntas de publicación, después mensajería post-venta.
+- [ ] Mercado Libre: preguntas de publicación, después mensajería post-venta. Spec: [`2026-10-12-mercadolibre-preguntas-design.md`](./superpowers/specs/2026-10-12-mercadolibre-preguntas-design.md).
+  - [x] Conectar cuenta de vendedor por OAuth desde `/configuracion/mensajeria` (solo admin), con renovación de token.
+  - [x] Notificaciones de preguntas: cada comprador + publicación es una conversación; respuestas hechas desde la web de ML también entran.
+  - [x] Responder desde `/chat` la pregunta pendiente más vieja; aviso si no hay preguntas sin responder.
+  - [x] Badge y filtro de canal Mercado Libre en inbox y Kanban.
+  - [ ] **QA prod:** cargar `MERCADOLIBRE_APP_ID` y `MERCADOLIBRE_CLIENT_SECRET` en Vercel; en la app de ML, redirect `…/api/integrations/mercadolibre/callback`, notificaciones `…/api/integrations/incoming/mercadolibre` con tópico Questions y scope `offline_access`. Preguntar desde otra cuenta, responder desde KloSync y desde la web de ML.
+  - [ ] Mensajería post-venta (segundo corte).
 - [ ] Email completo (SMTP/SendGrid) si hace falta un tercer canal simple.
 
 ### Fase 6 — Widget en la web del comerciante
@@ -356,6 +362,8 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Kanban / embudo | Sí | Sí (filtros, scoring, stats, seguimiento en card) |
 | WhatsApp | Sí | Lite (Baileys), no oficial |
 | Telegram | Kommo parcial | Recepción sí |
+| Instagram DM | Sí | En código (12 oct); falta QA con app de Meta |
+| Mercado Libre (preguntas) | Algunos | En código (12 oct); falta QA con app de ML |
 | Multiagente mismo número | Sí | No |
 | Automatización / bienvenida / follow-up | Sí | No (seguimiento = alerta interna, no auto-mensaje) |
 | Respuestas rápidas | Sí | Sí (`/` en el chat) |

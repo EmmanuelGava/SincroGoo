@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar plataforma soportada
-    const supportedPlatforms = ['whatsapp', 'telegram', 'email', 'instagram'];
+    const supportedPlatforms = ['whatsapp', 'telegram', 'email', 'instagram', 'mercadolibre'];
     if (!supportedPlatforms.includes(platform)) {
       console.log('❌ Plataforma no soportada:', platform);
       return NextResponse.json({
@@ -54,8 +54,9 @@ export async function POST(request: NextRequest) {
     });
 
     const enviadoPorUsuarioId = await getUsuarioIdFromSession();
-    const orgCtx = platform === 'instagram' ? await getOrganizacionContext(session) : null;
-    if (platform === 'instagram' && !orgCtx) {
+    const requiereOrg = platform === 'instagram' || platform === 'mercadolibre';
+    const orgCtx = requiereOrg ? await getOrganizacionContext(session) : null;
+    if (requiereOrg && !orgCtx) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

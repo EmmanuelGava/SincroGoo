@@ -1,6 +1,8 @@
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { enqueueWhatsAppOutbox } from '@/lib/chat/outbox';
+import { extractPresupuestoCatalogoIds } from '@/lib/catalogo/presupuestoCatalogo';
+import { persistPresupuestoEnLead } from '@/lib/catalogo/leadLineas';
 
 export interface SendMessageData {
   platform: 'whatsapp' | 'telegram' | 'email';
@@ -443,6 +445,17 @@ async function saveOutgoingMessage(
     }
     
     console.log('✅ Mensaje saliente guardado exitosamente');
+    const presupuestoIds = extractPresupuestoCatalogoIds(data.metadata);
+    if (presupuestoIds.length > 0) {
+      try {
+        await persistPresupuestoEnLead(supabase, {
+          conversacionId,
+          catalogoIds: presupuestoIds,
+        });
+      } catch (lineaError) {
+        console.warn('No se pudieron guardar los ítems del lead:', lineaError);
+      }
+    }
     const { notifyInboxRealtime } = await import('@/lib/chat/notifyInbox');
     await notifyInboxRealtime(data.userId, {
       conversacionId,

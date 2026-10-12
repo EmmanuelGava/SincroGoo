@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isEstadoGanado, isEstadoPropuesta } from '@/lib/contactos/estadoLead';
+import { loadCatalogoCountsFromLeadLineas } from '@/lib/catalogo/leadLineas';
 import {
   countsToRpcItems,
   countCatalogoIds,
@@ -61,9 +62,12 @@ export async function syncStockReservaOnEtapaChange(
 async function resolveCatalogoCountsForLead(
   supabase: SupabaseClient,
   leadId: string,
-  usuarioId: string,
+  _usuarioId: string,
   organizacionId: string,
 ) {
+  const fromLineas = await loadCatalogoCountsFromLeadLineas(supabase, leadId);
+  if (fromLineas && fromLineas.size > 0) return fromLineas;
+
   const { data: conv } = await supabase
     .from('conversaciones')
     .select('id')

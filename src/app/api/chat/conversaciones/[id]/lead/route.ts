@@ -1,33 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient, getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
-
-async function getUserSupabaseClient(): Promise<{ supabase: ReturnType<typeof getSupabaseAdmin>; userId: string } | null> {
-  const usuarioId = await getUsuarioIdFromSession();
-  if (!usuarioId) return null;
-  try {
-    const { supabase } = await getSupabaseClient(true);
-    return { supabase, userId: usuarioId };
-  } catch {
-    return { supabase: getSupabaseAdmin(), userId: usuarioId };
-  }
-}
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const client = await getUserSupabaseClient();
-    if (!client) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const ctx = await getOrganizacionContext();
+    if (!ctx) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    const { supabase, userId } = client;
+    const supabase = getSupabaseAdmin();
     const { id: conversacionId } = await params;
 
     const { data: conversacion, error: convError } = await supabase
       .from('conversaciones')
-      .select('id, lead_id, contacto_id')
+      .select('id, lead_id, contacto_id, organizacion_id')
       .eq('id', conversacionId)
+      .eq('organizacion_id', ctx.organizacionId)
       .maybeSingle();
 
     if (convError || !conversacion) {
@@ -39,9 +30,9 @@ export async function GET(
         .from('leads')
         .select('id, nombre, estado_id')
         .eq('id', conversacion.lead_id)
-        .eq('asignado_a', userId)
+        .eq('organizacion_id', ctx.organizacionId)
         .maybeSingle();
-      return NextResponse.json({ leadId: conversacion.lead_id, lead: lead || null });
+      return NextResponse.json({ leadId: lead?.id || null, lead: lead || null });
     }
 
     if (conversacion.contacto_id) {
@@ -49,7 +40,7 @@ export async function GET(
         .from('leads')
         .select('id, nombre, estado_id')
         .eq('contacto_id', conversacion.contacto_id)
-        .eq('asignado_a', userId)
+        .eq('organizacion_id', ctx.organizacionId)
         .order('fecha_creacion', { ascending: false })
         .limit(1)
         .maybeSingle();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
@@ -11,6 +12,10 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+    const ctx = await getOrganizacionContext(session);
+    if (!ctx) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -36,6 +41,7 @@ export async function GET(
         estados_lead(nombre, color)
       `)
       .eq('id', leadId)
+      .eq('organizacion_id', ctx.organizacionId)
       .maybeSingle();
 
     if (leadError || !lead) {

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isEstadoGanado } from '@/lib/contactos/estadoLead';
 import type { CatalogoItem } from '@/lib/chat/catalogoVentas';
+import { loadCatalogoCountsFromLeadLineas } from '@/lib/catalogo/leadLineas';
 import {
   countsToRpcItems,
   countCatalogoIds,
@@ -104,6 +105,9 @@ async function resolveCatalogoCountsForLead(
   leadId: string,
   usuarioId: string,
 ): Promise<PresupuestoCatalogoCounts> {
+  const fromLineas = await loadCatalogoCountsFromLeadLineas(supabase, leadId);
+  if (fromLineas && fromLineas.size > 0) return fromLineas;
+
   const { data: conv } = await supabase
     .from('conversaciones')
     .select('id')
@@ -112,10 +116,18 @@ async function resolveCatalogoCountsForLead(
     .limit(1)
     .maybeSingle();
 
-  const { data: catalogo } = await supabase
-    .from('chat_catalogo')
-    .select('id, nombre')
-    .eq('usuario_id', usuarioId);
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('organizacion_id')
+    .eq('id', leadId)
+    .maybeSingle();
+
+  let catalogQuery = supabase.from('chat_catalogo').select('id, nombre');
+  catalogQuery = lead?.organizacion_id
+    ? catalogQuery.eq('organizacion_id', lead.organizacion_id)
+    : catalogQuery.eq('usuario_id', usuarioId);
+
+  const { data: catalogo } = await catalogQuery;
 
   const catalogRows = (catalogo || []) as Pick<CatalogoItem, 'id' | 'nombre'>[];
   if (!conv?.id || catalogRows.length === 0) {

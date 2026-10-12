@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 import { TasksService } from '@/services/TasksService';
-import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
 type RouteContext = { params: { id: string } };
@@ -10,8 +11,11 @@ type RouteContext = { params: { id: string } };
 export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
-    const usuarioId = session?.user?.id || (await getUsuarioIdFromSession());
-    if (!usuarioId) {
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+    const ctx = await getOrganizacionContext(session);
+    if (!ctx) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
@@ -23,11 +27,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const supabase = getSupabaseAdmin();
     const { data: lead } = await supabase
       .from('leads')
-      .select('id, nombre, asignado_a')
+      .select('id, nombre, organizacion_id')
       .eq('id', leadId)
+      .eq('organizacion_id', ctx.organizacionId)
       .maybeSingle();
 
-    if (!lead || lead.asignado_a !== usuarioId) {
+    if (!lead) {
       return NextResponse.json({ error: 'Lead no encontrado' }, { status: 404 });
     }
 
@@ -49,8 +54,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     }
 
     const tasksService = new TasksService(session?.supabaseToken);
-    const task = await tasksService.createTask(usuarioId, {
-      usuario_id: usuarioId,
+    const task = await tasksService.createTask(session.user.id, {
+      usuario_id: session.user.id,
       lead_id: leadId,
       conversation_id: conversation_id || null,
       task_type: 'follow_up',

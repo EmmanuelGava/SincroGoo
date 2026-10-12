@@ -23,6 +23,7 @@ import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import { useRouter } from 'next/navigation';
 import LeadEtapaTimeline from '@/app/crm/componentes/LeadEtapaTimeline';
+import LeadLineasEditor from '@/app/crm/componentes/LeadLineasEditor';
 import RecordatorioLeadModal from '@/app/crm/componentes/RecordatorioLeadModal';
 import { isPlaceholderLeadEmail, leadFormPhone } from '@/lib/chat/conversationIdentity';
 
@@ -314,11 +315,12 @@ export default function ContactDealDrawer({
 
             {resolvedLeadId ? (
               <>
+                <LeadLineasEditor leadId={resolvedLeadId} />
                 <Button
                   size="small"
                   startIcon={<AlarmIcon />}
                   onClick={() => setRecordatorioOpen(true)}
-                  sx={{ mb: 1.5 }}
+                  sx={{ mb: 1.5, mt: 1.5 }}
                 >
                   Recordarme
                 </Button>

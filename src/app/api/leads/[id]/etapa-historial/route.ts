@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
 type RouteContext = { params: { id: string } };
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   try {
-    const usuarioId = await getUsuarioIdFromSession();
-    if (!usuarioId) {
+    const ctx = await getOrganizacionContext();
+    if (!ctx) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
@@ -20,12 +21,13 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('id, nombre, asignado_a')
+      .select('id, nombre, organizacion_id')
       .eq('id', leadId)
+      .eq('organizacion_id', ctx.organizacionId)
       .maybeSingle();
 
     if (leadError) throw leadError;
-    if (!lead || lead.asignado_a !== usuarioId) {
+    if (!lead) {
       return NextResponse.json({ error: 'Lead no encontrado' }, { status: 404 });
     }
 

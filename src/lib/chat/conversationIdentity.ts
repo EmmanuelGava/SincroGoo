@@ -6,8 +6,13 @@ export function isWhatsAppLid(value: string | null | undefined): boolean {
   return String(value || '').includes('@lid');
 }
 
+/** Ids de canales sin teléfono (Instagram, Telegram): nunca son números de teléfono. */
+export function isChannelScopedId(value: string | null | undefined): boolean {
+  return /^(ig|telegram)_/.test(String(value || ''));
+}
+
 export function looksLikePhoneNumber(value: string | null | undefined): boolean {
-  if (!value || isWhatsAppLid(value)) return false;
+  if (!value || isWhatsAppLid(value) || isChannelScopedId(value)) return false;
   const digits = onlyDigits(value);
   return digits.length >= 8 && digits.length <= 15;
 }

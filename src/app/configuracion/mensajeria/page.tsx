@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -36,6 +36,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import WhatsAppConnect from './components/WhatsAppConnect';
 import WhatsAppBusinessConnect from './components/WhatsAppBusinessConnect';
 import TelegramConnect from './components/TelegramConnect';
+import InstagramConnect from './components/InstagramConnect';
 import { useOrganizacionMiembros } from '@/hooks/useOrganizacionMiembros';
 
 interface ConfiguracionMensajeria {
@@ -109,6 +110,7 @@ export default function ConfiguracionMensajeriaPage() {
   const { rol: orgRol, loading: orgLoading } = useOrganizacionMiembros();
   const puedeConectarWa = orgRol === 'admin';
   const [configuraciones, setConfiguraciones] = useState<ConfiguracionMensajeria[]>([]);
+  const configsEditables = configuraciones.filter((c) => (c.plataforma as string) !== 'instagram');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ConfiguracionMensajeria | null>(null);
   const [loading, setLoading] = useState(false);
@@ -703,6 +705,9 @@ export default function ConfiguracionMensajeriaPage() {
           </Typography>
           
           <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' } }}>
+            <Suspense fallback={null}>
+              <InstagramConnect />
+            </Suspense>
             <TelegramConnect 
               onConnected={(config) => handlePlatformConnected('telegram', config)}
             />
@@ -724,7 +729,7 @@ export default function ConfiguracionMensajeriaPage() {
           </Box>
         </Box>
 
-        {configuraciones.length === 0 ? (
+        {configsEditables.length === 0 ? (
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
               Conecta al menos una plataforma para comenzar a enviar mensajes desde el chat unificado.
@@ -732,7 +737,7 @@ export default function ConfiguracionMensajeriaPage() {
           </Alert>
         ) : (
           <List>
-            {configuraciones.map((config) => {
+            {configsEditables.map((config) => {
               const Icon = getPlatformIcon(config.plataforma, config.configuracion);
               return (
                 <Card key={config.id} sx={{ mb: 2 }}>

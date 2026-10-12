@@ -3,14 +3,25 @@ import { v4 as uuidv4 } from 'uuid';
 import { enqueueWhatsAppOutbox } from '@/lib/chat/outbox';
 import { extractPresupuestoCatalogoIds } from '@/lib/catalogo/presupuestoCatalogo';
 import { persistPresupuestoEnLead } from '@/lib/catalogo/leadLineas';
+import {
+  InstagramApiError,
+  sendInstagramMessage,
+  splitInstagramText,
+  type InstagramOutgoing,
+} from '@/lib/instagram/api';
+import { ensureFreshInstagramToken, getInstagramConnectionByOrg } from '@/lib/instagram/connection';
+import { igsidFromRemitente, instagramMessageId } from '@/lib/instagram/webhook';
+import { isInstagramWindowOpen } from '@/lib/instagram/window';
 
 export interface SendMessageData {
-  platform: 'whatsapp' | 'telegram' | 'email';
+  platform: 'whatsapp' | 'telegram' | 'email' | 'instagram';
   to: string;
   message: string;
   messageType?: 'text' | 'image' | 'audio' | 'video' | 'file';
   filePath?: string;
   userId?: string;
+  /** Requerido para Instagram: la conversación debe ser de esta organización. */
+  organizacionId?: string;
   metadata?: Record<string, any>;
   scheduledFor?: string | Date | null;
 }
@@ -57,6 +68,15 @@ export async function sendMessage(data: SendMessageData) {
         break;
       }
       
+      case 'instagram': {
+        const igResult = await sendViaInstagram(data);
+        success = igResult.success;
+        platformDetails = igResult.platformDetails;
+        error = igResult.error;
+        alreadySaved = igResult.alreadySaved;
+        break;
+      }
+
       case 'email': {
         console.log('📧 Procesando Email...');
         const emailResult = await sendViaEmail(data);
@@ -276,6 +296,100 @@ async function sendViaWhatsApp(data: SendMessageData) {
       error: error instanceof Error ? error.message : 'Error desconocido'
     };
   }
+}
+
+async function sendViaInstagram(data: SendMessageData): Promise<{
+  success: boolean;
+  platformDetails: string;
+  error?: string;
+  alreadySaved: boolean;
+}> {
+  const platformDetails = 'instagram-graph';
+  const fail = (error: string, alreadySaved = false) => ({ success: false, platformDetails, error, alreadySaved });
+
+  if (data.scheduledFor) {
+    return fail('Instagram no admite mensajes programados (la ventana de 24 h puede cerrarse antes).');
+  }
+  const conversacionId = data.metadata?.conversacion_id;
+  if (!conversacionId || !data.organizacionId) {
+    return fail('Falta la conversación de Instagram');
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: conv } = await supabase
+    .from('conversaciones')
+    .select('id, remitente, organizacion_id, servicio_origen')
+    .eq('id', conversacionId)
+    .maybeSingle();
+  if (!conv || conv.servicio_origen !== 'instagram' || conv.organizacion_id !== data.organizacionId) {
+    return fail('Conversación de Instagram no encontrada');
+  }
+  const igsid = igsidFromRemitente(conv.remitente);
+  if (!igsid) return fail('La conversación no tiene un destinatario de Instagram válido');
+
+  const { data: lastIncoming } = await supabase
+    .from('mensajes_conversacion')
+    .select('fecha_mensaje')
+    .eq('conversacion_id', conversacionId)
+    .is('usuario_id', null)
+    .order('fecha_mensaje', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!isInstagramWindowOpen(lastIncoming?.fecha_mensaje)) {
+    return fail('Pasaron más de 24 h desde el último mensaje del cliente: Instagram no permite responder hasta que vuelva a escribir.');
+  }
+
+  const conn = await getInstagramConnectionByOrg(supabase, data.organizacionId);
+  if (!conn) return fail('Instagram no está conectado. Conectalo desde Configuración → Mensajería.');
+  const token = await ensureFreshInstagramToken(supabase, conn);
+
+  const fileUrl = data.filePath || (typeof data.metadata?.file_url === 'string' ? data.metadata.file_url : '');
+  const kind = data.messageType && data.messageType !== 'text' ? data.messageType : null;
+  const outgoing: InstagramOutgoing[] = [];
+  if (kind && fileUrl) outgoing.push({ kind, url: fileUrl });
+  const caption = kind ? String(data.metadata?.caption ?? (data.message !== data.metadata?.file_name ? data.message : '')) : data.message;
+  for (const part of splitInstagramText(caption || '')) outgoing.push({ kind: 'text', text: part });
+  if (outgoing.length === 0) return fail('Mensaje vacío');
+
+  const pending = await saveOutgoingMessage(data, platformDetails, 'enviando');
+  if (!pending?.messageId) return fail('No se pudo guardar el mensaje');
+
+  const mids: string[] = [];
+  try {
+    for (const item of outgoing) {
+      const mid = await sendInstagramMessage(token, conn.igUserId, igsid, item);
+      if (mid) {
+        mids.push(mid);
+        await recordInstagramMids(pending.messageId, mids);
+      }
+    }
+    await updateOutgoingStatus(pending.messageId, 'enviado', null, mids[0] ? instagramMessageId(mids[0]) : undefined);
+    return { success: true, platformDetails, alreadySaved: true };
+  } catch (err) {
+    const message = err instanceof InstagramApiError
+      ? `Instagram rechazó el mensaje: ${err.message}`
+      : err instanceof Error ? err.message : 'Error enviando a Instagram';
+    await updateOutgoingStatus(pending.messageId, mids.length ? 'enviado' : 'error', message);
+    return fail(message, true);
+  }
+}
+
+async function recordInstagramMids(messageId: string, mids: string[]) {
+  const supabase = getSupabaseAdmin();
+  const { data: current } = await supabase
+    .from('mensajes_conversacion')
+    .select('metadata')
+    .eq('id', messageId)
+    .maybeSingle();
+  await supabase
+    .from('mensajes_conversacion')
+    .update({
+      metadata: {
+        ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}),
+        ig_mids: mids,
+      },
+    })
+    .eq('id', messageId);
 }
 
 /**

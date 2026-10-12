@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sendMessage } from '@/lib/chat/sendMessage';
 import { getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
 
 /**
  * Endpoint unificado para enviar mensajes desde el frontend
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar plataforma soportada
-    const supportedPlatforms = ['whatsapp', 'telegram', 'email'];
+    const supportedPlatforms = ['whatsapp', 'telegram', 'email', 'instagram'];
     if (!supportedPlatforms.includes(platform)) {
       console.log('❌ Plataforma no soportada:', platform);
       return NextResponse.json({
@@ -53,6 +54,10 @@ export async function POST(request: NextRequest) {
     });
 
     const enviadoPorUsuarioId = await getUsuarioIdFromSession();
+    const orgCtx = platform === 'instagram' ? await getOrganizacionContext(session) : null;
+    if (platform === 'instagram' && !orgCtx) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
 
     // Enviar mensaje usando la función central
     const result = await sendMessage({
@@ -62,6 +67,7 @@ export async function POST(request: NextRequest) {
       messageType,
       filePath,
       userId: session.user.id,
+      organizacionId: orgCtx?.organizacionId,
       metadata: {
         ...(metadata || {}),
         ...(enviadoPorUsuarioId ? { enviado_por_usuario_id: enviadoPorUsuarioId } : {}),

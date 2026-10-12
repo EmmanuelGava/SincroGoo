@@ -1,4 +1,4 @@
-export type InboxCanalFiltro = 'whatsapp' | 'telegram' | 'email';
+export type InboxCanalFiltro = 'whatsapp' | 'instagram' | 'telegram' | 'email';
 
 export type InboxFiltroTipo = 'todos' | 'unread' | 'seguimiento' | 'archivados' | InboxCanalFiltro;
 
@@ -17,6 +17,7 @@ export function normalizeInboxCanal(raw?: string | null): InboxCanalFiltro | nul
   if (!raw) return null;
   const value = raw.trim().toLowerCase();
   if (value.startsWith('whatsapp')) return 'whatsapp';
+  if (value.startsWith('instagram')) return 'instagram';
   if (value.startsWith('telegram')) return 'telegram';
   if (value === 'email' || value === 'mail') return 'email';
   return null;
@@ -55,6 +56,7 @@ export const INBOX_FILTRO_CHIPS: Array<{ id: InboxFiltroTipo; label: string }> =
   { id: 'seguimiento', label: 'Seguimiento' },
   { id: 'archivados', label: 'Archivados' },
   { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'instagram', label: 'Instagram' },
   { id: 'telegram', label: 'Telegram' },
   { id: 'email', label: 'Email' },
 ];
@@ -64,7 +66,7 @@ export function parseInboxFiltroFromUrl(value: string | null | undefined): Inbox
   if (v === 'unread' || v === 'no-leidas') return 'unread';
   if (v === 'seguimiento') return 'seguimiento';
   if (v === 'archivados' || v === 'archived') return 'archivados';
-  if (v === 'whatsapp' || v === 'telegram' || v === 'email') return v;
+  if (v === 'whatsapp' || v === 'instagram' || v === 'telegram' || v === 'email') return v;
   return 'todos';
 }
 

@@ -212,7 +212,12 @@ Lo que nos distingue de Kommo. No tiene sentido si la ficha de contacto no exist
 
 Mismo `handleIncomingMessage`, badge de canal, mismo drag al Kanban. No widget. No bot.
 
-- [ ] Instagram DM (Meta, cuenta profesional, ventana 24 h).
+- [ ] Instagram DM (Meta, cuenta profesional, ventana 24 h). Spec: [`2026-10-12-instagram-dm-design.md`](./superpowers/specs/2026-10-12-instagram-dm-design.md).
+  - [x] Conectar cuenta profesional por OAuth desde `/configuracion/mensajeria` (solo admin).
+  - [x] Webhook entrante con firma, dedupe por id y media persistida en Storage.
+  - [x] Responder desde `/chat` (texto y adjuntos) con aviso de ventana de 24 h.
+  - [x] Badge y filtro de canal Instagram en inbox y Kanban.
+  - [ ] **QA prod:** cargar `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` en Vercel; en la app de Meta, redirect `…/api/integrations/instagram/callback` y webhook `…/api/integrations/incoming/instagram` (campo `messages`); cuenta propia como tester. Probar DM entrante, respuesta, eco desde la app y foto.
 - [ ] Mercado Libre: preguntas de publicación, después mensajería post-venta.
 - [ ] Email completo (SMTP/SendGrid) si hace falta un tercer canal simple.
 

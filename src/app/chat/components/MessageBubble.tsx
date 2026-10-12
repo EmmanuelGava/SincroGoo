@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import InstagramIcon from '@mui/icons-material/Instagram';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
@@ -42,6 +43,7 @@ interface MessageBubbleProps {
 }
 
 const servicioIcons: Record<string, React.ElementType> = {
+  instagram: InstagramIcon,
   telegram: TelegramIcon,
   whatsapp: WhatsAppIcon,
   email: EmailIcon,
@@ -49,6 +51,7 @@ const servicioIcons: Record<string, React.ElementType> = {
 };
 
 const servicioColors: Record<string, string> = {
+  instagram: '#E1306C',
   telegram: '#229ED9',
   whatsapp: '#25D366',
   email: '#D44638',

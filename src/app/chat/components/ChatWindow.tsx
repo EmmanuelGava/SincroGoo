@@ -16,6 +16,7 @@ import { validateOutgoingMedia } from '@/lib/chat/mediaLimits';
 import { conversationGreetingName, conversationRealPhone } from '@/lib/chat/conversationIdentity';
 import { buildQuotedMeta, type ReplyToMessage } from '@/lib/chat/quotedMessage';
 import { formatScheduleLocal } from '@/lib/chat/scheduleSend';
+import { isInstagramWindowOpen } from '@/lib/instagram/window';
 import { useWaChatBgSx, useWaTheme } from '@/app/chat/chatTheme';
 
 interface Conversacion {
@@ -117,6 +118,14 @@ export default function ChatWindow({
         && !mensajesSinNotas.some((m) => m.contenido === pending.contenido && m.usuario_id)
     ),
   ];
+
+  const esInstagram = conversacion?.servicio_origen === 'instagram';
+  const ultimoEntrante = esInstagram
+    ? [...mensajesSinNotas]
+        .reverse()
+        .find((m) => !m.usuario_id && m.metadata?.direction !== 'outgoing')?.fecha_mensaje
+    : null;
+  const ventanaInstagramAbierta = !esInstagram || isInstagramWindowOpen(ultimoEntrante);
 
   useEffect(() => {
     setOptimistic([]);
@@ -491,7 +500,8 @@ export default function ChatWindow({
                   || String(mensaje.id).startsWith('temp-')
                 }
                 onReply={
-                  !mensaje.usuario_id
+                  !esInstagram
+                  && !mensaje.usuario_id
                   && mensaje.metadata?.direction !== 'outgoing'
                   && mensaje.tipo !== 'nota_interna'
                   && !mensaje.metadata?.internal_note
@@ -519,6 +529,14 @@ export default function ChatWindow({
           </Box>
         )}
       </Box>
+
+      {esInstagram && !ventanaInstagramAbierta ? (
+        <Box sx={{ px: 2, py: 1, bgcolor: 'rgba(225, 48, 108, 0.1)', borderTop: `1px solid ${WA.border}` }}>
+          <Typography variant="body2" sx={{ color: WA.text }}>
+            Pasaron más de 24 h desde el último mensaje del cliente: Instagram no permite responder hasta que vuelva a escribir.
+          </Typography>
+        </Box>
+      ) : null}
 
       <MessageInput 
         onSendMessage={handleSendMessage}

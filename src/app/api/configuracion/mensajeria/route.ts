@@ -96,7 +96,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      configuraciones: configuraciones || []
+      configuraciones: (configuraciones || []).map((row) => {
+        if (!row.configuracion || typeof row.configuracion !== 'object') return row;
+        const { access_token: _token, ...configuracion } = row.configuracion as Record<string, unknown>;
+        return { ...row, configuracion };
+      })
     });
 
   } catch (error) {

@@ -397,6 +397,7 @@ async function saveOutgoingMessage(
           tipo: 'saliente',
           remitente: data.to,
           fecha_mensaje: new Date().toISOString(),
+          usuario_id: data.userId || null,
           metadata: {
             platform: data.platform,
             platform_details: platformDetails,

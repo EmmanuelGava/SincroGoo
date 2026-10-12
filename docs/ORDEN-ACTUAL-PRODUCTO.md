@@ -187,6 +187,10 @@ El stock al pasar a Propuesta o Ganado infería los productos del texto del chat
 - [x] Líneas de primer nivel en `lead_lineas` (lead, catálogo, cantidad, precio, nombre snapshot, `organizacion_id`). Al enviar un presupuesto/carrito desde el chat se guardan en el lead de esa conversación. La reserva en Propuesta y el descuento al Ganado leen esas líneas; si no hay, siguen el texto del mensaje. UI en el drawer del chat y en Editar lead. Tests y `tsc --noEmit` OK (12 oct 2026).
 - [x] Aplicar en Supabase KloSync la migración `supabase/migrations/20261012210000_lead_lineas.sql` (12 oct 2026).
 
+### Fix: chats nuevos invisibles
+
+- [x] Las conversaciones nuevas se insertaban sin `organizacion_id` y el inbox (que filtra por organización desde Equipo v1) no las mostraba: un contacto nuevo por WhatsApp no aparecía en `/chat` ni en el Kanban. Trigger `conversaciones_set_organizacion` completa la organización desde el usuario en cada insert; backfill de 1 conversación perdida (12 oct 2026).
+
 ### Categorías del catálogo
 
 Las listas del chat filtran por categoría. La tabla `catalogo_categorias` solo tenía GET/POST y no había forma de administrarla desde la UI.

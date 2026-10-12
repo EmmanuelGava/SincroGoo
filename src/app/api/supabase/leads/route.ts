@@ -19,6 +19,7 @@ import {
 import { syncStockReservaOnEtapaChange } from '@/lib/catalogo/reservarStockPropuesta';
 import { attachUltimoMovEtapa } from '@/lib/crm/leadUltimoMov';
 import type { ProximaTareaLead } from '@/lib/crm/leadTaskBadge';
+import { estadoPerteneceAOrganizacion } from '@/lib/crm/estadosLeadDb';
 
 type ConvRow = LeadConversationLink & {
   metadata?: Record<string, unknown> | null;
@@ -175,7 +176,7 @@ export async function GET(request: NextRequest) {
       const { data: tasksData } = await supabase
         .from('tasks')
         .select('id, lead_id, due_date, title')
-        .eq('usuario_id', userId)
+        .eq('organizacion_id', organizacionId)
         .in('lead_id', ids)
         .in('status', ['pending', 'in_progress'])
         .order('due_date', { ascending: true });
@@ -242,6 +243,10 @@ export async function POST(request: NextRequest) {
 
     if (score != null && score !== '' && !['alta', 'media', 'baja'].includes(score)) {
       return NextResponse.json({ error: 'score inválido (alta, media o baja)' }, { status: 400 });
+    }
+
+    if (!(await estadoPerteneceAOrganizacion(supabase, organizacionId, estado_id))) {
+      return NextResponse.json({ error: 'Etapa no encontrada' }, { status: 400 });
     }
 
     const emailFinal = email || '';
@@ -313,6 +318,9 @@ export async function PATCH(request: NextRequest) {
     let stockDeduction: Awaited<ReturnType<typeof descontarStockAlGanado>> | null = null;
 
     if (fields.estado_id) {
+      if (!(await estadoPerteneceAOrganizacion(supabase, organizacionId, fields.estado_id))) {
+        return NextResponse.json({ error: 'Etapa no encontrada' }, { status: 400 });
+      }
       const { data: current } = await supabase
         .from('leads')
         .select('id, estado_id, contacto_id, tags')

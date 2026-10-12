@@ -52,7 +52,7 @@ No es “cobrar $19”. Es que el loop de ventas cierre de punta a punta.
 | **5** Canales: Instagram DM + ML preguntas | ✅ en `main` (`40e7b06`, `ec4a350`) | QA pendiente (credenciales Meta / ML) |
 | Backlog CRM: campos personalizados + reportes por agente | ✅ en `main` (`b533a1a`, `67dbc3a`) | — |
 
-**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Equipo v1, catálogo v2, ítems del deal, Instagram, Mercado Libre, campos personalizados y reportes por agente están en `main`. **Bloqueante antes del QA de Equipo v1:** etapas y tareas compartidas por organización (ver Fase 3½). Cruce de docs vs. código del 12 oct en [`FUNCIONALIDADES-PROYECTO.md`](./FUNCIONALIDADES-PROYECTO.md) § Brechas.
+**MVP Fase 0 + 1 certificado en prod (26 ago 2026).** Equipo v1, catálogo v2, ítems del deal, Instagram, Mercado Libre, campos personalizados y reportes por agente están en `main`. Etapas y tareas ya se comparten por organización (13 oct); **siguiente de Equipo v1:** QA prod con una segunda cuenta. Cruce de docs vs. código del 12 oct en [`FUNCIONALIDADES-PROYECTO.md`](./FUNCIONALIDADES-PROYECTO.md) § Brechas.
 
 **Ya anda (no rehacer):**
 
@@ -174,8 +174,8 @@ Para PyME con 2–5 personas, **asignar leads y ver el mismo CRM** es tan básic
 - [x] Filtros Kanban: Todos | Mis leads | Sin asignar.
 - [x] Notas en header del chat con **autor** visible para todo el equipo.
 - [x] Un número WA por org (admin conecta QR; agentes responden desde KloSync).
-- [ ] **Etapas del Kanban por organización** (bloqueante del QA). Hoy `GET /api/supabase/estados_lead` filtra por `usuario_id` y siembra etapas propias si el usuario no tiene: un agente invitado ve columnas vacías porque los leads de la org apuntan a las etapas del admin. Agregar `organizacion_id` a `estados_lead`, backfill desde el usuario y leer/editar por org (editar etapas: solo admin).
-- [ ] **Tareas por organización.** `tasks` solo tiene `usuario_id` (texto): el "Recordarme" de un agente no lo ve nadie más. Agregar `organizacion_id` + `asignado_a`, backfill, y filtrar por org en `/api/dashboard/tasks` y en la próxima tarea de la tarjeta.
+- [x] **Etapas del Kanban por organización** (13 oct 2026). `estados_lead.organizacion_id` con backfill, fusión de etapas duplicadas por nombre (gana la del miembro más antiguo) y trigger que la completa al insertar. Todas las rutas leen por org (`/api/supabase/estados_lead`, stats, nuevo pedido, crear lead desde chat); crear/editar/borrar/reordenar etapas es solo admin y la UI oculta esos controles al agente. Borrar el usuario creador ya no borra las etapas (`on delete set null`). Además se valida que la etapa sea de la org al crear, mover o reordenar leads y al arrastrar un chat entrante (que tampoco verificaba la org de la conversación).
+- [x] **Tareas por organización** (13 oct 2026). `tasks.organizacion_id` + `asignado_a`. El "Recordarme" (`/api/leads/[id]/tasks`) no funcionaba: usaba el cliente anónimo contra una tabla con RLS sin políticas y guardaba el id de Google, mientras la tarjeta buscaba por uuid. Ahora guarda con service role por org, la próxima tarea de la tarjeta se lee por org y completarla usa `PATCH /api/leads/[id]/tasks`. Pendiente aparte: el panel de tareas de `/dashboard` sigue con `TasksService` (cliente anónimo), ver Infra.
 - [ ] **QA prod:** invitar 2ª cuenta, asignar, filtros, agente sin QR en UI, contactos compartidos por org. Verificado en código (12 oct 2026): APIs `organizacion/**`, filtros Todos | Mis leads | Sin asignar, header de chat, `/configuracion/equipo`, `/invitar`, notas con autor, QR de WhatsApp solo si el rol es admin. Corregido: historial de etapa, recordatorio y lead del chat ya no exigen ser el asignado; alcanza con la misma organización. Pendiente de humano: ejecutarlo en klosync.vercel.app con una segunda cuenta real.
 
 **No es Equipo v1 (queda Fase 8 — escala):**
@@ -356,7 +356,7 @@ Pendiente, no MVP:
 ### Infra de producto (cuando haya usuarios reales, no para “lanzar a cobrar”)
 
 - [ ] Borrar rutas de prueba que siguen en producción: `/api/test-send`, `/api/test-chat-send`, `/api/test/telegram`, `/api/test/whatsapp` y la página `/pruebas/telegram`. Cualquier usuario logueado puede disparar envíos sin control de organización.
-- [ ] Dashboard (`/dashboard`): `DashboardMetricsService` devuelve valores fijos (95 s de respuesta, 12,5 % de conversión), filtra por usuario y usa el cliente anónimo. Pasarlo a datos reales por organización (reusar `reporteAgentes`) o sacarlo del menú y llevar a `/crm/reportes`.
+- [ ] Dashboard (`/dashboard`): `DashboardMetricsService` devuelve valores fijos (95 s de respuesta, 12,5 % de conversión), filtra por usuario y usa el cliente anónimo. Su panel de tareas (`TasksService`, `/api/dashboard/tasks`) tampoco funciona: cliente anónimo contra `tasks` con RLS sin políticas. Pasarlo a datos reales por organización (reusar `reporteAgentes` y las tareas por org) o sacarlo del menú y llevar a `/crm/reportes`.
 - [ ] Validar sesión en APIs que todavía confían en el `usuario_id` del cliente.
 - [ ] RLS donde corresponda (ojo: chat = NextAuth, no `auth.uid()` de Supabase).
 - [ ] Corregir rutas rotas (`/precios`, `/proyectos/editar/[id]`, etc.).
@@ -382,7 +382,7 @@ Para no olvidar el norte tipo Kommo / Leadsales / Callbell / Clientify:
 | Catálogo / cotizaciones | Algunos | Sí: catálogo + carrito; stock al Ganado |
 | Chatbot | Sí | No |
 | Asignar chats | Sí | Sí en código (Equipo v1, `6f27c09`); QA prod pendiente |
-| Roles / equipo | Sí | Sí en código (admin / agente); etapas y tareas todavía por usuario; QA prod pendiente |
+| Roles / equipo | Sí | Sí en código (admin / agente; etapas y tareas por org); QA prod pendiente |
 | Campos personalizados | Kommo, Whaticket | Sí (lead y contacto; en tarjeta y búsqueda) |
 | Reportes por agente | Chatty, Darwin | Sí (`/crm/reportes`) |
 | Agenda / calendario | Basework | Tareas con fecha por lead; sin vista calendario ni citas |
@@ -404,7 +404,7 @@ Tareas derivadas de [`comparativa-competencia-klosync(2).md`](./comparativa-comp
 **Equipo y operación (después de 3½):**
 
 - [x] Reportes / supervisión por agente (tiempo respuesta, conversión por asignado) — Chatty, Darwin. *Hecho:* `/crm/reportes` (botón "Reportes" en el Kanban y menú de usuario), períodos de 7/30/90 días. Por agente: leads abiertos y nuevos, ganados/perdidos y conversión (según `lead_etapa_historial`), valor ganado, conversaciones, mensajes enviados, mediana y promedio de tiempo de respuesta, y conversaciones sin responder. Admin ve al equipo y la fila "Sin asignar"; el agente ve solo la suya. Se atribuye al asignado actual y el tiempo cuenta horas no laborables.
-- [ ] Agenda / citas ligadas a contacto o lead — Basework. Base existente: tabla `tasks` (lead, conversación, `due_date`, prioridad) y "Recordarme" en la tarjeta. Falta: vista calendario semanal/mensual por org, tipo "cita" con hora, y que dependa de "Tareas por organización" (Fase 3½).
+- [ ] Agenda / citas ligadas a contacto o lead — Basework. Base existente: tabla `tasks` (lead, conversación, `due_date`, prioridad) y "Recordarme" en la tarjeta. Falta: vista calendario semanal/mensual por org, tipo "cita" con hora, sobre las tareas por organización (hechas el 13 oct).
 - [ ] Exportar contactos y leads a CSV/Excel (con filtros aplicados y campos personalizados como columnas) — todos los CRM.
 - [ ] Fusionar contactos duplicados (elegir principal, mover conversaciones, leads y etiquetas; sugerir por teléfono/email) — Kommo, HubSpot.
 - [ ] Varios embudos por organización (ventas, post-venta, mayoristas) — Kommo, Leadsales.
@@ -439,7 +439,7 @@ Monetización (Lemon Squeezy, planes, límites), i18n inglés, Product Hunt, Red
 ## Cómo decidir qué toca ahora
 
 1. **MVP Fase 0 + 1** — ✅ certificado (26 ago 2026). Checklist A1–A8 + B1–B7.
-2. **Fase 3½ Equipo v1** — código en `main` (`6f27c09`). Antes del QA con 2ª cuenta: etapas y tareas por organización (sin eso el agente ve el Kanban vacío).
+2. **Fase 3½ Equipo v1** — código en `main` (`6f27c09`); etapas y tareas por organización resueltas (13 oct). Pendiente: QA prod con 2ª cuenta.
 3. **Roadmap mensajería + Kanban** — P0+P1 + N1 + catálogo stock en código (27 ago). Pendiente: QA prod post-deploy.
 4. Paralelo opcional: backlog catálogo o **Fase 4** (Explorador → contactos).
 5. ¿Se pierde un envío con worker down? → fix outbox antes de features nuevas.

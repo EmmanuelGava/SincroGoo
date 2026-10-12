@@ -107,8 +107,8 @@ Loop objetivo: **Explorador → Contactos → Chat → Kanban → Presentación 
 - 🧪 Asignación de leads y chats; contactos compartidos por organización.
 - ✅ Campos personalizados por organización (`/configuracion/campos`, solo admin): texto, número, fecha, opción, sí/no.
 - ✅ Conexión de canales en `/configuracion/mensajeria` (WhatsApp QR, Instagram, Mercado Libre; solo admin).
-- 🟡 **Etapas del Kanban por usuario, no por organización** (ver brechas).
-- 🟡 **Tareas por usuario, sin `organizacion_id`** (ver brechas).
+- ✅ Etapas del Kanban compartidas por organización; solo el admin las crea, edita, reordena o borra.
+- ✅ Tareas ("Recordarme") por organización, con asignado; la próxima tarea se ve en la tarjeta para todo el equipo.
 - ❌ Chat interno de equipo, horarios de atención, multi-número.
 
 ---
@@ -135,7 +135,7 @@ Loop objetivo: **Explorador → Contactos → Chat → Kanban → Presentación 
 - Next.js 14.1 (App Router), React, TypeScript, MUI; NextAuth con Google.
 - Supabase (Postgres, Storage, Realtime); acceso server-side con service role y scope por `organizacion_id`.
 - Vercel (app) + Railway (worker WhatsApp Baileys).
-- Tests con Vitest (339 al 12 oct 2026); `tsc --noEmit` limpio.
+- Tests con Vitest (342 al 13 oct 2026); `tsc --noEmit` limpio.
 
 ---
 
@@ -145,9 +145,9 @@ Ordenadas por impacto. Están cargadas como tareas en [`ORDEN-ACTUAL-PRODUCTO.md
 
 | # | Brecha | Por qué importa | Dónde |
 |---|---|---|---|
-| 1 | **Etapas del Kanban por usuario.** `GET /api/supabase/estados_lead` filtra por `usuario_id` y siembra etapas propias si no hay. | Un agente invitado ve columnas propias vacías: los leads de la org apuntan a las etapas del admin. Rompe Equipo v1 y hay que resolverlo antes del QA con segunda cuenta. | Fase 3½ |
-| 2 | **Tareas por usuario** (`tasks.usuario_id`, sin `organizacion_id`). | Un "Recordarme" de un agente no lo ve el admin; no hay base para la agenda de equipo. | Fase 3½ / Agenda |
-| 3 | **Dashboard con métricas inventadas.** | Muestra números falsos al cliente. Reemplazar por datos reales o redirigir a `/crm/reportes`. | Infra producto |
+| 1 | ~~**Etapas del Kanban por usuario.**~~ ✅ Resuelto el 13 oct: etapas por organización. | Un agente invitado veía columnas propias vacías. | Fase 3½ |
+| 2 | ~~**Tareas por usuario.**~~ ✅ Resuelto el 13 oct: además el "Recordarme" no guardaba nada (cliente anónimo contra RLS sin políticas). | Base para la agenda de equipo. | Fase 3½ |
+| 3 | **Dashboard con métricas inventadas** y panel de tareas que no carga (cliente anónimo). | Muestra números falsos al cliente. Reemplazar por datos reales o redirigir a `/crm/reportes`. | Infra producto |
 | 4 | **Rutas de prueba en producción** (`/api/test-send`, `/api/test-chat-send`, `/api/test/telegram`, `/api/test/whatsapp`, `/pruebas/telegram`). | Cualquier usuario logueado puede disparar envíos sin control de organización. | Infra producto |
 | 5 | **Telegram y Email sin envío** aunque la UI los lista como canales. | El vendedor responde y el mensaje falla. | Backlog comparativa / Fase 5 |
 | 6 | **Exportar contactos y leads** (CSV/Excel). | Pedido básico de cualquier PyME; también cubre "no me ato a la herramienta". | Backlog CRM |

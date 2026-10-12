@@ -6,6 +6,7 @@ import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
 import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+import { elegirEstadoInicial, listarEstadosOrganizacion } from '@/lib/crm/estadosLeadDb';
 
 async function requireContactos() {
   const session = await getServerSession(authOptions);
@@ -23,23 +24,11 @@ type RouteContext = { params: { id: string } };
 
 async function findEstadoNuevo(
   supabase: SupabaseClient,
+  organizacionId: string,
   usuarioId: string
 ): Promise<string | null> {
-  const { data: estados } = await supabase
-    .from('estados_lead')
-    .select('id, nombre, is_default, orden')
-    .eq('usuario_id', usuarioId)
-    .order('orden', { ascending: true });
-
-  if (!estados?.length) return null;
-
-  const byName = estados.find((estado) => estado.nombre?.trim().toLowerCase() === 'nuevo');
-  if (byName?.id) return byName.id;
-
-  const byDefault = estados.find((estado) => estado.is_default);
-  if (byDefault?.id) return byDefault.id;
-
-  return estados[0]?.id || null;
+  const estados = await listarEstadosOrganizacion(supabase, organizacionId, usuarioId);
+  return elegirEstadoInicial(estados);
 }
 
 export async function POST(_req: NextRequest, { params }: RouteContext) {
@@ -66,7 +55,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 });
     }
 
-    const estadoId = await findEstadoNuevo(client.supabase, client.usuarioId);
+    const estadoId = await findEstadoNuevo(client.supabase, client.organizacionId, client.usuarioId);
     if (!estadoId) {
       return NextResponse.json({ error: 'No hay etapas configuradas en el CRM' }, { status: 400 });
     }

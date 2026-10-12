@@ -52,14 +52,14 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { supabase, usuarioId, organizacionId } = client;
+    const { supabase, organizacionId } = client;
 
     const [{ data: estados, error: estadosError }, { data: leads, error: leadsError }, { data: contactos }] =
       await Promise.all([
         supabase
           .from('estados_lead')
           .select('id, nombre, orden, color')
-          .eq('usuario_id', usuarioId)
+          .eq('organizacion_id', organizacionId)
           .order('orden', { ascending: true }),
         supabase
           .from('leads')

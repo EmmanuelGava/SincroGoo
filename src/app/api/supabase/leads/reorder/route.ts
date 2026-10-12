@@ -39,6 +39,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lead no encontrado' }, { status: 404 });
     }
 
+    const estadoIds = [...new Set(updates.map((update) => update.estado_id))];
+    const { data: estadosOrg, error: estadosError } = await supabase
+      .from('estados_lead')
+      .select('id')
+      .eq('organizacion_id', organizacionId)
+      .in('id', estadoIds);
+    if (estadosError) throw estadosError;
+    if ((estadosOrg || []).length !== estadoIds.length) {
+      return NextResponse.json({ error: 'Etapa no encontrada' }, { status: 404 });
+    }
+
     const results = await Promise.all(
       updates.map((update) =>
         supabase

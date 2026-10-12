@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
-import { getSupabaseAdmin, getUsuarioIdFromSession } from '@/lib/supabase/client';
+import { getSupabaseAdmin } from '@/lib/supabase/client';
+import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+import { listarEstadosOrganizacion } from '@/lib/crm/estadosLeadDb';
 import { formatErrorResponse } from '@/lib/supabase/utils/error-handler';
 
 type RouteContext = { params: { id: string } };
@@ -14,21 +16,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const usuarioId = await getUsuarioIdFromSession();
-    if (!usuarioId) {
+    const ctx = await getOrganizacionContext(session);
+    if (!ctx) {
       return NextResponse.json({ error: 'No se pudo identificar al usuario' }, { status: 401 });
     }
 
-    const supabase = getSupabaseAdmin();
-    const { data: estados, error: estadosError } = await supabase
-      .from('estados_lead')
-      .select('id')
-      .eq('usuario_id', usuarioId)
-      .order('orden', { ascending: true })
-      .limit(1);
-
-    if (estadosError) throw estadosError;
-    const estadoId = estados?.[0]?.id;
+    const estados = await listarEstadosOrganizacion(getSupabaseAdmin(), ctx.organizacionId, ctx.usuarioId);
+    const estadoId = estados[0]?.id;
     if (!estadoId) {
       return NextResponse.json({ error: 'No hay columnas en el Kanban' }, { status: 400 });
     }

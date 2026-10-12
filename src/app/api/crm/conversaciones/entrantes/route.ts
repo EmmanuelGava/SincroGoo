@@ -12,6 +12,7 @@ import {
 } from '@/lib/contactos/matchContacto';
 
 import { getOrganizacionContext } from '@/lib/auth/getOrganizacionContext';
+import { estadoPerteneceAOrganizacion } from '@/lib/crm/estadosLeadDb';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,10 +112,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan conversationId o estadoId' }, { status: 400 });
     }
 
+    if (!(await estadoPerteneceAOrganizacion(client.supabase, client.organizacionId, estadoId))) {
+      return NextResponse.json({ error: 'Etapa no encontrada' }, { status: 404 });
+    }
+
     const { data: conversacion, error: convError } = await client.supabase
       .from('conversaciones')
       .select('id, remitente, servicio_origen, lead_id, metadata, mensajes_conversacion(contenido, fecha_mensaje, metadata)')
       .eq('id', conversationId)
+      .eq('organizacion_id', client.organizacionId)
       .maybeSingle();
 
     if (convError || !conversacion) {

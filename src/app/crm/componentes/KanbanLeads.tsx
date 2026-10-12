@@ -483,7 +483,8 @@ export default function KanbanLeads() {
     etiquetas: [],
     asignacion: 'todos',
   });
-  const { miembros, usuarioId } = useOrganizacionMiembros();
+  const { miembros, usuarioId, rol } = useOrganizacionMiembros();
+  const puedeEditarEtapas = rol === 'admin';
   const [camposTarjeta, setCamposTarjeta] = useState<CampoDefinicion[]>([]);
 
   useEffect(() => {
@@ -773,10 +774,10 @@ export default function KanbanLeads() {
   const handleCompleteTask = async (lead: Lead) => {
     if (!lead.proxima_tarea?.id) return;
     try {
-      await fetch('/api/dashboard/tasks', {
-        method: 'PUT',
+      await fetch(`/api/leads/${encodeURIComponent(lead.id)}/tasks`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: lead.proxima_tarea.id, status: 'completed' }),
+        body: JSON.stringify({ task_id: lead.proxima_tarea.id, status: 'completed' }),
       });
       if (lead.conversacion_id) {
         await fetch(`/api/chat/conversaciones/${encodeURIComponent(lead.conversacion_id)}/dismiss-seguimiento`, {
@@ -1003,7 +1004,7 @@ export default function KanbanLeads() {
                   {estados.map((estado, idx) => {
                     const isCollapsed = collapsedColumns.has(estado.id);
                     return (
-                      <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id}>
+                      <Draggable draggableId={"col-" + estado.id} index={idx} key={estado.id} isDragDisabled={!puedeEditarEtapas}>
                         {(provided) => (
                           <Box 
                             ref={provided.innerRef} 
@@ -1131,6 +1132,7 @@ export default function KanbanLeads() {
                                       <AddIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
                                     </IconButton>
                                   </Tooltip>
+                                  {puedeEditarEtapas && (
                                   <Tooltip title="Editar columna" placement="right">
                                     <IconButton
                                       size="small"
@@ -1146,6 +1148,7 @@ export default function KanbanLeads() {
                                       <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
                                     </IconButton>
                                   </Tooltip>
+                                  )}
                                 </Box>
 
                                 {/* Droppable oculto para permitir drop en columnas colapsadas */}
@@ -1182,11 +1185,13 @@ export default function KanbanLeads() {
                                         <AddIcon sx={{ color: colors.textSecondary, fontSize: '1.1rem' }} />
                                       </IconButton>
                                     </Tooltip>
-                                    <Tooltip title="Editar columna">
-                                      <IconButton size="small" onClick={() => handleOpenEstado({ ...estado })}>
-                                        <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
-                                      </IconButton>
-                                    </Tooltip>
+                                    {puedeEditarEtapas && (
+                                      <Tooltip title="Editar columna">
+                                        <IconButton size="small" onClick={() => handleOpenEstado({ ...estado })}>
+                                          <EditIcon sx={{ color: colors.textSecondary, fontSize: '1rem' }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
                                   </Box>
                                 </Box>
                                 <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', p: '0 4px', m: '0 -4px' }}>
@@ -1223,9 +1228,11 @@ export default function KanbanLeads() {
                     );
                   })}
                   <Box sx={{ minWidth: 280, maxWidth: 280 }}>
-                    <Button fullWidth onClick={() => handleOpenEstado()} sx={{ color: colors.textSecondary, bgcolor: 'transparent', border: `1px dashed ${colors.border}`, borderRadius: 3, p: 1, textTransform: 'none', '&:hover': { bgcolor: colors.column, borderColor: colors.textSecondary }, height: '48px' }}>
-                      <AddIcon sx={{ mr: 1 }} /> Nueva columna
-                    </Button>
+                    {puedeEditarEtapas && (
+                      <Button fullWidth onClick={() => handleOpenEstado()} sx={{ color: colors.textSecondary, bgcolor: 'transparent', border: `1px dashed ${colors.border}`, borderRadius: 3, p: 1, textTransform: 'none', '&:hover': { bgcolor: colors.column, borderColor: colors.textSecondary }, height: '48px' }}>
+                        <AddIcon sx={{ mr: 1 }} /> Nueva columna
+                      </Button>
+                    )}
                   </Box>
                   {provided.placeholder}
                 </Box>

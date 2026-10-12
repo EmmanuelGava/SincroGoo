@@ -11,6 +11,12 @@ const nextConfig = {
       'images.unsplash.com',
     ],
   },
+  async redirects() {
+    return [
+      // Las métricas de /dashboard son valores fijos; los datos reales están en /crm/reportes.
+      { source: '/dashboard', destination: '/crm/reportes', permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

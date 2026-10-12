@@ -115,7 +115,7 @@ Loop objetivo: **Explorador → Contactos → Chat → Kanban → Presentación 
 
 ## 6. Dashboard (`/dashboard`)
 
-- 🟡 Existe la pantalla (widgets, tareas, conversaciones prioritarias, modo foco), pero `DashboardMetricsService` devuelve **valores fijos** para tiempo de respuesta (95 s) y conversión (12,5 %), filtra solo por usuario y usa el cliente anónimo. Los números reales del equipo están en `/crm/reportes`.
+- ❌ Deshabilitado: desde el 13 oct `/dashboard` redirige a `/crm/reportes` y no figura en el menú. El código sigue en el repo, pero `DashboardMetricsService` devolvía **valores fijos** (95 s de respuesta, 12,5 % de conversión), filtraba solo por usuario y usaba el cliente anónimo. Se rehabilita cuando tenga datos reales por organización.
 
 ---
 
@@ -147,8 +147,8 @@ Ordenadas por impacto. Están cargadas como tareas en [`ORDEN-ACTUAL-PRODUCTO.md
 |---|---|---|---|
 | 1 | ~~**Etapas del Kanban por usuario.**~~ ✅ Resuelto el 13 oct: etapas por organización. | Un agente invitado veía columnas propias vacías. | Fase 3½ |
 | 2 | ~~**Tareas por usuario.**~~ ✅ Resuelto el 13 oct: además el "Recordarme" no guardaba nada (cliente anónimo contra RLS sin políticas). | Base para la agenda de equipo. | Fase 3½ |
-| 3 | **Dashboard con métricas inventadas** y panel de tareas que no carga (cliente anónimo). | Muestra números falsos al cliente. Reemplazar por datos reales o redirigir a `/crm/reportes`. | Infra producto |
-| 4 | **Rutas de prueba en producción** (`/api/test-send`, `/api/test-chat-send`, `/api/test/telegram`, `/api/test/whatsapp`, `/pruebas/telegram`). | Cualquier usuario logueado puede disparar envíos sin control de organización. | Infra producto |
+| 3 | ~~**Dashboard con métricas inventadas.**~~ ✅ 13 oct: redirige a `/crm/reportes`. Falta rehacerlo con datos reales. | Mostraba números falsos al cliente. | Infra producto |
+| 4 | ~~**Rutas de prueba en producción.**~~ ✅ 13 oct: borradas (7 rutas). | Cualquier usuario logueado podía disparar envíos sin control de organización. | Infra producto |
 | 5 | **Telegram y Email sin envío** aunque la UI los lista como canales. | El vendedor responde y el mensaje falla. | Backlog comparativa / Fase 5 |
 | 6 | **Exportar contactos y leads** (CSV/Excel). | Pedido básico de cualquier PyME; también cubre "no me ato a la herramienta". | Backlog CRM |
 | 7 | **Fusionar contactos duplicados.** | El match automático evita muchos, pero importaciones y canales distintos (IG, ML, WA) crean duplicados de la misma persona. | Backlog CRM |

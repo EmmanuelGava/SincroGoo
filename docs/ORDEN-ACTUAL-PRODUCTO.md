@@ -355,8 +355,9 @@ Pendiente, no MVP:
 
 ### Infra de producto (cuando haya usuarios reales, no para “lanzar a cobrar”)
 
-- [ ] Borrar rutas de prueba que siguen en producción: `/api/test-send`, `/api/test-chat-send`, `/api/test/telegram`, `/api/test/whatsapp` y la página `/pruebas/telegram`. Cualquier usuario logueado puede disparar envíos sin control de organización.
-- [ ] Dashboard (`/dashboard`): `DashboardMetricsService` devuelve valores fijos (95 s de respuesta, 12,5 % de conversión), filtra por usuario y usa el cliente anónimo. Su panel de tareas (`TasksService`, `/api/dashboard/tasks`) tampoco funciona: cliente anónimo contra `tasks` con RLS sin políticas. Pasarlo a datos reales por organización (reusar `reporteAgentes` y las tareas por org) o sacarlo del menú y llevar a `/crm/reportes`.
+- [x] Borrar rutas de prueba que seguían en producción (13 oct 2026): `/api/test-send`, `/api/test-chat-send`, `/api/test/telegram`, `/api/test/whatsapp`, `/api/whatsapp/test-connection`, `/api/whatsapp/test-v2` y la página `/pruebas/telegram`. Cualquier usuario logueado podía disparar envíos sin control de organización. Se conservan `telegram/test-bot` (valida el token en configuración) y `whatsapp/debug-connection` (solo estado propio).
+- [x] `/dashboard` redirige a `/crm/reportes` (redirect temporal en `next.config.js`) y salió del menú, reemplazado por "Reportes" (13 oct 2026). El código del dashboard queda para cuando tenga datos reales.
+- [ ] Dashboard con datos reales (para volver a habilitarlo): `DashboardMetricsService` devuelve valores fijos (95 s de respuesta, 12,5 % de conversión), filtra por usuario y usa el cliente anónimo. Su panel de tareas (`TasksService`, `/api/dashboard/tasks`) tampoco funciona: cliente anónimo contra `tasks` con RLS sin políticas. Pasarlo a datos reales por organización (reusar `reporteAgentes` y las tareas por org) o sacarlo del menú y llevar a `/crm/reportes`.
 - [ ] Validar sesión en APIs que todavía confían en el `usuario_id` del cliente.
 - [ ] RLS donde corresponda (ojo: chat = NextAuth, no `auth.uid()` de Supabase).
 - [ ] Corregir rutas rotas (`/precios`, `/proyectos/editar/[id]`, etc.).

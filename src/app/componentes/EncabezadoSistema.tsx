@@ -41,7 +41,7 @@ const primaryNav = [
   { name: "Contactos", href: "/contactos" },
   { name: "Catálogo", href: "/catalogo" },
   { name: "CRM", href: "/crm" },
-  { name: "Dashboard", href: "/dashboard" },
+  { name: "Reportes", href: "/crm/reportes" },
 ]
 
 const syncTools = [
@@ -184,10 +184,6 @@ export function EncabezadoSistema() {
                 <DropdownMenuItem onClick={() => router.push("/crm/reportes")}>
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   Reportes por agente
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/dashboard")}>
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/configuracion")}>
                   <Settings className="mr-2 h-4 w-4" />
